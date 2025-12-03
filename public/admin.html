@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/jpeg" href="/logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="/logo.jpeg">
+    <title>Speed Climbing Timer - Admin Control</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 15px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 25px 30px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .header-subtitle {
+            font-size: 0.95em;
+            opacity: 0.9;
+        }
+
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 10px 20px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9em;
+            transition: all 0.3s;
+        }
+
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Match Status Badge */
+        .match-status-badge {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .match-status-text {
+            font-size: 1.5em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .socket-status {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .socket-status .indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .socket-status .connected {
+            background: #4caf50;
+        }
+
+        .socket-status .disconnected {
+            background: #f44336;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            border: 1px solid #e0e0e0;
+        }
+
+        .card-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #1e3c72;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Lane Status Grid */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .lane-card {
+            border-radius: 12px;
+            padding: 25px;
+            border: 2px solid;
+            background: #fff;
+        }
+
+        .lane-card.lane-a {
+            border-color: #c62828;
+            background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
+        }
+
+        .lane-card.lane-b {
+            border-color: #1565c0;
+            background: linear-gradient(135deg, #f0f8ff 0%, #ffffff 100%);
+        }
+
+        .lane-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .lane-title {
+            font-size: 1.4em;
+            font-weight: 700;
+        }
+
+        .lane-title.lane-a { color: #c62828; }
+        .lane-title.lane-b { color: #1565c0; }
+
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-idle { background: #e0e0e0; color: #666; }
+        .status-ready { background: #4caf50; color: white; }
+        .status-running { background: #ff9800; color: white; }
+        .status-finished { background: #2196f3; color: white; }
+        .status-false-start { background: #f44336; color: white; }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .sensor-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .sensor-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .sensor-value {
+            font-size: 1.2em;
+            font-weight: 700;
+            padding: 8px 15px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .sensor-value.on {
+            background: #4caf50;
+            color: white;
+        }
+
+        .sensor-value.off {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .timer-display {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #1e3c72;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .athlete-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+
+        .athlete-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        button {
+            padding: 15px 20px;
+            font-size: 1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-arm {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+        }
+
+        .btn-arm:hover:not(:disabled) {
+            box-shadow: 0 6px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+            color: white;
+        }
+
+        .btn-start:hover:not(:disabled) {
+            box-shadow: 0 6px 15px rgba(33, 150, 243, 0.3);
+        }
+
+        .btn-reset {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+        }
+
+        .btn-reset:hover:not(:disabled) {
+            box-shadow: 0 6px 15px rgba(244, 67, 54, 0.3);
+        }
+
+        /* Simulation Panel */
+        .sim-panel {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .sim-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+
+        .sim-btn {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .sim-btn:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .sim-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 1.5em;
+            }
+
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .sensor-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
+
+            .sim-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .match-status-text {
+                font-size: 1.2em;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header-top {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .back-btn {
+                width: 100%;
+                text-align: center;
+            }
+
+            .sim-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-top">
+                    <div>
+                        <h1>⚡ Speed Climbing Timer</h1>
+                        <div class="header-subtitle">Sistem Kontrol Admin - Dual Lane</div>
+                    </div>
+                    <a href="/index.html" class="back-btn">← Kembali</a>
+                </div>
+            </div>
+
+            <!-- Match Status -->
+            <div class="match-status-badge">
+                <div class="match-status-text" :class="'match-' + matchStatus.toLowerCase()">
+                    Status: {{ matchStatus }}
+                </div>
+                <div class="socket-status">
+                    <span class="indicator" :class="socket?.connected ? 'connected' : 'disconnected'"></span>
+                    Socket: {{ socket?.connected ? 'Terhubung' : 'Terputus' }}
+                </div>
+            </div>
+
+            <!-- Lane Status -->
+            <div class="card">
+                <div class="card-title">📊 Status Jalur</div>
+                <div class="status-grid">
+                    <!-- Lane A -->
+                    <div class="lane-card lane-a">
+                        <div class="lane-header">
+                            <div class="lane-title lane-a">LANE A</div>
+                            <div class="status-badge" :class="'status-' + laneA.status.toLowerCase()">
+                                {{ laneA.status }}
+                            </div>
+                        </div>
+                        <div class="sensor-grid">
+                            <div class="sensor-item">
+                                <div class="sensor-label">Sensor Bawah</div>
+                                <div class="sensor-value" :class="laneA.sensorBottom ? 'on' : 'off'">
+                                    {{ laneA.sensorBottom ? 'ON' : 'OFF' }}
+                                </div>
+                            </div>
+                            <div class="sensor-item">
+                                <div class="sensor-label">Sensor Atas</div>
+                                <div class="sensor-value" :class="laneA.sensorTop ? 'on' : 'off'">
+                                    {{ laneA.sensorTop ? 'HIT' : 'OFF' }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="timer-display">{{ laneA.finalDuration }}</div>
+                        <input 
+                            type="text" 
+                            v-model="laneA.athleteName" 
+                            @blur="updateAthleteName('A', laneA.athleteName)"
+                            placeholder="Nama Atlet A"
+                            class="athlete-input">
+                    </div>
+
+                    <!-- Lane B -->
+                    <div class="lane-card lane-b">
+                        <div class="lane-header">
+                            <div class="lane-title lane-b">LANE B</div>
+                            <div class="status-badge" :class="'status-' + laneB.status.toLowerCase()">
+                                {{ laneB.status }}
+                            </div>
+                        </div>
+                        <div class="sensor-grid">
+                            <div class="sensor-item">
+                                <div class="sensor-label">Sensor Bawah</div>
+                                <div class="sensor-value" :class="laneB.sensorBottom ? 'on' : 'off'">
+                                    {{ laneB.sensorBottom ? 'ON' : 'OFF' }}
+                                </div>
+                            </div>
+                            <div class="sensor-item">
+                                <div class="sensor-label">Sensor Atas</div>
+                                <div class="sensor-value" :class="laneB.sensorTop ? 'on' : 'off'">
+                                    {{ laneB.sensorTop ? 'HIT' : 'OFF' }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="timer-display">{{ laneB.finalDuration }}</div>
+                        <input 
+                            type="text" 
+                            v-model="laneB.athleteName" 
+                            @blur="updateAthleteName('B', laneB.athleteName)"
+                            placeholder="Nama Atlet B"
+                            class="athlete-input">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Race Controls -->
+            <div class="card">
+                <div class="card-title">🎮 Kontrol Lomba</div>
+                <div class="controls">
+                    <button class="btn-arm" 
+                            @click="armMatch" 
+                            :disabled="matchStatus !== 'IDLE'"
+                            :title="matchStatus !== 'IDLE' ? 'Reset match terlebih dahulu' : 'ARM MATCH untuk memulai'">
+                        🔒 ARM MATCH
+                    </button>
+                    <button class="btn-start" 
+                            @click="startMatch" 
+                            :disabled="matchStatus !== 'ARMED'">
+                        ▶️ START MATCH
+                    </button>
+                    <button class="btn-reset" 
+                            @click="resetMatch">
+                        ⏹️ RESET
+                    </button>
+                </div>
+            </div>
+
+            <!-- Simulation Panel -->
+            <div class="card" v-if="isSimulation">
+                <div class="card-title">🎮 Panel Simulasi Sensor</div>
+                <div class="sim-panel">
+                    <div style="margin-bottom: 15px; color: #666; font-size: 0.9em;">
+                        Gunakan tombol di bawah atau shortcut keyboard untuk simulasi sensor
+                    </div>
+                    <div class="sim-grid">
+                        <button class="sim-btn" 
+                                :class="{ active: laneA.sensorBottom }"
+                                @click="toggleSensor('A', 'bottom')">
+                            A: Bottom {{ laneA.sensorBottom ? 'ON' : 'OFF' }}
+                        </button>
+                        <button class="sim-btn" 
+                                @click="triggerSensor('A', 'top')">
+                            A: Top Hit
+                        </button>
+                        <button class="sim-btn" 
+                                :class="{ active: laneB.sensorBottom }"
+                                @click="toggleSensor('B', 'bottom')">
+                            B: Bottom {{ laneB.sensorBottom ? 'ON' : 'OFF' }}
+                        </button>
+                        <button class="sim-btn" 
+                                @click="triggerSensor('B', 'top')">
+                            B: Top Hit
+                        </button>
+                    </div>
+                    <div style="margin-top: 15px; padding: 12px; background: #e3f2fd; border-radius: 6px; font-size: 0.85em; color: #1565c0;">
+                        <strong>Keyboard Shortcuts:</strong><br>
+                        A = Toggle Lane A Bottom | Q = Hit Lane A Top<br>
+                        L = Toggle Lane B Bottom | P = Hit Lane B Top
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    matchStatus: 'IDLE',
+                    laneA: {
+                        status: 'IDLE',
+                        sensorBottom: false,
+                        sensorTop: false,
+                        finalDuration: '00:00.000',
+                        athleteName: ''
+                    },
+                    laneB: {
+                        status: 'IDLE',
+                        sensorBottom: false,
+                        sensorTop: false,
+                        finalDuration: '00:00.000',
+                        athleteName: ''
+                    },
+                    socket: null,
+                    isSimulation: true
+                }
+            },
+            mounted() {
+                this.socket = io();
+
+                this.socket.on('connect', () => {
+                    console.log('[ADMIN] Socket connected');
+                });
+
+                this.socket.on('disconnect', () => {
+                    console.log('[ADMIN] Socket disconnected');
+                });
+
+                this.socket.on('connect_error', (error) => {
+                    console.error('[ADMIN] Socket connection error:', error);
+                });
+
+                this.socket.on('race-state', (state) => {
+                    console.log('[ADMIN] Received race-state:', state.matchStatus);
+                    this.matchStatus = state.matchStatus || 'IDLE';
+                    this.laneA = { ...state.laneA };
+                    this.laneB = { ...state.laneB };
+                    console.log('[ADMIN] Updated local state. matchStatus:', this.matchStatus);
+                });
+
+                // Keyboard handler untuk simulasi
+                document.addEventListener('keydown', (e) => {
+                    const key = e.key.toUpperCase();
+                    switch(key) {
+                        case 'A':
+                            this.toggleSensor('A', 'bottom');
+                            break;
+                        case 'Q':
+                            this.triggerSensor('A', 'top');
+                            break;
+                        case 'L':
+                            this.toggleSensor('B', 'bottom');
+                            break;
+                        case 'P':
+                            this.triggerSensor('B', 'top');
+                            break;
+                    }
+                });
+            },
+            methods: {
+                armMatch() {
+                    console.log('[ADMIN] armMatch() called');
+                    
+                    if (!this.socket || !this.socket.connected) {
+                        alert('❌ Socket tidak terhubung! Silakan refresh halaman.');
+                        console.error('[ADMIN] Socket not connected');
+                        return;
+                    }
+                    
+                    if (this.matchStatus !== 'IDLE') {
+                        alert(`❌ Tidak bisa ARM MATCH! Status saat ini: ${this.matchStatus}. Reset terlebih dahulu.`);
+                        console.error('[ADMIN] Cannot arm - status is not IDLE:', this.matchStatus);
+                        return;
+                    }
+                    
+                    console.log('[ADMIN] Sending arm-match request...');
+                    this.socket.emit('arm-match');
+                    console.log('[ADMIN] arm-match event emitted');
+                },
+                startMatch() {
+                    this.socket.emit('start-match');
+                },
+                resetMatch() {
+                    if (confirm('Reset match? Semua progress akan hilang.')) {
+                        this.socket.emit('reset-match');
+                    }
+                },
+                updateAthleteName(lane, name) {
+                    this.socket.emit('update-athlete-name', {
+                        lane: lane,
+                        name: name
+                    });
+                },
+                toggleSensor(lane, sensor) {
+                    if (sensor === 'bottom') {
+                        const currentValue = lane === 'A' ? this.laneA.sensorBottom : this.laneB.sensorBottom;
+                        this.socket.emit('simulate-sensor', {
+                            lane: lane,
+                            sensor: sensor,
+                            value: !currentValue
+                        });
+                    }
+                },
+                triggerSensor(lane, sensor) {
+                    if (sensor === 'top') {
+                        this.socket.emit('simulate-sensor', {
+                            lane: lane,
+                            sensor: sensor,
+                            value: true
+                        });
+                        setTimeout(() => {
+                            this.socket.emit('simulate-sensor', {
+                                lane: lane,
+                                sensor: sensor,
+                                value: false
+                            });
+                        }, 100);
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

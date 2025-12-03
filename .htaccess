@@ -1,0 +1,13 @@
+# .htaccess untuk cPanel Node.js App
+# File ini membantu routing jika diperlukan
+
+# IMPORTANT: Biarkan Passenger/Node.js App handle semua routing
+# Jangan interfere dengan Express.js routing
+
+# Security headers (opsional)
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+

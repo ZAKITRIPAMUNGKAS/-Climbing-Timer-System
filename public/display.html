@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/jpeg" href="/logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="/logo.jpeg">
+    <title>Speed Climbing Timer - Display</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial Black', Arial, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .display-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        /* Lane A (Left - Red) */
+        .lane-a {
+            flex: 1;
+            min-width: 0;
+            width: 50%;
+            background: linear-gradient(135deg, #c62828 0%, #8e0000 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            border-right: 5px solid #fff;
+            padding: 0;
+        }
+
+        /* Lane B (Right - Blue) */
+        .lane-b {
+            flex: 1;
+            min-width: 0;
+            width: 50%;
+            background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            padding: 0;
+        }
+
+        /* Header - Lane Label */
+        .lane-label {
+            width: 100%;
+            padding: 60px 20px 40px 20px;
+            font-size: 5vw;
+            color: white;
+            font-weight: 900;
+            text-shadow: 0 0 30px rgba(0,0,0,0.6);
+            letter-spacing: 0.3em;
+            white-space: nowrap;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        /* Timer Display - Reduced Size */
+        .timer-display {
+            font-size: 7.5vw;
+            font-weight: bold;
+            color: white;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 50px rgba(0,0,0,0.9);
+            margin: 0;
+            line-height: 1.1;
+            text-align: center;
+            white-space: nowrap;
+            padding: 0 40px;
+            flex-shrink: 0;
+        }
+
+        /* Status Indicator - Larger and Closer to Timer */
+        .status-indicator {
+            width: 16vw;
+            height: 16vw;
+            min-width: 140px;
+            min-height: 140px;
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 50%;
+            border: 10px solid rgba(255,255,255,0.35);
+            margin: 30px 0 15px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4.5vw;
+            font-weight: bold;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        /* Status Colors */
+        .status-idle {
+            background: rgba(100, 100, 100, 0.5);
+            color: #ccc;
+        }
+
+        .status-ready {
+            background: #4caf50;
+            color: white;
+            box-shadow: 0 0 50px #4caf50;
+            animation: pulse 1s infinite;
+        }
+
+        .status-running {
+            background: #ffeb3b;
+            color: #333;
+            box-shadow: 0 0 50px #ffeb3b;
+        }
+
+        .status-finished {
+            background: #2196f3;
+            color: white;
+            box-shadow: 0 0 50px #2196f3;
+        }
+
+        .status-false-start {
+            background: #f44336;
+            color: white;
+            box-shadow: 0 0 50px #f44336;
+            animation: shake 0.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        /* Status Text - Larger and Closer to Indicator */
+        .status-text {
+            font-size: 3vw;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin: 0 0 20px 0;
+            text-align: center;
+            white-space: nowrap;
+            font-weight: 700;
+            text-shadow: 0 0 20px rgba(0,0,0,0.5);
+            flex-shrink: 0;
+        }
+
+        /* Athlete Name */
+        .athlete-name {
+            font-size: 2.8vw;
+            color: white;
+            font-weight: 600;
+            margin: 0 0 40px 0;
+            text-shadow: 0 0 15px rgba(0,0,0,0.6);
+            padding: 0 30px;
+            text-align: center;
+            white-space: nowrap;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-shrink: 0;
+        }
+
+        /* Winner Animation */
+        .winner {
+            animation: blink 0.5s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Match Status Overlay */
+        .match-status {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 8vw;
+            color: white;
+            text-shadow: 0 0 40px rgba(0,0,0,0.9);
+            z-index: 1000;
+            pointer-events: none;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+        }
+
+        .match-status.countdown {
+            animation: pulse 0.5s infinite;
+        }
+
+        /* Sensor Status - Footer Style */
+        .sensor-status {
+            width: 100%;
+            padding: 25px 20px;
+            font-size: 1.1vw;
+            color: rgba(255,255,255,0.65);
+            text-align: center;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            flex-shrink: 0;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Content wrapper untuk menjaga balance */
+        .lane-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 100%;
+            flex: 1;
+            padding: 20px 30px;
+            gap: 0;
+            min-height: 0;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1024px) {
+            .lane-label {
+                font-size: 6vw;
+                padding: 50px 20px 30px 20px;
+            }
+            .timer-display {
+                font-size: 8.5vw;
+            }
+            .status-indicator {
+                width: 18vw;
+                height: 18vw;
+                font-size: 5vw;
+                margin: 25px 0 12px 0;
+            }
+            .status-text {
+                font-size: 3.5vw;
+            }
+            .athlete-name {
+                font-size: 3.2vw;
+            }
+            .sensor-status {
+                font-size: 1.4vw;
+                padding: 20px 15px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .lane-label {
+                font-size: 7vw;
+                padding: 40px 15px 25px 15px;
+            }
+            .timer-display {
+                font-size: 9.5vw;
+                padding: 0 20px;
+            }
+            .status-indicator {
+                width: 20vw;
+                height: 20vw;
+                min-width: 120px;
+                min-height: 120px;
+                font-size: 5.5vw;
+                margin: 20px 0 10px 0;
+            }
+            .status-text {
+                font-size: 4vw;
+            }
+            .athlete-name {
+                font-size: 3.8vw;
+                margin-bottom: 30px;
+            }
+            .sensor-status {
+                font-size: 1.8vw;
+                padding: 18px 12px;
+            }
+        }
+
+        /* Ensure equal width for both lanes */
+        @media (min-width: 1025px) {
+            .lane-a, .lane-b {
+                width: 50%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Match Status Overlay -->
+        <div class="match-status" :class="matchStatus.toLowerCase()" v-if="matchStatus !== 'IDLE' && matchStatus !== 'RUNNING'">
+            {{ matchStatusText }}
+        </div>
+
+        <div class="display-container">
+            <!-- Lane A (Left - Red) -->
+            <div class="lane-a" :class="{ 'false-start-bg': laneA.status === 'FALSE_START' }">
+                <div class="lane-label">LANE A</div>
+                <div class="lane-content">
+                    <div class="timer-display" :class="{ winner: isWinner('A') }">
+                        {{ laneA.finalDuration }}
+                    </div>
+                    <div class="status-indicator" :class="'status-' + laneA.status.toLowerCase()">
+                        {{ getStatusIcon(laneA.status) }}
+                    </div>
+                    <div class="status-text">{{ getStatusText(laneA.status) }}</div>
+                    <div class="athlete-name">{{ laneA.athleteName || '&nbsp;' }}</div>
+                </div>
+                <div class="sensor-status">
+                    Bottom: {{ laneA.sensorBottom ? 'ON' : 'OFF' }} | 
+                    Top: {{ laneA.sensorTop ? 'HIT' : 'OFF' }}
+                </div>
+            </div>
+
+            <!-- Lane B (Right - Blue) -->
+            <div class="lane-b" :class="{ 'false-start-bg': laneB.status === 'FALSE_START' }">
+                <div class="lane-label">LANE B</div>
+                <div class="lane-content">
+                    <div class="timer-display" :class="{ winner: isWinner('B') }">
+                        {{ laneB.finalDuration }}
+                    </div>
+                    <div class="status-indicator" :class="'status-' + laneB.status.toLowerCase()">
+                        {{ getStatusIcon(laneB.status) }}
+                    </div>
+                    <div class="status-text">{{ getStatusText(laneB.status) }}</div>
+                    <div class="athlete-name">{{ laneB.athleteName || '&nbsp;' }}</div>
+                </div>
+                <div class="sensor-status">
+                    Bottom: {{ laneB.sensorBottom ? 'ON' : 'OFF' }} | 
+                    Top: {{ laneB.sensorTop ? 'HIT' : 'OFF' }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="beepStartSpeed" preload="auto">
+        <source src="/sounds/beepstartspeed.MP3" type="audio/mpeg">
+    </audio>
+    <audio id="audioWarning" preload="auto">
+        <source src="/sounds/warning.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    matchStatus: 'IDLE',
+                    laneA: {
+                        status: 'IDLE',
+                        sensorBottom: false,
+                        sensorTop: false,
+                        finalDuration: '00:00.000',
+                        athleteName: ''
+                    },
+                    laneB: {
+                        status: 'IDLE',
+                        sensorBottom: false,
+                        sensorTop: false,
+                        finalDuration: '00:00.000',
+                        athleteName: ''
+                    },
+                    socket: null,
+                    beepStartSpeed: null,
+                    audioWarning: null
+                }
+            },
+            computed: {
+                matchStatusText() {
+                    const statusMap = {
+                        'ARMED': 'ARMED',
+                        'COUNTDOWN': 'GET READY',
+                        'RUNNING': '',
+                        'FINISHED': 'FINISH'
+                    };
+                    return statusMap[this.matchStatus] || '';
+                }
+            },
+            mounted() {
+                this.socket = io();
+                this.beepStartSpeed = document.getElementById('beepStartSpeed');
+                this.audioWarning = document.getElementById('audioWarning');
+
+                this.socket.on('race-state', (state) => {
+                    this.matchStatus = state.matchStatus;
+                    this.laneA = { ...state.laneA };
+                    this.laneB = { ...state.laneB };
+                });
+
+                this.socket.on('play-sound', (data) => {
+                    if (data.type === 'countdown-start') {
+                        this.playBeepStartSpeed();
+                    } else if (data.type === 'false-start') {
+                        this.playFalseStartWarning();
+                    }
+                });
+            },
+            methods: {
+                getStatusIcon(status) {
+                    const icons = {
+                        'IDLE': '○',
+                        'READY': '●',
+                        'RUNNING': '▶',
+                        'FINISHED': '✓',
+                        'FALSE_START': '✗'
+                    };
+                    return icons[status] || '○';
+                },
+                getStatusText(status) {
+                    const texts = {
+                        'IDLE': 'Waiting',
+                        'READY': 'Ready',
+                        'RUNNING': 'Running',
+                        'FINISHED': 'Finished',
+                        'FALSE_START': 'False Start'
+                    };
+                    return texts[status] || '';
+                },
+                isWinner(lane) {
+                    if (this.matchStatus !== 'FINISHED') return false;
+                    const laneData = lane === 'A' ? this.laneA : this.laneB;
+                    const otherLaneData = lane === 'A' ? this.laneB : this.laneA;
+                    
+                    if (laneData.status === 'FINISHED' && otherLaneData.status === 'FINISHED') {
+                        // Parse format 00:00.000
+                        const parseTime = (timeStr) => {
+                            const parts = timeStr.split(':');
+                            const minutes = parseInt(parts[0]);
+                            const secParts = parts[1].split('.');
+                            const seconds = parseInt(secParts[0]);
+                            const ms = parseInt(secParts[1]);
+                            return minutes * 60000 + seconds * 1000 + ms;
+                        };
+                        return parseTime(laneData.finalDuration) < parseTime(otherLaneData.finalDuration);
+                    }
+                    return false;
+                },
+                playBeepStartSpeed() {
+                    if (this.beepStartSpeed) {
+                        this.beepStartSpeed.currentTime = 0;
+                        this.beepStartSpeed.play().catch(err => {
+                            console.log('Audio play failed:', err);
+                        });
+                    }
+                },
+                playFalseStartWarning() {
+                    // Play warning 3x dengan rentang waktu berdekatan
+                    let count = 0;
+                    const playWarning = () => {
+                        if (count < 3 && this.audioWarning) {
+                            this.audioWarning.currentTime = 0;
+                            this.audioWarning.play().catch(err => {
+                                console.log('Warning audio play failed:', err);
+                            });
+                            count++;
+                            // Rentang waktu berdekatan: 400ms antar beep
+                            setTimeout(playWarning, 400);
+                        }
+                    };
+                    playWarning();
+                },
+                playFalseStartWarning() {
+                    // Play warning 3x dengan rentang waktu berdekatan
+                    let count = 0;
+                    const playWarning = () => {
+                        if (count < 3 && this.audioWarning) {
+                            this.audioWarning.currentTime = 0;
+                            this.audioWarning.play().catch(err => {
+                                console.log('Warning audio play failed:', err);
+                            });
+                            count++;
+                            // Rentang waktu berdekatan: 400ms antar beep
+                            setTimeout(playWarning, 400);
+                        }
+                    };
+                    playWarning();
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

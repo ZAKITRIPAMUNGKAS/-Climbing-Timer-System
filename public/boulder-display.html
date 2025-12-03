@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/jpeg" href="/logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="/logo.jpeg">
+    <title>Boulder Timer - Display</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial Black', Arial, sans-serif;
+            background: #000;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: background-color 0.5s;
+        }
+
+        /* Phase: CLIMBING - Background Hitam */
+        body.phase-climbing {
+            background: #000;
+        }
+
+        /* Phase: REST - Background Merah */
+        body.phase-rest {
+            background: #ff1744;
+        }
+
+        /* Phase: IDLE - Background Hitam */
+        body.phase-idle {
+            background: #000;
+        }
+
+        .timer-container {
+            text-align: center;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .timer-display {
+            font-size: 20vw;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            line-height: 1;
+            margin-bottom: 30px;
+            min-height: 25vh;
+            transition: color 0.3s, text-shadow 0.3s;
+        }
+
+        body.phase-climbing .timer-display {
+            color: #fff;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+        }
+
+        body.phase-climbing .timer-display.warning {
+            color: #ffeb3b;
+            text-shadow: 0 0 40px #ffeb3b, 0 0 80px #ffeb3b;
+        }
+
+        body.phase-climbing .timer-display.danger {
+            color: #ff1744;
+            text-shadow: 0 0 50px #ff1744, 0 0 100px #ff1744;
+            animation: blink 0.5s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        body.phase-rest .timer-display {
+            font-size: 8vw;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+            margin-bottom: 20px;
+        }
+
+        .status-label {
+            font-size: 5vw;
+            text-transform: uppercase;
+            letter-spacing: 0.3em;
+            margin-bottom: 40px;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        body.phase-climbing .status-label {
+            color: #4caf50;
+            text-shadow: 0 0 30px #4caf50;
+        }
+
+        body.phase-rest .status-label {
+            color: #fff;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.9);
+            font-size: 6vw;
+        }
+
+        body.phase-idle .status-label {
+            color: #666;
+            font-size: 3vw;
+        }
+
+        .rest-message {
+            font-size: 4vw;
+            margin-top: 30px;
+            opacity: 0.9;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+
+        .countdown-number {
+            font-size: 8vw;
+            font-weight: bold;
+            margin-top: 20px;
+            color: #fff;
+        }
+
+        @media (max-width: 768px) {
+            .timer-display {
+                font-size: 25vw;
+            }
+            body.phase-rest .timer-display {
+                font-size: 12vw;
+            }
+            .status-label {
+                font-size: 8vw;
+            }
+            body.phase-rest .status-label {
+                font-size: 10vw;
+            }
+            .rest-message {
+                font-size: 6vw;
+            }
+        }
+    </style>
+</head>
+<body class="phase-idle">
+    <div class="timer-container">
+        <div class="status-label" id="statusLabel">Ready</div>
+        <div class="timer-display" id="timerDisplay">00:00</div>
+        <div class="rest-message" id="restMessage"></div>
+        <div class="countdown-number" id="countdownNumber"></div>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="audioWarning" preload="auto">
+        <source src="/sounds/warning.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="audioCountdown" preload="auto">
+        <source src="/sounds/countdown.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="audioFinish" preload="auto">
+        <source src="/sounds/finish.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="audioStart" preload="auto">
+        <source src="/sounds/start.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        // Connect to /boulder namespace
+        const socket = io('/boulder');
+        let currentPhase = "IDLE";
+        let timeLeft = 0;
+        let isPaused = false;
+        let warningTime = 60;
+
+        const timerDisplay = document.getElementById('timerDisplay');
+        const statusLabel = document.getElementById('statusLabel');
+        const restMessage = document.getElementById('restMessage');
+        const countdownNumber = document.getElementById('countdownNumber');
+        const body = document.body;
+
+        const audioWarning = document.getElementById('audioWarning');
+        const audioCountdown = document.getElementById('audioCountdown');
+        const audioFinish = document.getElementById('audioFinish');
+        const audioStart = document.getElementById('audioStart');
+
+        function formatTime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            if (hours > 0) {
+                return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function updateDisplay() {
+            timerDisplay.textContent = formatTime(timeLeft);
+            body.className = `phase-${currentPhase.toLowerCase()}`;
+
+            if (currentPhase === "IDLE") {
+                statusLabel.textContent = "Ready";
+                restMessage.textContent = "";
+                countdownNumber.textContent = "";
+            } else if (currentPhase === "CLIMBING") {
+                statusLabel.textContent = "Sedang Lomba";
+                
+                if (timeLeft <= 5 && timeLeft > 0) {
+                    countdownNumber.textContent = `⏰ ${timeLeft}`;
+                    restMessage.textContent = "";
+                } else {
+                    countdownNumber.textContent = "";
+                    restMessage.textContent = "";
+                }
+                
+                timerDisplay.classList.remove('warning', 'danger');
+                if (timeLeft <= 10 && timeLeft > 0) {
+                    timerDisplay.classList.add('danger');
+                } else if (timeLeft <= warningTime && timeLeft > 10) {
+                    timerDisplay.classList.add('warning');
+                }
+            } else if (currentPhase === "REST") {
+                statusLabel.textContent = "Persiapan";
+                restMessage.textContent = "NEXT CLIMBER";
+                countdownNumber.textContent = "";
+            }
+        }
+
+        function playSound(soundType) {
+            let audio;
+            switch(soundType) {
+                case 'warning': audio = audioWarning; break;
+                case 'countdown': audio = audioCountdown; break;
+                case 'finish': audio = audioFinish; break;
+                case 'start': audio = audioStart; break;
+            }
+            
+            if (audio) {
+                audio.pause();
+                audio.currentTime = 0;
+                setTimeout(() => {
+                    audio.play().catch(err => console.log('Audio play failed:', err));
+                }, 20);
+            }
+        }
+
+        socket.on('sync-time', (data) => {
+            currentPhase = data.phase;
+            timeLeft = data.timeLeft;
+            isPaused = data.isPaused;
+            if (data.config) {
+                warningTime = data.config.warningTime || 60;
+            }
+            updateDisplay();
+        });
+
+        socket.on('play-sound', (data) => {
+            if (typeof data === 'object' && data.type) {
+                playSound(data.type);
+            } else {
+                playSound(data);
+            }
+        });
+
+        updateDisplay();
+    </script>
+</body>
+</html>
+

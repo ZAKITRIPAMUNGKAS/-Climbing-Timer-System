@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/jpeg" href="/logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="/logo.jpeg">
+    <title>Boulder Timer - Admin Control</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 15px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 25px 30px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .header-subtitle {
+            font-size: 0.95em;
+            opacity: 0.9;
+        }
+
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 10px 20px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9em;
+            transition: all 0.3s;
+        }
+
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Status Badge */
+        .status-badge {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .status-text {
+            font-size: 1.5em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            border: 1px solid #e0e0e0;
+        }
+
+        .card-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #1e3c72;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Timer Monitor */
+        .timer-monitor {
+            text-align: center;
+        }
+
+        .timer-display {
+            font-size: 3.5em;
+            font-weight: 700;
+            color: #1e3c72;
+            font-family: 'Courier New', monospace;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 3px solid #e0e0e0;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 1.1em;
+            text-transform: uppercase;
+            margin: 10px 0;
+        }
+
+        .phase-idle { background: #e0e0e0; color: #666; }
+        .phase-climbing { background: #4caf50; color: white; }
+        .phase-rest { background: #f44336; color: white; }
+        .phase-paused { background: #ff9800; color: white; }
+
+        .phase-info {
+            color: #666;
+            font-size: 0.95em;
+            margin-top: 10px;
+        }
+
+        /* Form */
+        .config-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-weight: 600;
+            font-size: 0.95em;
+            color: #555;
+        }
+
+        input {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        button {
+            padding: 15px 20px;
+            font-size: 1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+        }
+
+        .btn-start:hover:not(:disabled) {
+            box-shadow: 0 6px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-pause {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            color: white;
+        }
+
+        .btn-pause:hover:not(:disabled) {
+            box-shadow: 0 6px 15px rgba(255, 152, 0, 0.3);
+        }
+
+        .btn-skip {
+            background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+            color: white;
+        }
+
+        .btn-skip:hover:not(:disabled) {
+            box-shadow: 0 6px 15px rgba(33, 150, 243, 0.3);
+        }
+
+        .btn-reset {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+        }
+
+        .btn-reset:hover:not(:disabled) {
+            box-shadow: 0 6px 15px rgba(244, 67, 54, 0.3);
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            font-size: 0.95em;
+        }
+
+        .btn-save:hover {
+            box-shadow: 0 6px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 1.5em;
+            }
+
+            .config-form {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
+
+            .timer-display {
+                font-size: 2.5em;
+            }
+
+            .card {
+                padding: 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header-top {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .back-btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-top">
+                    <div>
+                        <h1>🧗 Boulder Timer</h1>
+                        <div class="header-subtitle">Sistem Kontrol Admin - Countdown Timer</div>
+                    </div>
+                    <a href="/index.html" class="back-btn">← Kembali</a>
+                </div>
+            </div>
+
+            <!-- Timer Monitor -->
+            <div class="card">
+                <div class="card-title">📊 Monitor Timer</div>
+                <div class="timer-monitor">
+                    <div class="phase-badge" :class="statusClass">{{ statusText }}</div>
+                    <div class="timer-display">{{ formattedTime }}</div>
+                    <div class="phase-info">{{ phaseInfo }}</div>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="card">
+                <div class="card-title">⚙️ Pengaturan</div>
+                <form class="config-form" @submit.prevent="saveConfig">
+                    <div class="form-group">
+                        <label for="climbDuration">Waktu Lomba (Menit)</label>
+                        <input type="number" id="climbDuration" v-model="config.climbDuration" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="restDuration">Waktu Jeda (Detik)</label>
+                        <input type="number" id="restDuration" v-model="config.restDuration" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="warningTime">Warning di Sisa (Detik)</label>
+                        <input type="number" id="warningTime" v-model="config.warningTime" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="countdownTime">Countdown Terakhir (Detik)</label>
+                        <input type="number" id="countdownTime" v-model="config.countdownTime" min="1" required>
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <button type="submit" class="btn-save">💾 Simpan Pengaturan</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Controls -->
+            <div class="card">
+                <div class="card-title">🎮 Kontrol Timer</div>
+                <div class="controls">
+                    <button class="btn-start" @click="startTimer" :disabled="currentPhase !== 'IDLE' && !isPaused">
+                        ▶️ Start / Resume
+                    </button>
+                    <button class="btn-pause" @click="pauseTimer" :disabled="currentPhase === 'IDLE' || isPaused">
+                        ⏸️ Pause
+                    </button>
+                    <button class="btn-skip" @click="skipPhase" :disabled="currentPhase === 'IDLE'">
+                        ⏭️ Skip Phase
+                    </button>
+                    <button class="btn-reset" @click="resetTimer">⏹️ Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    socket: null,
+                    currentPhase: 'IDLE',
+                    timeLeft: 0,
+                    isPaused: false,
+                    config: {
+                        climbDuration: 4,
+                        restDuration: 10,
+                        warningTime: 60,
+                        countdownTime: 5
+                    }
+                }
+            },
+            computed: {
+                formattedTime() {
+                    const hours = Math.floor(this.timeLeft / 3600);
+                    const mins = Math.floor((this.timeLeft % 3600) / 60);
+                    const secs = this.timeLeft % 60;
+                    if (hours > 0) {
+                        return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    }
+                    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                },
+                statusClass() {
+                    let cls = this.currentPhase.toLowerCase();
+                    if (this.isPaused && this.currentPhase !== 'IDLE') {
+                        cls = 'paused';
+                    }
+                    return cls;
+                },
+                statusText() {
+                    if (this.isPaused && this.currentPhase !== 'IDLE') {
+                        return 'PAUSED';
+                    }
+                    return this.currentPhase;
+                },
+                phaseInfo() {
+                    if (this.currentPhase === 'IDLE') {
+                        return 'Siap untuk memulai';
+                    } else if (this.currentPhase === 'CLIMBING') {
+                        return this.isPaused ? '⏸ Timer dijeda' : '🏃 Sedang lomba';
+                    } else if (this.currentPhase === 'REST') {
+                        return this.isPaused ? '⏸ Jeda dijeda' : '⏳ Sedang jeda - Persiapan atlet berikutnya';
+                    }
+                    return '';
+                }
+            },
+            mounted() {
+                // Connect to /boulder namespace
+                this.socket = io('/boulder');
+
+                this.socket.on('sync-time', (data) => {
+                    this.currentPhase = data.phase;
+                    this.timeLeft = data.timeLeft;
+                    this.isPaused = data.isPaused;
+                    if (data.config) {
+                        this.config.climbDuration = Math.floor(data.config.climbDuration / 60);
+                        this.config.restDuration = data.config.restDuration;
+                        this.config.warningTime = data.config.warningTime;
+                        this.config.countdownTime = data.config.countdownTime;
+                    }
+                });
+            },
+            methods: {
+                startTimer() {
+                    this.socket.emit('startTimer');
+                },
+                pauseTimer() {
+                    this.socket.emit('pauseTimer');
+                },
+                skipPhase() {
+                    if (confirm('Yakin ingin skip ke fase berikutnya?')) {
+                        this.socket.emit('skipPhase');
+                    }
+                },
+                resetTimer() {
+                    if (confirm('Yakin ingin reset timer? Semua progress akan hilang.')) {
+                        this.socket.emit('resetTimer');
+                    }
+                },
+                saveConfig() {
+                    this.socket.emit('updateConfig', {
+                        climbDuration: this.config.climbDuration * 60,
+                        restDuration: this.config.restDuration,
+                        warningTime: this.config.warningTime,
+                        countdownTime: this.config.countdownTime
+                    });
+                    alert('✅ Pengaturan berhasil disimpan!');
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
