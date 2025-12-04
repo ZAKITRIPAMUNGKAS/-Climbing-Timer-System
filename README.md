@@ -1,4 +1,13 @@
-# Climbing Timer System
+# FPTI Karanganyar - Website Profile & Timer System
+
+Website profile komunitas panjat tebing FPTI Karanganyar dengan sistem timer profesional terintegrasi.
+
+## 🌐 Struktur Website
+
+- **Landing Page** (`/`) - Website profile komunitas (React)
+- **Timer Sistem** (`/timersistem`) - Sistem timer untuk lomba panjat tebing
+
+## ⏱️ Timer System
 
 Sistem timer real-time untuk lomba panjat tebing dengan 2 mode:
 1. **Speed Climbing** - Dual lane dengan sensor detection
@@ -22,14 +31,18 @@ Sistem timer real-time untuk lomba panjat tebing dengan 2 mode:
 ## 📋 Tech Stack
 
 - **Backend**: Node.js, Express, Socket.io
+- **Frontend Landing Page**: React 18, React Router, Vite
+- **Frontend Timer System**: HTML5, CSS3, Vue.js (CDN)
 - **Hardware Interface**: SerialPort (untuk Arduino - opsional)
-- **Frontend**: HTML5, CSS3, Vue.js (CDN)
 
 ## 🛠️ Instalasi
 
 ```bash
-# Install dependencies
-npm install
+# Install semua dependencies (backend + frontend React)
+npm run install:all
+
+# Build React app untuk production
+npm run build
 
 # Start server
 npm start
@@ -37,15 +50,32 @@ npm start
 
 Server akan berjalan di `http://localhost:3000`
 
+### Development Mode
+
+Untuk development dengan hot-reload React:
+
+```bash
+# Terminal 1: Start backend server
+npm start
+
+# Terminal 2: Start React dev server
+npm run dev:client
+```
+
 ## 📱 Halaman
 
-### Speed Climbing:
-- **Display (Proyektor)**: `http://localhost:3000/display.html`
-- **Admin Control**: `http://localhost:3000/admin.html`
+### Landing Page:
+- **Homepage**: `http://localhost:3000/` - Website profile komunitas
 
-### Boulder Timer:
-- **Display (Proyektor)**: `http://localhost:3000/boulder-display.html`
-- **Admin Control**: `http://localhost:3000/boulder-admin.html`
+### Timer System (di `/timersistem`):
+
+#### Speed Climbing:
+- **Display (Proyektor)**: `http://localhost:3000/timersistem/display.html`
+- **Admin Control**: `http://localhost:3000/timersistem/admin.html`
+
+#### Boulder Timer:
+- **Display (Proyektor)**: `http://localhost:3000/timersistem/boulder-display.html`
+- **Admin Control**: `http://localhost:3000/timersistem/boulder-admin.html`
 
 ## 🎮 Mode Simulation (Testing)
 

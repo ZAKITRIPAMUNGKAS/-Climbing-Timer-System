@@ -46,31 +46,81 @@ function serveHtmlFile(req, res, filename) {
     });
 }
 
-// Explicit routes untuk semua halaman HTML (HARUS SEBELUM static middleware)
-// Ini memastikan routing HTML bekerja dengan benar di cPanel
+// ============================================
+// ROUTING: Landing Page (React) & Timer System
+// ============================================
+
+// Serve React build untuk root dan semua routes React (SPA)
+// React Router akan handle client-side routing
 app.get('/', (req, res) => {
+    const reactIndexPath = path.join(__dirname, 'public', 'react-build', 'index.html');
+    if (fs.existsSync(reactIndexPath)) {
+        res.sendFile(reactIndexPath);
+    } else {
+        // Fallback jika React build belum ada
+        res.send(`
+            <html>
+                <head><title>FPTI Karanganyar</title></head>
+                <body>
+                    <h1>FPTI Karanganyar</h1>
+                    <p>React build belum tersedia. Silakan jalankan: cd client && npm install && npm run build</p>
+                    <p><a href="/timersistem">Akses Timer Sistem</a></p>
+                </body>
+            </html>
+        `);
+    }
+});
+
+// Timer System Routes - semua di bawah /timersistem
+app.get('/timersistem', (req, res) => {
     serveHtmlFile(req, res, 'index.html');
 });
 
-app.get('/index.html', (req, res) => {
+app.get('/timersistem/index.html', (req, res) => {
     serveHtmlFile(req, res, 'index.html');
 });
 
-app.get('/admin.html', (req, res) => {
+app.get('/timersistem/admin.html', (req, res) => {
     serveHtmlFile(req, res, 'admin.html');
 });
 
-app.get('/display.html', (req, res) => {
+app.get('/timersistem/display.html', (req, res) => {
     serveHtmlFile(req, res, 'display.html');
 });
 
-app.get('/boulder-admin.html', (req, res) => {
+app.get('/timersistem/boulder-admin.html', (req, res) => {
     serveHtmlFile(req, res, 'boulder-admin.html');
 });
 
-app.get('/boulder-display.html', (req, res) => {
+app.get('/timersistem/boulder-display.html', (req, res) => {
     serveHtmlFile(req, res, 'boulder-display.html');
 });
+
+// Backward compatibility - redirect old routes ke /timersistem
+app.get('/admin.html', (req, res) => {
+    res.redirect('/timersistem/admin.html');
+});
+
+app.get('/display.html', (req, res) => {
+    res.redirect('/timersistem/display.html');
+});
+
+app.get('/boulder-admin.html', (req, res) => {
+    res.redirect('/timersistem/boulder-admin.html');
+});
+
+app.get('/boulder-display.html', (req, res) => {
+    res.redirect('/timersistem/boulder-display.html');
+});
+
+// Serve React build static files (assets dari Vite build)
+const reactBuildPath = path.join(__dirname, 'public', 'react-build');
+if (fs.existsSync(reactBuildPath)) {
+    app.use(express.static(reactBuildPath, {
+        index: false, // Jangan serve index.html via static, sudah di-handle di route
+        maxAge: '1y' // Cache static assets
+    }));
+}
 
 // Serve static files dari folder public (CSS, JS, images, sounds, dll)
 // Diletakkan SETELAH explicit routes agar tidak meng-override routing HTML
@@ -84,6 +134,32 @@ app.use(express.static(path.join(__dirname, 'public'), {
         }
     }
 }));
+
+// Fallback untuk React Router - semua routes yang bukan timer system
+// harus di-handle oleh React (untuk client-side routing)
+// Express 5 tidak support wildcard *, jadi kita gunakan catch-all dengan cara lain
+app.use((req, res, next) => {
+    // Skip jika route adalah timer system atau static files
+    if (req.path.startsWith('/timersistem') || 
+        req.path.startsWith('/sounds/') || 
+        req.path.startsWith('/socket.io/') ||
+        path.extname(req.path) !== '') {
+        return next();
+    }
+    
+    // Skip jika method bukan GET
+    if (req.method !== 'GET') {
+        return next();
+    }
+    
+    // Serve React index.html untuk semua routes lainnya (SPA routing)
+    const reactIndexPath = path.join(__dirname, 'public', 'react-build', 'index.html');
+    if (fs.existsSync(reactIndexPath)) {
+        res.sendFile(reactIndexPath);
+    } else {
+        next();
+    }
+});
 
 // ============================================
 // SIMULATION MODE FLAG

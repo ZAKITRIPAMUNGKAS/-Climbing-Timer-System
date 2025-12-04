@@ -1,17 +1,14 @@
 # Dependencies
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+client/node_modules/
+
+# Build outputs
+client/dist/
+public/react-build/
 
 # Environment variables
 .env
 .env.local
-.env.production
-
-# OS files
-.DS_Store
-Thumbs.db
 
 # IDE
 .vscode/
@@ -19,21 +16,10 @@ Thumbs.db
 *.swp
 *.swo
 
+# OS
+.DS_Store
+Thumbs.db
+
 # Logs
-logs/
 *.log
-stderr.log
-stdout.log
-
-# Temporary files
-tmp/
-temp/
-
-# cPanel specific
-.htaccess.backup
-.htaccess.bak
-
-# Build files (jika ada)
-dist/
-build/
-
+npm-debug.log*
