@@ -1,6 +1,8 @@
 # FPTI Karanganyar - Website Profile & Timer System
 
-Website profile komunitas panjat tebing FPTI Karanganyar dengan sistem timer profesional terintegrasi.
+Website profile komunitas panjat tebing FPTI Karanganyar dengan sistem timer profesional terintegrasi dan sistem manajemen kompetisi lengkap.
+
+📚 **Untuk dokumentasi lengkap, lihat [DOCUMENTATION.md](./DOCUMENTATION.md)**
 
 ## 🌐 Struktur Website
 

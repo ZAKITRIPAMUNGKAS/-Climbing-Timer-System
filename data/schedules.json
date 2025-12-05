@@ -1,0 +1,53 @@
+[
+  {
+    "id": 1,
+    "date": "15 Desember 2024",
+    "title": "Kejurkab Karanganyar 2024",
+    "location": "Gedung Olahraga Karanganyar",
+    "time": "08:00 - 17:00 WIB",
+    "status": "upcoming",
+    "category": "Kompetisi",
+    "description": "Kompetisi panjat tebing tingkat kabupaten dengan berbagai kategori usia dan kelas"
+  },
+  {
+    "id": 2,
+    "date": "10 November 2024",
+    "title": "Kejurprov Jawa Tengah",
+    "location": "Semarang",
+    "time": "08:00 - 18:00 WIB",
+    "status": "past",
+    "category": "Kompetisi",
+    "description": "Kejuaraan provinsi Jawa Tengah dengan partisipasi dari seluruh kabupaten/kota"
+  },
+  {
+    "id": 3,
+    "date": "5 Oktober 2024",
+    "title": "Kejurnas Indonesia",
+    "location": "Jakarta",
+    "time": "09:00 - 19:00 WIB",
+    "status": "past",
+    "category": "Kompetisi Nasional",
+    "description": "Kejuaraan nasional dengan atlet terbaik dari seluruh Indonesia"
+  },
+  {
+    "id": 4,
+    "date": "20 Januari 2025",
+    "title": "Latihan Intensif Pra-Kompetisi",
+    "location": "Fasilitas FPTI Karanganyar",
+    "time": "14:00 - 17:00 WIB",
+    "status": "upcoming",
+    "category": "Latihan",
+    "description": "Program latihan khusus untuk persiapan kompetisi mendatang"
+  },
+  {
+    "id": 5,
+    "date": "25 Januari 2025",
+    "title": "Kejurda Jawa Tengah",
+    "location": "Solo",
+    "time": "08:00 - 17:00 WIB",
+    "status": "upcoming",
+    "category": "Kompetisi",
+    "description": "Kejuaraan daerah Jawa Tengah dengan berbagai kategori"
+  }
+]
+

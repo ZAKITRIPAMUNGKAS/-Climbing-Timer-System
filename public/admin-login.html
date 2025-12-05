@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/jpeg" href="/logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="/logo.jpeg">
+    <title>Admin Login - FPTI Karanganyar</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: linear-gradient(135deg, #E11D23 0%, #c91a20 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .logo-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo-container img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid #FFC107;
+            margin-bottom: 15px;
+        }
+
+        .logo-container h1 {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #E11D23;
+            margin-bottom: 5px;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .logo-container p {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #FFC107;
+            box-shadow: 0 0 0 3px rgba(255,193,7,0.2);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #E11D23 0%, #c91a20 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(225,29,35,0.3);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 6px 25px rgba(225,29,35,0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            border-left: 4px solid #c62828;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: #666;
+            text-decoration: none;
+            font-size: 0.9em;
+            transition: color 0.3s;
+        }
+
+        .back-link a:hover {
+            color: #E11D23;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="login-container">
+            <div class="logo-container">
+                <img src="/logo.jpeg" alt="FPTI Karanganyar" @error="handleImageError">
+                <h1>Admin Login</h1>
+                <p>FPTI Karanganyar Dashboard</p>
+            </div>
+
+            <div v-if="error" class="error-message">
+                {{ error }}
+            </div>
+
+            <form @submit.prevent="login">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input 
+                        type="text" 
+                        v-model="username" 
+                        class="form-input" 
+                        placeholder="Masukkan username"
+                        required
+                        :disabled="loading">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input 
+                        type="password" 
+                        v-model="password" 
+                        class="form-input" 
+                        placeholder="Masukkan password"
+                        required
+                        :disabled="loading">
+                </div>
+
+                <button 
+                    type="submit" 
+                    class="btn btn-primary"
+                    :disabled="loading">
+                    <span v-if="loading">Memproses...</span>
+                    <span v-else>Masuk</span>
+                </button>
+            </form>
+
+            <div class="back-link">
+                <a href="/">← Kembali ke Home</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Wait for Vue to load
+        function initVue() {
+            if (typeof Vue === 'undefined') {
+                console.error('Vue.js not loaded, retrying...');
+                setTimeout(initVue, 100);
+                return;
+            }
+            
+            console.log('Vue.js loaded, initializing app...');
+            const { createApp } = Vue;
+
+            createApp({
+            data() {
+                return {
+                    username: '',
+                    password: '',
+                    error: '',
+                    loading: false
+                }
+            },
+            mounted() {
+                // Check if already logged in
+                this.checkAuth();
+            },
+            methods: {
+                async checkAuth() {
+                    try {
+                        const response = await fetch('/api/check-auth', {
+                            credentials: 'include' // Important for session cookies
+                        });
+                        const data = await response.json();
+                        console.log('Auth check:', data);
+                        if (data.authenticated) {
+                            window.location.href = '/admin-dashboard';
+                        }
+                    } catch (error) {
+                        console.error('Auth check error:', error);
+                    }
+                },
+                async login() {
+                    this.error = '';
+                    this.loading = true;
+
+                    try {
+                        const response = await fetch('/api/login', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            credentials: 'include', // Important for session cookies
+                            body: JSON.stringify({
+                                username: this.username,
+                                password: this.password
+                            })
+                        });
+
+                        const data = await response.json();
+                        console.log('Login response:', data);
+
+                        if (response.ok && data.success) {
+                            // Wait a bit to ensure session is set
+                            setTimeout(() => {
+                                window.location.href = '/admin-dashboard';
+                            }, 100);
+                        } else {
+                            this.error = data.error || 'Login gagal. Silakan coba lagi.';
+                        }
+                    } catch (error) {
+                        console.error('Login error:', error);
+                        this.error = 'Terjadi kesalahan. Silakan coba lagi.';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                handleImageError(e) {
+                    e.target.src = 'https://via.placeholder.com/80/E11D23/FFFFFF?text=FPTI';
+                }
+            }
+            }).mount('#app');
+        }
+        
+        // Initialize Vue when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(initVue, 50);
+            });
+        } else {
+            // If DOM is already loaded, wait a bit for Vue script
+            setTimeout(initVue, 50);
+        }
+        
+        // Fallback: if Vue still not loaded after 3 seconds, show error
+        setTimeout(function() {
+            if (typeof Vue === 'undefined') {
+                document.body.innerHTML = '<div style="padding: 20px; text-align: center; color: white;"><h1>Error: Vue.js tidak ter-load</h1><p>Silakan refresh halaman atau cek koneksi internet Anda.</p><a href="/admin-login" style="color: white; text-decoration: underline;">Refresh</a></div>';
+            }
+        }, 3000);
+    </script>
+</body>
+</html>
+

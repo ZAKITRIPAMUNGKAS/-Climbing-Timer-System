@@ -12,6 +12,12 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      // Proxy API requests ke backend server
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false
+      },
       // Proxy /timersistem dan semua sub-routes ke backend server
       '/timersistem': {
         target: 'http://localhost:3000',
@@ -26,6 +32,11 @@ export default defineConfig({
       },
       // Proxy sounds dan static files ke backend
       '/sounds': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      },
+      // Proxy uploads ke backend
+      '/uploads': {
         target: 'http://localhost:3000',
         changeOrigin: true
       }

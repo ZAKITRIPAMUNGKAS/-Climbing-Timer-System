@@ -1,93 +1,36 @@
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Calendar, MapPin, Clock, Trophy } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Calendar, MapPin, Clock } from 'lucide-react'
+import PublicLayout from '../components/PublicLayout'
 import './LandingPage.css'
 
 function SchedulePage() {
-  const events = [
-    {
-      id: 1,
-      date: '15 Desember 2024',
-      title: 'Kejurkab Karanganyar 2024',
-      location: 'Gedung Olahraga Karanganyar',
-      time: '08:00 - 17:00 WIB',
-      status: 'upcoming',
-      category: 'Kompetisi',
-      description: 'Kompetisi panjat tebing tingkat kabupaten dengan berbagai kategori usia dan kelas'
-    },
-    {
-      id: 2,
-      date: '10 November 2024',
-      title: 'Kejurprov Jawa Tengah',
-      location: 'Semarang',
-      time: '08:00 - 18:00 WIB',
-      status: 'past',
-      category: 'Kompetisi',
-      description: 'Kejuaraan provinsi Jawa Tengah dengan partisipasi dari seluruh kabupaten/kota'
-    },
-    {
-      id: 3,
-      date: '5 Oktober 2024',
-      title: 'Kejurnas Indonesia',
-      location: 'Jakarta',
-      time: '09:00 - 19:00 WIB',
-      status: 'past',
-      category: 'Kompetisi Nasional',
-      description: 'Kejuaraan nasional dengan atlet terbaik dari seluruh Indonesia'
-    },
-    {
-      id: 4,
-      date: '20 Januari 2025',
-      title: 'Latihan Intensif Pra-Kompetisi',
-      location: 'Fasilitas FPTI Karanganyar',
-      time: '14:00 - 17:00 WIB',
-      status: 'upcoming',
-      category: 'Latihan',
-      description: 'Program latihan khusus untuk persiapan kompetisi mendatang'
-    },
-    {
-      id: 5,
-      date: '25 Januari 2025',
-      title: 'Kejurda Jawa Tengah',
-      location: 'Solo',
-      time: '08:00 - 17:00 WIB',
-      status: 'upcoming',
-      category: 'Kompetisi',
-      description: 'Kejuaraan daerah Jawa Tengah dengan berbagai kategori'
+  const [events, setEvents] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      try {
+        const response = await fetch('/api/schedules')
+        const data = await response.json()
+        setEvents(data)
+      } catch (error) {
+        console.error('Error fetching schedules:', error)
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+    fetchSchedules()
+  }, [])
 
   const upcomingEvents = events.filter(e => e.status === 'upcoming')
   const pastEvents = events.filter(e => e.status === 'past')
 
   return (
-    <div className="bg-rich-black min-h-screen text-off-white font-body">
-      {/* Navbar */}
-      <nav className="fixed w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/10 py-4">
-        <div className="container mx-auto px-6 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-3 group">
-            <img 
-              src="/logo.jpeg" 
-              alt="FPTI Karanganyar" 
-              className="w-10 h-10 rounded-full object-cover border-2 border-goldenrod/50"
-            />
-            <div className="flex flex-col">
-              <span className="font-heading font-bold text-lg tracking-wider">FPTI</span>
-              <span className="text-[10px] text-goldenrod uppercase tracking-[0.2em]">Karanganyar</span>
-            </div>
-          </Link>
-          <Link 
-            to="/" 
-            className="flex items-center gap-2 text-gray-400 hover:text-goldenrod transition-colors"
-          >
-            <ArrowLeft size={20} />
-            <span>Kembali</span>
-          </Link>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="pt-32 pb-12 bg-gradient-to-b from-gunmetal to-rich-black">
+    <PublicLayout>
+      <div className="bg-rich-black min-h-screen text-off-white font-body">
+        {/* Hero Section */}
+        <section className="pt-32 pb-12 bg-gradient-to-b from-gunmetal to-rich-black">
         <div className="container mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -109,7 +52,12 @@ function SchedulePage() {
         <div className="container mx-auto px-6">
           <h2 className="text-3xl font-heading font-bold mb-8 text-goldenrod">Event Mendatang</h2>
           <div className="max-w-4xl mx-auto space-y-6">
-            {upcomingEvents.map((event, index) => (
+            {loading ? (
+              <div className="text-center text-gray-400 py-10">Memuat data...</div>
+            ) : upcomingEvents.length === 0 ? (
+              <div className="text-center text-gray-400 py-10">Belum ada event mendatang</div>
+            ) : (
+              upcomingEvents.map((event, index) => (
               <motion.div
                 key={event.id}
                 initial={{ opacity: 0, x: -30 }}
@@ -149,7 +97,8 @@ function SchedulePage() {
                   </div>
                 </div>
               </motion.div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -159,7 +108,12 @@ function SchedulePage() {
         <div className="container mx-auto px-6">
           <h2 className="text-3xl font-heading font-bold mb-8 text-goldenrod">Event Terdahulu</h2>
           <div className="max-w-4xl mx-auto">
-            {pastEvents.map((event, index) => (
+            {loading ? (
+              <div className="text-center text-gray-400 py-10">Memuat data...</div>
+            ) : pastEvents.length === 0 ? (
+              <div className="text-center text-gray-400 py-10">Belum ada event terdahulu</div>
+            ) : (
+              pastEvents.map((event, index) => (
               <motion.div
                 key={event.id}
                 initial={{ opacity: 0, x: -30 }}
@@ -188,18 +142,20 @@ function SchedulePage() {
                   </div>
                 </div>
               </motion.div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-10 border-t border-white/10 text-center text-gray-500 text-sm bg-rich-black">
-        <div className="container mx-auto px-6">
-          <p>&copy; 2024 FPTI Karanganyar. All rights reserved.</p>
-        </div>
-      </footer>
-    </div>
+        {/* Footer */}
+        <footer className="py-10 border-t border-white/10 text-center text-gray-500 text-sm bg-rich-black">
+          <div className="container mx-auto px-6">
+            <p>&copy; 2024 FPTI Karanganyar. All rights reserved.</p>
+          </div>
+        </footer>
+      </div>
+    </PublicLayout>
   )
 }
 

@@ -1,0 +1,2189 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/jpeg" href="/logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="/logo.jpeg">
+    <title>Admin Dashboard - FPTI Karanganyar</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- TinyMCE Rich Text Editor -->
+    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: #f8fafc;
+            color: #1f2937;
+            min-height: 100vh;
+            padding: 15px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: #ffffff;
+            color: #1f2937;
+            padding: 25px 30px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e5e7eb;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: #1f2937;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .header-subtitle {
+            font-size: 0.95em;
+            opacity: 0.9;
+        }
+
+        .back-btn {
+            background: linear-gradient(135deg, #FFC107 0%, #FFA000 100%);
+            color: #0a0a0a;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9em;
+            transition: all 0.3s;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(255,193,7,0.3);
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: linear-gradient(135deg, #FFA000 0%, #FFC107 100%);
+            box-shadow: 0 6px 20px rgba(255,193,7,0.4);
+            transform: translateY(-2px);
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #1a1a1a;
+            color: #F5F5F5;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .tab-btn:hover {
+            background: #1a1a1a;
+            border-color: rgba(255,193,7,0.3);
+            transform: translateY(-2px);
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #E11D23 0%, #c91a20 100%);
+            color: white;
+            border-color: #E11D23;
+            box-shadow: 0 4px 15px rgba(225,29,35,0.3);
+        }
+
+        /* Card */
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e5e7eb;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .card-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #1f2937;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #E11D23 0%, #c91a20 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(225,29,35,0.3);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 6px 25px rgba(225,29,35,0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(76,175,80,0.3);
+        }
+
+        .btn-success:hover {
+            box-shadow: 0 6px 25px rgba(76,175,80,0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #FFC107 0%, #FFA000 100%);
+            color: #1a1a1a;
+            box-shadow: 0 4px 15px rgba(255,193,7,0.3);
+        }
+
+        .btn-warning:hover {
+            box-shadow: 0 6px 25px rgba(255,193,7,0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #E11D23 0%, #c91a20 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(225,29,35,0.3);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 6px 25px rgba(225,29,35,0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #1a1a1a;
+            color: #F5F5F5;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn-secondary:hover {
+            background: #0a0a0a;
+            border-color: rgba(255,255,255,0.3);
+        }
+        
+        .btn-info {
+            background: linear-gradient(135deg, #5B9BD5 0%, #4a90e2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(91,155,213,0.3);
+        }
+
+        .btn-info:hover {
+            box-shadow: 0 6px 25px rgba(91,155,213,0.5);
+            transform: translateY(-2px);
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 14px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+            color: #1f2937;
+        }
+
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+        
+        tbody tr {
+            transition: background-color 0.15s ease;
+        }
+
+        .img-thumb {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,193,7,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #FFC107;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            color: #E11D23;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+            font-size: 0.9em;
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 12px 14px;
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1em;
+            color: #1f2937;
+            transition: all 0.2s;
+            font-family: inherit;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .form-select option {
+            background: #ffffff;
+            color: #1f2937;
+        }
+        
+        .form-input[type="number"] {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .file-upload {
+            margin-top: 10px;
+        }
+
+        .file-upload-preview {
+            margin-top: 10px;
+            max-width: 200px;
+        }
+
+        .file-upload-preview img {
+            width: 100%;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #0a0a0a;
+            color: #F5F5F5;
+            border: 2px dashed #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            width: 100%;
+        }
+
+        .file-input-label:hover {
+            border-color: #FFC107;
+            background: rgba(255,193,7,0.1);
+        }
+
+        .file-input-label input[type="file"] {
+            display: none;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .badge-upcoming {
+            background: #4caf50;
+            color: white;
+        }
+
+        .badge-past {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .badge-crimson {
+            background: rgba(225,29,35,0.2);
+            color: #E11D23;
+        }
+
+        .badge-goldenrod {
+            background: rgba(255,193,7,0.2);
+            color: #FFA000;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            background: #0a0a0a;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #FFC107;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-top {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+
+            .tab-btn {
+                width: 100%;
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .form-actions {
+                flex-direction: column;
+            }
+
+            .form-actions .btn {
+                width: 100%;
+            }
+
+            table {
+                font-size: 0.9em;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-top">
+                    <div>
+                        <h1>📊 Admin Dashboard</h1>
+                        <div class="header-subtitle">Kelola Data Atlet, Jadwal, dan Berita</div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <a href="/judge-interface" class="back-btn" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; margin-right: 10px;">Judge Interface</a>
+                        <button class="back-btn" @click="logout" style="background: linear-gradient(135deg, #E11D23 0%, #c91a20 100%); color: white;">Logout</button>
+                        <a href="/" class="back-btn">← Kembali ke Home</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-btn" :class="{ active: activeTab === 'athletes' }" @click="activeTab = 'athletes'">
+                    👥 Atlet
+                </button>
+                <button class="tab-btn" :class="{ active: activeTab === 'schedules' }" @click="activeTab = 'schedules'">
+                    📅 Jadwal
+                </button>
+                <button class="tab-btn" :class="{ active: activeTab === 'news' }" @click="activeTab = 'news'">
+                    📰 Berita
+                </button>
+                <button class="tab-btn" :class="{ active: activeTab === 'competitions' }" @click="activeTab = 'competitions'">
+                    🏆 Kompetisi
+                </button>
+                <button class="tab-btn" :class="{ active: activeTab === 'speed' }" @click="activeTab = 'speed'">
+                    ⚡ Speed Climbing
+                </button>
+            </div>
+
+            <!-- Athletes Tab -->
+            <div v-if="activeTab === 'athletes'" class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Data Atlet</h2>
+                    <button class="btn btn-primary" @click="openModal('athlete', null)">+ Tambah Atlet</button>
+                </div>
+                <div v-if="loading" class="loading">Memuat data...</div>
+                <div v-else-if="athletes.length === 0" class="empty-state">
+                    Belum ada data atlet. Klik "Tambah Atlet" untuk menambahkan.
+                </div>
+                <div v-else class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Foto</th>
+                                <th>Nama</th>
+                                <th>Kategori</th>
+                                <th>Umur</th>
+                                <th>Prestasi</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="athlete in athletes" :key="athlete.id">
+                                <td><img :src="athlete.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2280%22%3E%3Crect fill=%22%23E11D23%22 width=%2280%22 height=%2280%22/%3E%3Ctext fill=%22%23FFFFFF%22 font-family=%22Arial%22 font-size=%2212%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ENo Image%3C/text%3E%3C/svg%3E'" :alt="athlete.name" class="img-thumb" @error="handleImageError"></td>
+                                <td><strong>{{ athlete.name }}</strong></td>
+                                <td>{{ athlete.category }}</td>
+                                <td>{{ athlete.age }} tahun</td>
+                                <td>{{ athlete.achievement }}</td>
+                                <td>
+                                    <button class="btn btn-warning" @click="openModal('athlete', athlete)" style="margin-right: 5px; padding: 6px 12px; font-size: 0.85em;">Edit</button>
+                                    <button class="btn btn-danger" @click="deleteItem('athlete', athlete.id)" style="padding: 6px 12px; font-size: 0.85em;">Hapus</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Schedules Tab -->
+            <div v-if="activeTab === 'schedules'" class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Data Jadwal</h2>
+                    <button class="btn btn-primary" @click="openModal('schedule', null)">+ Tambah Jadwal</button>
+                </div>
+                <div v-if="loading" class="loading">Memuat data...</div>
+                <div v-else-if="schedules.length === 0" class="empty-state">
+                    Belum ada data jadwal. Klik "Tambah Jadwal" untuk menambahkan.
+                </div>
+                <div v-else class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Judul</th>
+                                <th>Lokasi</th>
+                                <th>Waktu</th>
+                                <th>Status</th>
+                                <th>Kategori</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="schedule in schedules" :key="schedule.id">
+                                <td>{{ schedule.date }}</td>
+                                <td><strong>{{ schedule.title }}</strong></td>
+                                <td>{{ schedule.location }}</td>
+                                <td>{{ schedule.time }}</td>
+                                <td><span class="badge" :class="'badge-' + schedule.status">{{ schedule.status === 'upcoming' ? 'Mendatang' : 'Selesai' }}</span></td>
+                                <td>{{ schedule.category }}</td>
+                                <td>
+                                    <button class="btn btn-warning" @click="openModal('schedule', schedule)" style="margin-right: 5px; padding: 6px 12px; font-size: 0.85em;">Edit</button>
+                                    <button class="btn btn-danger" @click="deleteItem('schedule', schedule.id)" style="padding: 6px 12px; font-size: 0.85em;">Hapus</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- News Tab -->
+            <div v-if="activeTab === 'news'" class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Data Berita</h2>
+                    <button class="btn btn-primary" @click="openModal('news', null)">+ Tambah Berita</button>
+                </div>
+                <div v-if="loading" class="loading">Memuat data...</div>
+                <div v-else-if="news.length === 0" class="empty-state">
+                    Belum ada data berita. Klik "Tambah Berita" untuk menambahkan.
+                </div>
+                <div v-else class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Gambar</th>
+                                <th>Judul</th>
+                                <th>Kategori</th>
+                                <th>Tanggal</th>
+                                <th>Deskripsi</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="article in news" :key="article.id">
+                                <td><img :src="article.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2280%22%3E%3Crect fill=%22%23E11D23%22 width=%2280%22 height=%2280%22/%3E%3Ctext fill=%22%23FFFFFF%22 font-family=%22Arial%22 font-size=%2212%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ENo Image%3C/text%3E%3C/svg%3E'" :alt="article.title" class="img-thumb" @error="handleImageError"></td>
+                                <td><strong>{{ article.title }}</strong></td>
+                                <td><span class="badge" :class="'badge-' + article.color">{{ article.category }}</span></td>
+                                <td>{{ article.date }}</td>
+                                <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ article.description }}</td>
+                                <td>
+                                    <button class="btn btn-warning" @click="openModal('news', article)" style="margin-right: 5px; padding: 6px 12px; font-size: 0.85em;">Edit</button>
+                                    <button class="btn btn-danger" @click="deleteItem('news', article.id)" style="padding: 6px 12px; font-size: 0.85em;">Hapus</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Competitions Tab -->
+            <div v-if="activeTab === 'competitions'" class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Data Kompetisi</h2>
+                    <button class="btn btn-primary" @click="openModal('competition', null)">+ Tambah Kompetisi</button>
+                </div>
+                <div v-if="loading" class="loading">Memuat data...</div>
+                <div v-else-if="competitions.length === 0" class="empty-state">
+                    Belum ada data kompetisi. Klik "Tambah Kompetisi" untuk menambahkan.
+                </div>
+                <div v-else class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nama Kompetisi</th>
+                                <th>Total Boulder</th>
+                                <th>Status</th>
+                                <th>Tanggal Dibuat</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="competition in competitions" :key="competition.id">
+                                <td>{{ competition.id }}</td>
+                                <td><strong>{{ competition.name }}</strong></td>
+                                <td>{{ competition.total_boulders }}</td>
+                                <td><span class="badge" :class="'badge-' + competition.status">{{ competition.status === 'active' ? 'Aktif' : 'Selesai' }}</span></td>
+                                <td>{{ new Date(competition.created_at).toLocaleDateString('id-ID') }}</td>
+                                <td>
+                                    <button class="btn btn-warning" @click="openModal('competition', competition)" style="margin-right: 5px; padding: 6px 12px; font-size: 0.85em;">Edit</button>
+                                    <button class="btn btn-info" @click="openClimbersModal(competition)" style="margin-right: 5px; padding: 6px 12px; font-size: 0.85em;">Atlet</button>
+                                    <button class="btn btn-danger" @click="deleteItem('competition', competition.id)" style="padding: 6px 12px; font-size: 0.85em;">Hapus</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Speed Climbing Tab -->
+            <div v-if="activeTab === 'speed'" class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Speed Climbing (Classic)</h2>
+                    <button class="btn btn-primary" @click="openSpeedCompetitionModal(null)">+ Tambah Kompetisi Speed</button>
+                </div>
+                <div v-if="loading" class="loading">Memuat data...</div>
+                <div v-else-if="speedCompetitions.length === 0" class="empty-state">
+                    Belum ada kompetisi Speed. Klik "Tambah Kompetisi Speed" untuk menambahkan.
+                </div>
+                <div v-else>
+                    <!-- Competition Selector -->
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 10px; font-weight: bold;">Pilih Kompetisi:</label>
+                        <select v-model="selectedSpeedCompetitionId" @change="loadSpeedData()" class="form-select" style="max-width: 400px;">
+                            <option :value="null">-- Pilih Kompetisi --</option>
+                            <option v-for="comp in speedCompetitions" :key="comp.id" :value="comp.id">{{ comp.name }}</option>
+                        </select>
+                    </div>
+
+                    <!-- Round Selector -->
+                    <div v-if="selectedSpeedCompetitionId" style="margin-bottom: 20px;">
+                        <div style="display: flex; gap: 10px;">
+                            <button 
+                                class="btn" 
+                                :class="selectedSpeedRound === 'qualification' ? 'btn-primary' : 'btn-secondary'"
+                                @click="selectedSpeedRound = 'qualification'; loadSpeedData()"
+                            >
+                                Qualification
+                            </button>
+                            <button 
+                                class="btn" 
+                                :class="selectedSpeedRound === 'finals' ? 'btn-primary' : 'btn-secondary'"
+                                @click="selectedSpeedRound = 'finals'; loadSpeedData()"
+                            >
+                                Finals
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Qualification View -->
+                    <div v-if="selectedSpeedCompetitionId && selectedSpeedRound === 'qualification'">
+                        <div class="card-header" style="margin-bottom: 20px;">
+                            <h4 style="margin: 0;">Input Skor Kualifikasi</h4>
+                            <button class="btn btn-success" @click="openSpeedClimberModal(null)">+ Tambah Atlet</button>
+                        </div>
+                        <div v-if="speedClimbersLoading" class="loading">Memuat data...</div>
+                        <div v-else-if="speedClimbers.length === 0" class="empty-state">
+                            Belum ada atlet. Klik "Tambah Atlet" untuk menambahkan.
+                        </div>
+                        <div v-else>
+                            <div class="table-container" style="overflow-x: auto;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Bib</th>
+                                            <th>Nama</th>
+                                            <th>Team</th>
+                                            <th>Lane A Time</th>
+                                            <th>Lane A Status</th>
+                                            <th>Lane B Time</th>
+                                            <th>Lane B Status</th>
+                                            <th>Total Time</th>
+                                            <th>Rank</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="climber in speedClimbers" :key="climber.id">
+                                            <td><strong>{{ climber.bib_number }}</strong></td>
+                                            <td>{{ climber.name }}</td>
+                                            <td>{{ climber.team || '-' }}</td>
+                                            <td>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01"
+                                                    v-model.number="qualificationScores[climber.id].lane_a_time"
+                                                    @input="calculateQualificationTotal(climber.id)"
+                                                    class="form-input" 
+                                                    style="width: 110px; min-height: 44px;"
+                                                    placeholder="0.00"
+                                                >
+                                            </td>
+                                            <td>
+                                                <select 
+                                                    v-model="qualificationScores[climber.id].lane_a_status"
+                                                    @change="calculateQualificationTotal(climber.id)"
+                                                    class="form-select"
+                                                    style="width: 130px; min-height: 44px;"
+                                                >
+                                                    <option value="VALID">VALID</option>
+                                                    <option value="FALL">FALL</option>
+                                                    <option value="FALSE_START">FALSE START</option>
+                                                    <option value="DNS">DNS</option>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01"
+                                                    v-model.number="qualificationScores[climber.id].lane_b_time"
+                                                    @input="calculateQualificationTotal(climber.id)"
+                                                    class="form-input" 
+                                                    style="width: 110px; min-height: 44px;"
+                                                    placeholder="0.00"
+                                                >
+                                            </td>
+                                            <td>
+                                                <select 
+                                                    v-model="qualificationScores[climber.id].lane_b_status"
+                                                    @change="calculateQualificationTotal(climber.id)"
+                                                    class="form-select"
+                                                    style="width: 130px; min-height: 44px;"
+                                                >
+                                                    <option value="VALID">VALID</option>
+                                                    <option value="FALL">FALL</option>
+                                                    <option value="FALSE_START">FALSE START</option>
+                                                    <option value="DNS">DNS</option>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <strong :style="{ 
+                                                    color: qualificationScores[climber.id].status === 'INVALID' ? '#ef4444' : '#3b82f6',
+                                                    textDecoration: qualificationScores[climber.id].status === 'INVALID' ? 'line-through' : 'none'
+                                                }" class="tabular-nums">
+                                                    {{ qualificationScores[climber.id].total_time ? qualificationScores[climber.id].total_time.toFixed(2) : '-' }}
+                                                </strong>
+                                            </td>
+                                            <td>
+                                                <strong>{{ qualificationScores[climber.id].rank || '-' }}</strong>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="font-size: 0.875em; color: #6b7280;">
+                                    <span v-if="hasUnsavedChanges" style="color: #f59e0b;">●</span>
+                                    <span v-else style="color: #10b981;">✓</span>
+                                    <span style="margin-left: 6px;">{{ hasUnsavedChanges ? 'Ada perubahan yang belum disimpan' : 'Semua perubahan tersimpan' }}</span>
+                                </div>
+                                <button 
+                                    class="btn btn-success" 
+                                    @click="saveQualificationScores()"
+                                    :disabled="savingScores"
+                                    style="min-width: 160px;"
+                                >
+                                    {{ savingScores ? 'Menyimpan...' : 'Simpan Semua Skor' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Finals View -->
+                    <div v-if="selectedSpeedCompetitionId && selectedSpeedRound === 'finals'">
+                        <div class="card-header" style="margin-bottom: 20px;">
+                            <h4 style="margin: 0;">Input Skor Finals</h4>
+                            <button class="btn btn-success" @click="openFinalsMatchModal(null)">+ Tambah Match</button>
+                        </div>
+                        <div v-if="speedFinalsLoading" class="loading">Memuat data...</div>
+                        <div v-else-if="speedFinals.length === 0" class="empty-state">
+                            Belum ada match. Klik "Tambah Match" untuk menambahkan.
+                        </div>
+                        <div v-else>
+                            <div v-for="match in speedFinals" :key="match.id" style="margin-bottom: 20px; padding: 20px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;">
+                                    <span style="display: inline-block; padding: 4px 12px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.875em; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">
+                                        {{ match.stage }} - Match {{ match.match_order }}
+                                    </span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: center;">
+                                    <div style="text-align: center;">
+                                        <div style="font-weight: 600; font-size: 1.05em; color: #1f2937; margin-bottom: 4px;">{{ match.climber_a_name }}</div>
+                                        <div style="font-size: 0.875em; color: #6b7280;">Bib: {{ match.climber_a_bib }} {{ match.climber_a_team ? '• ' + match.climber_a_team : '' }}</div>
+                                    </div>
+                                    <div style="text-align: center; min-width: 280px;">
+                                        <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center; justify-content: center;">
+                                            <input 
+                                                type="number" 
+                                                step="0.01"
+                                                v-model.number="finalsScores[match.id].time_a"
+                                                @input="calculateFinalsWinner(match.id)"
+                                                class="form-input" 
+                                                style="width: 100px; min-height: 44px;"
+                                                placeholder="0.00"
+                                            >
+                                            <select 
+                                                v-model="finalsScores[match.id].status_a"
+                                                @change="calculateFinalsWinner(match.id)"
+                                                class="form-select"
+                                                style="width: 130px; min-height: 44px;"
+                                            >
+                                                <option value="VALID">VALID</option>
+                                                <option value="FALL">FALL</option>
+                                                <option value="FALSE_START">FALSE START</option>
+                                                <option value="DNS">DNS</option>
+                                            </select>
+                                        </div>
+                                        <div style="font-weight: 600; margin: 12px 0; color: #6b7280; font-size: 0.875em; letter-spacing: 1px;">VS</div>
+                                        <div style="display: flex; gap: 8px; align-items: center; justify-content: center;">
+                                            <input 
+                                                type="number" 
+                                                step="0.01"
+                                                v-model.number="finalsScores[match.id].time_b"
+                                                @input="calculateFinalsWinner(match.id)"
+                                                class="form-input" 
+                                                style="width: 100px; min-height: 44px;"
+                                                placeholder="0.00"
+                                            >
+                                            <select 
+                                                v-model="finalsScores[match.id].status_b"
+                                                @change="calculateFinalsWinner(match.id)"
+                                                class="form-select"
+                                                style="width: 130px; min-height: 44px;"
+                                            >
+                                                <option value="VALID">VALID</option>
+                                                <option value="FALL">FALL</option>
+                                                <option value="FALSE_START">FALSE START</option>
+                                                <option value="DNS">DNS</option>
+                                            </select>
+                                        </div>
+                                        <div v-if="finalsScores[match.id].winner_name" style="margin-top: 12px; padding: 8px 12px; background: #d1fae5; border: 1px solid #10b981; border-radius: 6px; color: #059669; font-weight: 600; font-size: 0.875em;">
+                                            ✓ Winner: {{ finalsScores[match.id].winner_name }}
+                                        </div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <div style="font-weight: 600; font-size: 1.05em; color: #1f2937; margin-bottom: 4px;">{{ match.climber_b_name }}</div>
+                                        <div style="font-size: 0.875em; color: #6b7280;">Bib: {{ match.climber_b_bib }} {{ match.climber_b_team ? '• ' + match.climber_b_team : '' }}</div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb; display: flex; gap: 10px;">
+                                    <button 
+                                        class="btn btn-success" 
+                                        @click="saveFinalsMatch(match.id)"
+                                        :disabled="savingMatchId === match.id"
+                                        style="flex: 1;"
+                                    >
+                                        {{ savingMatchId === match.id ? 'Menyimpan...' : 'Simpan Match' }}
+                                    </button>
+                                    <button class="btn btn-warning" @click="openFinalsMatchModal(match)">Edit Match</button>
+                                    <button class="btn btn-danger" @click="deleteFinalsMatch(match.id)">Hapus Match</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Competition Actions -->
+                    <div v-if="selectedSpeedCompetitionId" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                        <button class="btn btn-warning" @click="openSpeedCompetitionModal(speedCompetitions.find(c => c.id === selectedSpeedCompetitionId))">Edit Kompetisi</button>
+                        <button class="btn btn-danger" @click="deleteSpeedCompetition(selectedSpeedCompetitionId)">Hapus Kompetisi</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal -->
+            <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">{{ modalTitle }}</h3>
+                        <button class="close-btn" @click="closeModal">&times;</button>
+                    </div>
+
+                    <!-- Athlete Form -->
+                    <form v-if="modalType === 'athlete'" @submit.prevent="saveItem">
+                        <div class="form-group">
+                            <label class="form-label">Nama</label>
+                            <input type="text" v-model="formData.name" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Kategori</label>
+                            <select v-model="formData.category" class="form-select" required>
+                                <option value="">Pilih Kategori</option>
+                                <option value="Speed Climbing">Speed Climbing</option>
+                                <option value="Lead / Boulder">Lead / Boulder</option>
+                                <option value="Boulder">Boulder</option>
+                                <option value="Lead">Lead</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Umur</label>
+                            <input type="number" v-model.number="formData.age" class="form-input" required min="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Prestasi</label>
+                            <input type="text" v-model="formData.achievement" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Gambar</label>
+                            <label class="file-input-label">
+                                <input type="file" @change="handleFileSelect($event, 'athlete')" accept="image/*">
+                                <span v-if="!formData.imageFile">Pilih Gambar</span>
+                                <span v-else>{{ formData.imageFile.name }}</span>
+                            </label>
+                            <div v-if="formData.image || formData.imageFile" class="file-upload-preview">
+                                <img :src="formData.imageFile ? URL.createObjectURL(formData.imageFile) : formData.image" alt="Preview">
+                            </div>
+                            <input type="hidden" v-model="formData.existingImage">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" @click="closeModal">Batal</button>
+                            <button type="submit" class="btn btn-success">Simpan</button>
+                        </div>
+                    </form>
+
+                    <!-- Schedule Form -->
+                    <form v-if="modalType === 'schedule'" @submit.prevent="saveItem">
+                        <div class="form-group">
+                            <label class="form-label">Tanggal</label>
+                            <input type="text" v-model="formData.date" class="form-input" placeholder="Contoh: 15 Desember 2024" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Judul</label>
+                            <input type="text" v-model="formData.title" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Lokasi</label>
+                            <input type="text" v-model="formData.location" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Waktu</label>
+                            <input type="text" v-model="formData.time" class="form-input" placeholder="Contoh: 08:00 - 17:00 WIB" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select v-model="formData.status" class="form-select" required>
+                                <option value="upcoming">Mendatang</option>
+                                <option value="past">Selesai</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Kategori</label>
+                            <input type="text" v-model="formData.category" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Deskripsi</label>
+                            <textarea v-model="formData.description" class="form-textarea" required></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" @click="closeModal">Batal</button>
+                            <button type="submit" class="btn btn-success">Simpan</button>
+                        </div>
+                    </form>
+
+                    <!-- News Form -->
+                    <form v-if="modalType === 'news'" @submit.prevent="saveItem">
+                        <div class="form-group">
+                            <label class="form-label">Judul</label>
+                            <input type="text" v-model="formData.title" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Kategori</label>
+                            <select v-model="formData.category" class="form-select" required>
+                                <option value="">Pilih Kategori</option>
+                                <option value="Kompetisi">Kompetisi</option>
+                                <option value="Latihan">Latihan</option>
+                                <option value="Prestasi">Prestasi</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Warna Badge</label>
+                            <select v-model="formData.color" class="form-select" required>
+                                <option value="crimson">Merah (Crimson)</option>
+                                <option value="goldenrod">Kuning (Goldenrod)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tanggal</label>
+                            <input type="text" v-model="formData.date" class="form-input" placeholder="Contoh: 10 Desember 2024" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Deskripsi</label>
+                            <textarea id="news-description-editor" v-model="formData.description" class="form-textarea"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Gambar</label>
+                            <label class="file-input-label">
+                                <input type="file" @change="handleFileSelect($event, 'news')" accept="image/*">
+                                <span v-if="!formData.imageFile">Pilih Gambar</span>
+                                <span v-else>{{ formData.imageFile.name }}</span>
+                            </label>
+                            <div v-if="formData.image || formData.imageFile" class="file-upload-preview">
+                                <img :src="formData.imageFile ? URL.createObjectURL(formData.imageFile) : formData.image" alt="Preview">
+                            </div>
+                            <input type="hidden" v-model="formData.existingImage">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" @click="closeModal">Batal</button>
+                            <button type="submit" class="btn btn-success">Simpan</button>
+                        </div>
+                    </form>
+
+                    <!-- Competition Form -->
+                    <form v-if="modalType === 'competition'" @submit.prevent="saveItem">
+                        <div class="form-group">
+                            <label class="form-label">Nama Kompetisi</label>
+                            <input type="text" v-model="formData.name" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Total Boulder</label>
+                            <input type="number" v-model.number="formData.total_boulders" class="form-input" required min="1" max="10">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select v-model="formData.status" class="form-select" required>
+                                <option value="active">Aktif</option>
+                                <option value="finished">Selesai</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" @click="closeModal">Batal</button>
+                            <button type="submit" class="btn btn-success">Simpan</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Climbers Modal -->
+            <div v-if="showClimbersModal" class="modal-overlay" @click.self="closeClimbersModal">
+                <div class="modal-content" style="max-width: 800px;">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Manage Atlet - {{ selectedCompetition?.name }}</h3>
+                        <button class="close-btn" @click="closeClimbersModal">&times;</button>
+                    </div>
+                    <div style="padding: 20px;">
+                        <div class="card-header" style="margin-bottom: 20px;">
+                            <h4 style="margin: 0;">Daftar Atlet</h4>
+                            <button class="btn btn-primary" @click="openClimberForm(null)">+ Tambah Atlet</button>
+                        </div>
+                        <div v-if="climbersLoading" class="loading">Memuat data...</div>
+                        <div v-else-if="climbers.length === 0" class="empty-state">
+                            Belum ada atlet. Klik "Tambah Atlet" untuk menambahkan.
+                        </div>
+                        <div v-else class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Bib</th>
+                                        <th>Nama</th>
+                                        <th>Team</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="climber in climbers" :key="climber.id">
+                                        <td><strong>{{ climber.bib_number }}</strong></td>
+                                        <td>{{ climber.name }}</td>
+                                        <td>{{ climber.team || '-' }}</td>
+                                        <td>
+                                            <button class="btn btn-warning" @click="openClimberForm(climber)" style="margin-right: 5px; padding: 6px 12px; font-size: 0.85em;">Edit</button>
+                                            <button class="btn btn-danger" @click="deleteClimber(climber.id)" style="padding: 6px 12px; font-size: 0.85em;">Hapus</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Climber Form Modal -->
+            <div v-if="showClimberForm" class="modal-overlay" @click.self="closeClimberForm">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">{{ editingClimberId ? 'Edit Atlet' : 'Tambah Atlet' }}</h3>
+                        <button class="close-btn" @click="closeClimberForm">&times;</button>
+                    </div>
+                    <form @submit.prevent="saveClimber">
+                        <div class="form-group">
+                            <label class="form-label">Nama</label>
+                            <input type="text" v-model="climberForm.name" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Bib Number</label>
+                            <input type="number" v-model.number="climberForm.bib_number" class="form-input" required min="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Team (Opsional)</label>
+                            <input type="text" v-model="climberForm.team" class="form-input">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" @click="closeClimberForm">Batal</button>
+                            <button type="submit" class="btn btn-success">Simpan</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Speed Competition Modal -->
+            <div v-if="showSpeedCompetitionModal" class="modal-overlay" @click.self="closeSpeedCompetitionModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">{{ editingSpeedCompetitionId ? 'Edit Kompetisi Speed' : 'Tambah Kompetisi Speed' }}</h3>
+                        <button class="close-btn" @click="closeSpeedCompetitionModal">&times;</button>
+                    </div>
+                    <form @submit.prevent="saveSpeedCompetition">
+                        <div class="form-group">
+                            <label class="form-label">Nama Kompetisi</label>
+                            <input type="text" v-model="speedCompetitionForm.name" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select v-model="speedCompetitionForm.status" class="form-select" required>
+                                <option value="qualification">Qualification</option>
+                                <option value="finals">Finals</option>
+                                <option value="finished">Finished</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" @click="closeSpeedCompetitionModal">Batal</button>
+                            <button type="submit" class="btn btn-success">Simpan</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Speed Climber Modal -->
+            <div v-if="showSpeedClimberModal" class="modal-overlay" @click.self="closeSpeedClimberModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">{{ editingSpeedClimberId ? 'Edit Atlet Speed' : 'Tambah Atlet Speed' }}</h3>
+                        <button class="close-btn" @click="closeSpeedClimberModal">&times;</button>
+                    </div>
+                    <form @submit.prevent="saveSpeedClimber">
+                        <div class="form-group">
+                            <label class="form-label">Nama</label>
+                            <input type="text" v-model="speedClimberForm.name" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Bib Number</label>
+                            <input type="number" v-model.number="speedClimberForm.bib_number" class="form-input" required min="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Team (Opsional)</label>
+                            <input type="text" v-model="speedClimberForm.team" class="form-input">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" @click="closeSpeedClimberModal">Batal</button>
+                            <button type="submit" class="btn btn-success">Simpan</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Finals Match Modal -->
+            <div v-if="showFinalsMatchModal" class="modal-overlay" @click.self="closeFinalsMatchModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">{{ editingFinalsMatchId ? 'Edit Match Finals' : 'Tambah Match Finals' }}</h3>
+                        <button class="close-btn" @click="closeFinalsMatchModal">&times;</button>
+                    </div>
+                    <form @submit.prevent="saveFinalsMatchForm">
+                        <div class="form-group">
+                            <label class="form-label">Stage</label>
+                            <select v-model="finalsMatchForm.stage" class="form-select" required>
+                                <option value="Round of 16">Round of 16</option>
+                                <option value="Quarter Final">Quarter Final</option>
+                                <option value="Semi Final">Semi Final</option>
+                                <option value="Small Final">Small Final</option>
+                                <option value="Big Final">Big Final</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Climber A</label>
+                            <select v-model.number="finalsMatchForm.climber_a_id" class="form-select" required>
+                                <option :value="null">-- Pilih Atlet --</option>
+                                <option v-for="climber in speedClimbers" :key="climber.id" :value="climber.id">
+                                    {{ climber.name }} (Bib: {{ climber.bib_number }})
+                                </option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Climber B</label>
+                            <select v-model.number="finalsMatchForm.climber_b_id" class="form-select" required>
+                                <option :value="null">-- Pilih Atlet --</option>
+                                <option v-for="climber in speedClimbers" :key="climber.id" :value="climber.id">
+                                    {{ climber.name }} (Bib: {{ climber.bib_number }})
+                                </option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Match Order</label>
+                            <input type="number" v-model.number="finalsMatchForm.match_order" class="form-input" required min="0">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" @click="closeFinalsMatchModal">Batal</button>
+                            <button type="submit" class="btn btn-success">Simpan</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    activeTab: 'athletes',
+                    loading: false,
+                    athletes: [],
+                    schedules: [],
+                    news: [],
+                    competitions: [],
+                    climbers: [],
+                    climbersLoading: false,
+                    showModal: false,
+                    modalType: null,
+                    formData: {},
+                    editingId: null,
+                    showClimbersModal: false,
+                    selectedCompetition: null,
+                    showClimberForm: false,
+                    editingClimberId: null,
+                    climberForm: {
+                        name: '',
+                        bib_number: 1,
+                        team: ''
+                    },
+                    // Speed Climbing data
+                    speedCompetitions: [],
+                    speedClimbers: [],
+                    speedClimbersLoading: false,
+                    selectedSpeedCompetitionId: null,
+                    selectedSpeedRound: 'qualification',
+                    qualificationScores: {},
+                    speedFinals: [],
+                    speedFinalsLoading: false,
+                    finalsScores: {},
+                    showSpeedCompetitionModal: false,
+                    speedCompetitionForm: {
+                        name: '',
+                        status: 'qualification'
+                    },
+                    editingSpeedCompetitionId: null,
+                    showSpeedClimberModal: false,
+                    speedClimberForm: {
+                        name: '',
+                        bib_number: 1,
+                        team: ''
+                    },
+                    editingSpeedClimberId: null,
+                    showFinalsMatchModal: false,
+                    finalsMatchForm: {
+                        stage: 'Round of 16',
+                        climber_a_id: null,
+                        climber_b_id: null,
+                        match_order: 0
+                    },
+                    editingFinalsMatchId: null,
+                    savingScores: false,
+                    savingMatchId: null,
+                    hasUnsavedChanges: false
+                }
+            },
+            computed: {
+                modalTitle() {
+                    if (!this.modalType) return '';
+                    const titles = {
+                        athlete: this.editingId ? 'Edit Atlet' : 'Tambah Atlet',
+                        schedule: this.editingId ? 'Edit Jadwal' : 'Tambah Jadwal',
+                        news: this.editingId ? 'Edit Berita' : 'Tambah Berita',
+                        competition: this.editingId ? 'Edit Kompetisi' : 'Tambah Kompetisi'
+                    };
+                    return titles[this.modalType];
+                }
+            },
+            mounted() {
+                this.checkAuth();
+                this.initTinyMCE();
+            },
+            methods: {
+                async checkAuth() {
+                    try {
+                        const response = await fetch('/api/check-auth', {
+                            credentials: 'include' // Important for session cookies
+                        });
+                        const data = await response.json();
+                        console.log('Auth check:', data);
+                        if (!data.authenticated) {
+                            window.location.href = '/admin-login';
+                            return;
+                        }
+                        this.loadData();
+                    } catch (error) {
+                        console.error('Auth check error:', error);
+                        window.location.href = '/admin-login';
+                    }
+                },
+                async logout() {
+                    try {
+                        await fetch('/api/logout', { 
+                            method: 'POST',
+                            credentials: 'include'
+                        });
+                        window.location.href = '/admin-login';
+                    } catch (error) {
+                        console.error('Logout error:', error);
+                    }
+                },
+                initTinyMCE() {
+                    if (typeof tinymce !== 'undefined') {
+                        tinymce.init({
+                            selector: '#news-description-editor',
+                            height: 300,
+                            menubar: false,
+                            plugins: [
+                                'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
+                                'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                                'insertdatetime', 'media', 'table', 'preview', 'help', 'wordcount'
+                            ],
+                            toolbar: 'undo redo | formatselect | ' +
+                                'bold italic underline strikethrough | forecolor backcolor | ' +
+                                'alignleft aligncenter alignright alignjustify | ' +
+                                'bullist numlist outdent indent | removeformat | help',
+                            images_upload_handler: async (blobInfo, progress) => {
+                                return new Promise(async (resolve, reject) => {
+                                    const formData = new FormData();
+                                    formData.append('image', blobInfo.blob(), blobInfo.filename());
+                                    
+                                    try {
+                                        const response = await fetch('/api/upload-image', {
+                                            method: 'POST',
+                                            credentials: 'include',
+                                            body: formData
+                                        });
+                                        const data = await response.json();
+                                        if (response.ok) {
+                                            resolve(data.url);
+                                        } else {
+                                            reject(data.error || 'Upload failed');
+                                        }
+                                    } catch (error) {
+                                        reject('Upload failed: ' + error.message);
+                                    }
+                                });
+                            },
+                            setup: (editor) => {
+                                editor.on('change', () => {
+                                    this.formData.description = editor.getContent();
+                                });
+                            }
+                        });
+                    }
+                },
+                async loadData() {
+                    this.loading = true;
+                    try {
+                        const [athletesRes, schedulesRes, newsRes, competitionsRes, speedCompetitionsRes] = await Promise.all([
+                            fetch('/api/athletes', { credentials: 'include' }),
+                            fetch('/api/schedules', { credentials: 'include' }),
+                            fetch('/api/news', { credentials: 'include' }),
+                            fetch('/api/competitions', { credentials: 'include' }),
+                            fetch('/api/speed-competitions', { credentials: 'include' })
+                        ]);
+                        this.athletes = await athletesRes.json();
+                        this.schedules = await schedulesRes.json();
+                        this.news = await newsRes.json();
+                        this.competitions = await competitionsRes.json();
+                        this.speedCompetitions = await speedCompetitionsRes.json();
+                    } catch (error) {
+                        console.error('Error loading data:', error);
+                        alert('Gagal memuat data. Silakan refresh halaman.');
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                openModal(type, item) {
+                    this.modalType = type;
+                    this.editingId = item ? item.id : null;
+                    
+                    if (type === 'athlete') {
+                        this.formData = item ? { ...item, existingImage: item.image, imageFile: null } : {
+                            name: '',
+                            category: '',
+                            age: 0,
+                            achievement: '',
+                            image: null,
+                            existingImage: null,
+                            imageFile: null
+                        };
+                    } else if (type === 'schedule') {
+                        this.formData = item ? { ...item } : {
+                            date: '',
+                            title: '',
+                            location: '',
+                            time: '',
+                            status: 'upcoming',
+                            category: '',
+                            description: ''
+                        };
+                    } else if (type === 'news') {
+                        this.formData = item ? { ...item, existingImage: item.image, imageFile: null } : {
+                            title: '',
+                            category: '',
+                            color: 'crimson',
+                            date: new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }),
+                            description: '',
+                            image: null,
+                            existingImage: null,
+                            imageFile: null
+                        };
+                        // Set TinyMCE content after modal opens
+                        this.$nextTick(() => {
+                            if (typeof tinymce !== 'undefined' && tinymce.get('news-description-editor')) {
+                                tinymce.get('news-description-editor').setContent(this.formData.description || '');
+                            }
+                        });
+                    } else if (type === 'competition') {
+                        this.formData = item ? { ...item } : {
+                            name: '',
+                            total_boulders: 4,
+                            status: 'active'
+                        };
+                    }
+                    
+                    this.showModal = true;
+                },
+                handleFileSelect(event, type) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        this.formData.imageFile = file;
+                        if (type === 'athlete') {
+                            this.formData.image = null;
+                        } else if (type === 'news') {
+                            this.formData.image = null;
+                        }
+                    }
+                },
+                closeModal() {
+                    this.showModal = false;
+                    this.modalType = null;
+                    this.editingId = null;
+                    this.formData = {};
+                    // Remove TinyMCE instance
+                    if (typeof tinymce !== 'undefined' && tinymce.get('news-description-editor')) {
+                        tinymce.get('news-description-editor').remove();
+                    }
+                },
+                async saveItem() {
+                    try {
+                        // Get TinyMCE content for news
+                        if (this.modalType === 'news' && typeof tinymce !== 'undefined' && tinymce.get('news-description-editor')) {
+                            this.formData.description = tinymce.get('news-description-editor').getContent();
+                        }
+
+                        const url = `/api/${this.modalType === 'athlete' ? 'athletes' : this.modalType === 'schedule' ? 'schedules' : this.modalType === 'news' ? 'news' : 'competitions'}`;
+                        const method = this.editingId ? 'PUT' : 'POST';
+                        const finalUrl = this.editingId ? `${url}/${this.editingId}` : url;
+                        
+                        let response;
+                        
+                        // Use FormData for athlete and news (always, even without new file)
+                        if (this.modalType === 'athlete' || this.modalType === 'news') {
+                            const formData = new FormData();
+                            
+                            // Append image file if exists
+                            if (this.formData.imageFile) {
+                                formData.append('image', this.formData.imageFile);
+                            }
+                            
+                            // Add other fields
+                            Object.keys(this.formData).forEach(key => {
+                                if (key !== 'imageFile' && key !== 'image') {
+                                    formData.append(key, this.formData[key]);
+                                }
+                            });
+                            
+                            // Add existingImage for update (important when no new file is uploaded)
+                            if (this.editingId && this.formData.existingImage) {
+                                formData.append('existingImage', this.formData.existingImage);
+                            }
+                            
+                            response = await fetch(finalUrl, {
+                                method: method,
+                                credentials: 'include',
+                                body: formData
+                            });
+                        } else {
+                            // Use JSON for schedules and competitions
+                            const jsonData = { ...this.formData };
+                            delete jsonData.imageFile;
+                            if (this.editingId && this.formData.existingImage) {
+                                jsonData.existingImage = this.formData.existingImage;
+                            }
+                            
+                            response = await fetch(finalUrl, {
+                                method: method,
+                                credentials: 'include',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(jsonData)
+                            });
+                        }
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error || 'Gagal menyimpan data');
+                        }
+                        
+                        await this.loadData();
+                        this.closeModal();
+                        alert('Data berhasil disimpan!');
+                    } catch (error) {
+                        console.error('Error saving:', error);
+                        alert('Gagal menyimpan data: ' + error.message);
+                    }
+                },
+                async deleteItem(type, id) {
+                    if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) {
+                        return;
+                    }
+                    
+                    try {
+                        const url = `/api/${type === 'athlete' ? 'athletes' : type === 'schedule' ? 'schedules' : type === 'news' ? 'news' : 'competitions'}/${id}`;
+                        const response = await fetch(url, {
+                            method: 'DELETE',
+                            credentials: 'include'
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Gagal menghapus data');
+                        }
+                        
+                        await this.loadData();
+                        alert('Data berhasil dihapus!');
+                    } catch (error) {
+                        console.error('Error deleting:', error);
+                        alert('Gagal menghapus data. Silakan coba lagi.');
+                    }
+                },
+                async openClimbersModal(competition) {
+                    this.selectedCompetition = competition;
+                    this.showClimbersModal = true;
+                    await this.loadClimbers();
+                },
+                closeClimbersModal() {
+                    this.showClimbersModal = false;
+                    this.selectedCompetition = null;
+                    this.climbers = [];
+                },
+                async loadClimbers() {
+                    if (!this.selectedCompetition) return;
+                    this.climbersLoading = true;
+                    try {
+                        const response = await fetch(`/api/competitions/${this.selectedCompetition.id}/climbers`, {
+                            credentials: 'include'
+                        });
+                        if (response.ok) {
+                            this.climbers = await response.json();
+                        }
+                    } catch (error) {
+                        console.error('Error loading climbers:', error);
+                        alert('Gagal memuat data atlet.');
+                    } finally {
+                        this.climbersLoading = false;
+                    }
+                },
+                openClimberForm(climber) {
+                    this.editingClimberId = climber ? climber.id : null;
+                    this.climberForm = climber ? { ...climber } : {
+                        name: '',
+                        bib_number: 1,
+                        team: ''
+                    };
+                    this.showClimberForm = true;
+                },
+                closeClimberForm() {
+                    this.showClimberForm = false;
+                    this.editingClimberId = null;
+                    this.climberForm = {
+                        name: '',
+                        bib_number: 1,
+                        team: ''
+                    };
+                },
+                async saveClimber() {
+                    try {
+                        const url = this.editingClimberId 
+                            ? `/api/climbers/${this.editingClimberId}`
+                            : `/api/competitions/${this.selectedCompetition.id}/climbers`;
+                        const method = this.editingClimberId ? 'PUT' : 'POST';
+                        
+                        const response = await fetch(url, {
+                            method: method,
+                            credentials: 'include',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(this.climberForm)
+                        });
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error || 'Gagal menyimpan data');
+                        }
+                        
+                        await this.loadClimbers();
+                        this.closeClimberForm();
+                        alert('Data atlet berhasil disimpan!');
+                    } catch (error) {
+                        console.error('Error saving climber:', error);
+                        alert('Gagal menyimpan data: ' + error.message);
+                    }
+                },
+                async deleteClimber(id) {
+                    if (!confirm('Apakah Anda yakin ingin menghapus atlet ini?')) {
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch(`/api/climbers/${id}`, {
+                            method: 'DELETE',
+                            credentials: 'include'
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Gagal menghapus data');
+                        }
+                        
+                        await this.loadClimbers();
+                        alert('Atlet berhasil dihapus!');
+                    } catch (error) {
+                        console.error('Error deleting climber:', error);
+                        alert('Gagal menghapus data. Silakan coba lagi.');
+                    }
+                },
+                handleImageError(e) {
+                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80"%3E%3Crect fill="%23E11D23" width="80" height="80"/%3E%3Ctext fill="%23FFFFFF" font-family="Arial" font-size="12" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E';
+                },
+                // Speed Climbing Methods
+                async loadSpeedData() {
+                    if (!this.selectedSpeedCompetitionId) {
+                        this.speedClimbers = [];
+                        this.qualificationScores = {};
+                        this.speedFinals = [];
+                        this.finalsScores = {};
+                        this.hasUnsavedChanges = false;
+                        return;
+                    }
+                    
+                    // Reset unsaved changes flag when switching rounds
+                    this.hasUnsavedChanges = false;
+                    
+                    if (this.selectedSpeedRound === 'qualification') {
+                        // Clear finals data when switching to qualification
+                        this.speedFinals = [];
+                        this.finalsScores = {};
+                        await this.loadSpeedClimbers();
+                        await this.loadQualificationScores();
+                    } else {
+                        // Clear qualification data when switching to finals
+                        this.speedClimbers = [];
+                        this.qualificationScores = {};
+                        await this.loadSpeedFinals();
+                    }
+                },
+                async loadSpeedClimbers() {
+                    if (!this.selectedSpeedCompetitionId) return;
+                    this.speedClimbersLoading = true;
+                    try {
+                        const response = await fetch(`/api/speed-competitions/${this.selectedSpeedCompetitionId}/climbers`, {
+                            credentials: 'include'
+                        });
+                        if (response.ok) {
+                            this.speedClimbers = await response.json();
+                            // Initialize qualification scores
+                            this.speedClimbers.forEach(climber => {
+                                if (!this.qualificationScores[climber.id]) {
+                                    this.qualificationScores[climber.id] = {
+                                        lane_a_time: null,
+                                        lane_b_time: null,
+                                        lane_a_status: 'VALID',
+                                        lane_b_status: 'VALID',
+                                        total_time: null,
+                                        status: 'INVALID',
+                                        rank: null
+                                    };
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error loading speed climbers:', error);
+                        alert('Gagal memuat data atlet.');
+                    } finally {
+                        this.speedClimbersLoading = false;
+                    }
+                },
+                async loadQualificationScores() {
+                    if (!this.selectedSpeedCompetitionId) return;
+                    try {
+                        const response = await fetch(`/api/speed-competitions/${this.selectedSpeedCompetitionId}/qualification`, {
+                            credentials: 'include'
+                        });
+                        if (response.ok) {
+                            const scores = await response.json();
+                            scores.forEach(score => {
+                                this.qualificationScores[score.climber_id] = {
+                                    lane_a_time: score.lane_a_time,
+                                    lane_b_time: score.lane_b_time,
+                                    lane_a_status: score.lane_a_status,
+                                    lane_b_status: score.lane_b_status,
+                                    total_time: score.total_time,
+                                    status: score.status,
+                                    rank: score.rank
+                                };
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error loading qualification scores:', error);
+                    }
+                },
+                calculateQualificationTotal(climberId) {
+                    const score = this.qualificationScores[climberId];
+                    if (!score) return;
+                    
+                    const isInvalid = 
+                        score.lane_a_status !== 'VALID' || 
+                        score.lane_b_status !== 'VALID' || 
+                        score.lane_a_time === null || 
+                        score.lane_b_time === null;
+                    
+                    if (isInvalid) {
+                        score.total_time = null;
+                        score.status = 'INVALID';
+                    } else {
+                        score.total_time = parseFloat((score.lane_a_time + score.lane_b_time).toFixed(2));
+                        score.status = 'VALID';
+                    }
+                    
+                    // Mark as having unsaved changes
+                    this.hasUnsavedChanges = true;
+                },
+                async saveQualificationScores() {
+                    if (!this.selectedSpeedCompetitionId || this.savingScores) return;
+                    
+                    this.savingScores = true;
+                    try {
+                        const promises = this.speedClimbers.map(climber => {
+                            const score = this.qualificationScores[climber.id];
+                            return fetch(`/api/speed-competitions/${this.selectedSpeedCompetitionId}/qualification/${climber.id}`, {
+                                method: 'PUT',
+                                credentials: 'include',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    lane_a_time: score.lane_a_time,
+                                    lane_b_time: score.lane_b_time,
+                                    lane_a_status: score.lane_a_status,
+                                    lane_b_status: score.lane_b_status
+                                })
+                            });
+                        });
+                        
+                        await Promise.all(promises);
+                        await this.loadQualificationScores();
+                        this.hasUnsavedChanges = false;
+                        alert('Semua skor kualifikasi berhasil disimpan!');
+                    } catch (error) {
+                        console.error('Error saving qualification scores:', error);
+                        alert('Gagal menyimpan skor. Silakan coba lagi.');
+                    } finally {
+                        this.savingScores = false;
+                    }
+                },
+                async loadSpeedFinals() {
+                    if (!this.selectedSpeedCompetitionId) return;
+                    this.speedFinalsLoading = true;
+                    try {
+                        const response = await fetch(`/api/speed-competitions/${this.selectedSpeedCompetitionId}/finals`, {
+                            credentials: 'include'
+                        });
+                        if (response.ok) {
+                            this.speedFinals = await response.json();
+                            // Initialize finals scores
+                            this.speedFinals.forEach(match => {
+                                if (!this.finalsScores[match.id]) {
+                                    this.finalsScores[match.id] = {
+                                        time_a: match.time_a ? parseFloat(match.time_a) : null,
+                                        time_b: match.time_b ? parseFloat(match.time_b) : null,
+                                        status_a: match.status_a || 'VALID',
+                                        status_b: match.status_b || 'VALID',
+                                        winner_id: match.winner_id,
+                                        winner_name: match.winner_id === match.climber_a_id ? match.climber_a_name : 
+                                                   (match.winner_id === match.climber_b_id ? match.climber_b_name : null)
+                                    };
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error loading finals:', error);
+                        alert('Gagal memuat data final.');
+                    } finally {
+                        this.speedFinalsLoading = false;
+                    }
+                },
+                calculateFinalsWinner(matchId) {
+                    const match = this.speedFinals.find(m => m.id === matchId);
+                    const score = this.finalsScores[matchId];
+                    if (!match || !score) return;
+                    
+                    const timeA = score.time_a;
+                    const timeB = score.time_b;
+                    const statusA = score.status_a;
+                    const statusB = score.status_b;
+                    
+                    // If both are invalid, no winner
+                    if (statusA !== 'VALID' && statusB !== 'VALID') {
+                        score.winner_id = null;
+                        score.winner_name = null;
+                        return;
+                    }
+                    
+                    // If only A is valid, A wins
+                    if (statusA === 'VALID' && statusB !== 'VALID') {
+                        score.winner_id = match.climber_a_id;
+                        score.winner_name = match.climber_a_name;
+                        return;
+                    }
+                    
+                    // If only B is valid, B wins
+                    if (statusA !== 'VALID' && statusB === 'VALID') {
+                        score.winner_id = match.climber_b_id;
+                        score.winner_name = match.climber_b_name;
+                        return;
+                    }
+                    
+                    // Both are valid, compare times
+                    if (timeA !== null && timeB !== null) {
+                        if (timeA < timeB) {
+                            score.winner_id = match.climber_a_id;
+                            score.winner_name = match.climber_a_name;
+                        } else if (timeB < timeA) {
+                            score.winner_id = match.climber_b_id;
+                            score.winner_name = match.climber_b_name;
+                        } else {
+                            score.winner_id = null;
+                            score.winner_name = null;
+                        }
+                    }
+                },
+                async saveFinalsMatch(matchId) {
+                    if (!this.selectedSpeedCompetitionId || this.savingMatchId === matchId) return;
+                    
+                    this.savingMatchId = matchId;
+                    try {
+                        const score = this.finalsScores[matchId];
+                        const response = await fetch(`/api/speed-competitions/${this.selectedSpeedCompetitionId}/finals/${matchId}`, {
+                            method: 'PUT',
+                            credentials: 'include',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                time_a: score.time_a,
+                                time_b: score.time_b,
+                                status_a: score.status_a,
+                                status_b: score.status_b
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Gagal menyimpan match');
+                        }
+                        
+                        await this.loadSpeedFinals();
+                        alert('Match berhasil disimpan!');
+                    } catch (error) {
+                        console.error('Error saving finals match:', error);
+                        alert('Gagal menyimpan match. Silakan coba lagi.');
+                    } finally {
+                        this.savingMatchId = null;
+                    }
+                },
+                async deleteFinalsMatch(matchId) {
+                    if (!confirm('Apakah Anda yakin ingin menghapus match ini?')) return;
+                    
+                    try {
+                        const response = await fetch(`/api/speed-competitions/${this.selectedSpeedCompetitionId}/finals/${matchId}`, {
+                            method: 'DELETE',
+                            credentials: 'include'
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Gagal menghapus match');
+                        }
+                        
+                        await this.loadSpeedFinals();
+                        alert('Match berhasil dihapus!');
+                    } catch (error) {
+                        console.error('Error deleting finals match:', error);
+                        alert('Gagal menghapus match. Silakan coba lagi.');
+                    }
+                },
+                openSpeedCompetitionModal(competition) {
+                    this.editingSpeedCompetitionId = competition ? competition.id : null;
+                    this.speedCompetitionForm = competition ? { ...competition } : {
+                        name: '',
+                        status: 'qualification'
+                    };
+                    this.showSpeedCompetitionModal = true;
+                },
+                closeSpeedCompetitionModal() {
+                    this.showSpeedCompetitionModal = false;
+                    this.editingSpeedCompetitionId = null;
+                    this.speedCompetitionForm = {
+                        name: '',
+                        status: 'qualification'
+                    };
+                },
+                async saveSpeedCompetition() {
+                    try {
+                        const url = this.editingSpeedCompetitionId 
+                            ? `/api/speed-competitions/${this.editingSpeedCompetitionId}`
+                            : '/api/speed-competitions';
+                        const method = this.editingSpeedCompetitionId ? 'PUT' : 'POST';
+                        
+                        const response = await fetch(url, {
+                            method: method,
+                            credentials: 'include',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(this.speedCompetitionForm)
+                        });
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error || 'Gagal menyimpan kompetisi');
+                        }
+                        
+                        await this.loadData();
+                        this.closeSpeedCompetitionModal();
+                        alert('Kompetisi Speed berhasil disimpan!');
+                    } catch (error) {
+                        console.error('Error saving speed competition:', error);
+                        alert('Gagal menyimpan kompetisi: ' + error.message);
+                    }
+                },
+                async deleteSpeedCompetition(id) {
+                    if (!confirm('Apakah Anda yakin ingin menghapus kompetisi ini?')) return;
+                    
+                    try {
+                        const response = await fetch(`/api/speed-competitions/${id}`, {
+                            method: 'DELETE',
+                            credentials: 'include'
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Gagal menghapus kompetisi');
+                        }
+                        
+                        await this.loadData();
+                        alert('Kompetisi berhasil dihapus!');
+                    } catch (error) {
+                        console.error('Error deleting speed competition:', error);
+                        alert('Gagal menghapus kompetisi. Silakan coba lagi.');
+                    }
+                },
+                openSpeedClimberModal(climber) {
+                    this.editingSpeedClimberId = climber ? climber.id : null;
+                    this.speedClimberForm = climber ? { ...climber } : {
+                        name: '',
+                        bib_number: 1,
+                        team: ''
+                    };
+                    this.showSpeedClimberModal = true;
+                },
+                closeSpeedClimberModal() {
+                    this.showSpeedClimberModal = false;
+                    this.editingSpeedClimberId = null;
+                    this.speedClimberForm = {
+                        name: '',
+                        bib_number: 1,
+                        team: ''
+                    };
+                },
+                async saveSpeedClimber() {
+                    try {
+                        const url = this.editingSpeedClimberId 
+                            ? `/api/speed-climbers/${this.editingSpeedClimberId}`
+                            : `/api/speed-competitions/${this.selectedSpeedCompetitionId}/climbers`;
+                        const method = this.editingSpeedClimberId ? 'PUT' : 'POST';
+                        
+                        const response = await fetch(url, {
+                            method: method,
+                            credentials: 'include',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(this.speedClimberForm)
+                        });
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error || 'Gagal menyimpan atlet');
+                        }
+                        
+                        await this.loadSpeedClimbers();
+                        this.closeSpeedClimberModal();
+                        alert('Atlet berhasil disimpan!');
+                    } catch (error) {
+                        console.error('Error saving speed climber:', error);
+                        alert('Gagal menyimpan atlet: ' + error.message);
+                    }
+                },
+                async deleteSpeedClimber(id) {
+                    if (!confirm('Apakah Anda yakin ingin menghapus atlet ini?')) return;
+                    
+                    try {
+                        const response = await fetch(`/api/speed-climbers/${id}`, {
+                            method: 'DELETE',
+                            credentials: 'include'
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Gagal menghapus atlet');
+                        }
+                        
+                        await this.loadSpeedClimbers();
+                        alert('Atlet berhasil dihapus!');
+                    } catch (error) {
+                        console.error('Error deleting speed climber:', error);
+                        alert('Gagal menghapus atlet. Silakan coba lagi.');
+                    }
+                },
+                openFinalsMatchModal(match) {
+                    this.editingFinalsMatchId = match ? match.id : null;
+                    if (match) {
+                        this.finalsMatchForm = {
+                            stage: match.stage,
+                            climber_a_id: match.climber_a_id,
+                            climber_b_id: match.climber_b_id,
+                            match_order: match.match_order || 0
+                        };
+                    } else {
+                        this.finalsMatchForm = {
+                            stage: 'Round of 16',
+                            climber_a_id: null,
+                            climber_b_id: null,
+                            match_order: 0
+                        };
+                    }
+                    this.showFinalsMatchModal = true;
+                },
+                closeFinalsMatchModal() {
+                    this.showFinalsMatchModal = false;
+                    this.editingFinalsMatchId = null;
+                    this.finalsMatchForm = {
+                        stage: 'Round of 16',
+                        climber_a_id: null,
+                        climber_b_id: null,
+                        match_order: 0
+                    };
+                },
+                async saveFinalsMatchForm() {
+                    try {
+                        const url = this.editingFinalsMatchId
+                            ? `/api/speed-competitions/${this.selectedSpeedCompetitionId}/finals/${this.editingFinalsMatchId}`
+                            : `/api/speed-competitions/${this.selectedSpeedCompetitionId}/finals`;
+                        const method = this.editingFinalsMatchId ? 'PUT' : 'POST';
+                        
+                        const response = await fetch(url, {
+                            method: method,
+                            credentials: 'include',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(this.finalsMatchForm)
+                        });
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error || 'Gagal menyimpan match');
+                        }
+                        
+                        await this.loadSpeedFinals();
+                        this.closeFinalsMatchModal();
+                        alert('Match berhasil disimpan!');
+                    } catch (error) {
+                        console.error('Error saving finals match form:', error);
+                        alert('Gagal menyimpan match: ' + error.message);
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
+

@@ -1,65 +1,31 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Search, Filter } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Search, Filter } from 'lucide-react'
+import PublicLayout from '../components/PublicLayout'
 import './LandingPage.css'
 
 function AthletesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
+  const [athletes, setAthletes] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const athletes = [
-    {
-      id: 1,
-      name: 'Ahmad Rizki',
-      category: 'Speed Climbing',
-      achievement: 'Medali Emas Kejurnas 2024',
-      age: 22,
-      image: 'https://picsum.photos/seed/climbing1/800/600'
-    },
-    {
-      id: 2,
-      name: 'Siti Nurhaliza',
-      category: 'Lead / Boulder',
-      achievement: 'Juara 1 Kejurprov Jateng',
-      age: 20,
-      image: 'https://picsum.photos/seed/climbing2/800/600'
-    },
-    {
-      id: 3,
-      name: 'Budi Santoso',
-      category: 'Boulder',
-      achievement: 'Medali Perak Porprov 2024',
-      age: 24,
-      image: 'https://picsum.photos/seed/climbing3/800/600'
-    },
-    {
-      id: 4,
-      name: 'Rina Wati',
-      category: 'Speed Climbing',
-      achievement: 'Juara 3 Kejurnas 2024',
-      age: 19,
-      image: 'https://picsum.photos/seed/climbing4/800/600'
-    },
-    {
-      id: 5,
-      name: 'Dedi Kurniawan',
-      category: 'Lead',
-      achievement: 'Medali Emas Kejurda',
-      age: 25,
-      image: 'https://picsum.photos/seed/climbing5/800/600'
-    },
-    {
-      id: 6,
-      name: 'Maya Sari',
-      category: 'Boulder',
-      achievement: 'Juara 2 Kejurprov',
-      age: 21,
-      image: 'https://picsum.photos/seed/climbing6/800/600'
+  useEffect(() => {
+    const fetchAthletes = async () => {
+      try {
+        const response = await fetch('/api/athletes')
+        const data = await response.json()
+        setAthletes(data)
+      } catch (error) {
+        console.error('Error fetching athletes:', error)
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+    fetchAthletes()
+  }, [])
 
-  const categories = ['all', 'Speed Climbing', 'Lead / Boulder', 'Boulder', 'Lead']
+  const categories = ['all', ...new Set(athletes.map(a => a.category).filter(Boolean))]
 
   const filteredAthletes = athletes.filter(athlete => {
     const matchesSearch = athlete.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -69,31 +35,8 @@ function AthletesPage() {
   })
 
   return (
-    <div className="bg-rich-black min-h-screen text-off-white font-body">
-      {/* Navbar */}
-      <nav className="fixed w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/10 py-4">
-        <div className="container mx-auto px-6 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-3 group">
-            <img 
-              src="/logo.jpeg" 
-              alt="FPTI Karanganyar" 
-              className="w-10 h-10 rounded-full object-cover border-2 border-goldenrod/50"
-            />
-            <div className="flex flex-col">
-              <span className="font-heading font-bold text-lg tracking-wider">FPTI</span>
-              <span className="text-[10px] text-goldenrod uppercase tracking-[0.2em]">Karanganyar</span>
-            </div>
-          </Link>
-          <Link 
-            to="/" 
-            className="flex items-center gap-2 text-gray-400 hover:text-goldenrod transition-colors"
-          >
-            <ArrowLeft size={20} />
-            <span>Kembali</span>
-          </Link>
-        </div>
-      </nav>
-
+    <PublicLayout>
+      <div className="bg-rich-black min-h-screen text-off-white font-body">
       {/* Hero Section */}
       <section className="pt-32 pb-12 bg-gradient-to-b from-gunmetal to-rich-black">
         <div className="container mx-auto px-6">
@@ -150,7 +93,12 @@ function AthletesPage() {
       <section className="py-20 bg-rich-black">
         <div className="container mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredAthletes.map((athlete, index) => (
+            {loading ? (
+              <div className="col-span-3 text-center text-gray-400 py-10">Memuat data...</div>
+            ) : filteredAthletes.length === 0 ? (
+              <div className="col-span-3 text-center text-gray-400 py-10">Tidak ada atlet yang ditemukan</div>
+            ) : (
+              filteredAthletes.map((athlete, index) => (
               <motion.div
                 key={athlete.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -160,12 +108,13 @@ function AthletesPage() {
                 className="group relative h-[450px] rounded-xl overflow-hidden cursor-pointer bg-gunmetal"
               >
                 <img 
-                  src={athlete.image}
+                  src={athlete.image && athlete.image.startsWith('http') ? athlete.image : (athlete.image ? athlete.image : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23E11D23" width="800" height="600"/%3E%3Ctext fill="%23FFFFFF" font-family="Arial" font-size="24" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E')}
                   alt={athlete.name}
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   loading="lazy"
                   onError={(e) => {
-                    e.target.src = `https://via.placeholder.com/800x600/E11D23/FFFFFF?text=${encodeURIComponent(athlete.name)}`;
+                    // Fallback ke SVG placeholder jika gambar gagal load
+                    e.target.src = `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23E11D23" width="800" height="600"/%3E%3Ctext fill="%23FFFFFF" font-family="Arial" font-size="20" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3E${encodeURIComponent(athlete.name || 'Athlete')}%3C/text%3E%3C/svg%3E`;
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent"></div>
@@ -177,18 +126,13 @@ function AthletesPage() {
                   <h3 className="text-2xl font-heading font-bold text-white mb-2">{athlete.name}</h3>
                   <p className="text-gray-300 text-sm mb-2">Umur: {athlete.age} tahun</p>
                   <p className="text-goldenrod text-sm font-medium">
-                    {athlete.achievement}
+                    {athlete.achievement || 'Tidak ada prestasi'}
                   </p>
                 </div>
               </motion.div>
-            ))}
+              ))
+            )}
           </div>
-
-          {filteredAthletes.length === 0 && (
-            <div className="text-center py-20">
-              <p className="text-gray-400 text-lg">Tidak ada atlet yang ditemukan</p>
-            </div>
-          )}
         </div>
       </section>
 
@@ -198,7 +142,8 @@ function AthletesPage() {
           <p>&copy; 2024 FPTI Karanganyar. All rights reserved.</p>
         </div>
       </footer>
-    </div>
+      </div>
+    </PublicLayout>
   )
 }
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, MapPin, Mail, Phone, Instagram, Facebook, Send } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { MapPin, Mail, Phone, Instagram, Facebook, Send } from 'lucide-react'
+import PublicLayout from '../components/PublicLayout'
 import './LandingPage.css'
 
 function ContactPage() {
@@ -27,33 +27,10 @@ function ContactPage() {
   }
 
   return (
-    <div className="bg-rich-black min-h-screen text-off-white font-body">
-      {/* Navbar */}
-      <nav className="fixed w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/10 py-4">
-        <div className="container mx-auto px-6 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-3 group">
-            <img 
-              src="/logo.jpeg" 
-              alt="FPTI Karanganyar" 
-              className="w-10 h-10 rounded-full object-cover border-2 border-goldenrod/50"
-            />
-            <div className="flex flex-col">
-              <span className="font-heading font-bold text-lg tracking-wider">FPTI</span>
-              <span className="text-[10px] text-goldenrod uppercase tracking-[0.2em]">Karanganyar</span>
-            </div>
-          </Link>
-          <Link 
-            to="/" 
-            className="flex items-center gap-2 text-gray-400 hover:text-goldenrod transition-colors"
-          >
-            <ArrowLeft size={20} />
-            <span>Kembali</span>
-          </Link>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="pt-32 pb-12 bg-gradient-to-b from-gunmetal to-rich-black">
+    <PublicLayout>
+      <div className="bg-rich-black min-h-screen text-off-white font-body">
+        {/* Hero Section */}
+        <section className="pt-32 pb-12 bg-gradient-to-b from-gunmetal to-rich-black">
         <div className="container mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -208,13 +185,14 @@ function ContactPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-10 border-t border-white/10 text-center text-gray-500 text-sm bg-rich-black">
-        <div className="container mx-auto px-6">
-          <p>&copy; 2024 FPTI Karanganyar. All rights reserved.</p>
-        </div>
-      </footer>
-    </div>
+        {/* Footer */}
+        <footer className="py-10 border-t border-white/10 text-center text-gray-500 text-sm bg-rich-black">
+          <div className="container mx-auto px-6">
+            <p>&copy; 2024 FPTI Karanganyar. All rights reserved.</p>
+          </div>
+        </footer>
+      </div>
+    </PublicLayout>
   )
 }
 

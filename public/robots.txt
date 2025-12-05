@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://fptikaranganyar.my.id/sitemap.xml
+

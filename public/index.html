@@ -16,29 +16,29 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            background: #0a0a0a;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
-            color: #1a1a1a;
+            color: #f5f5f5;
             position: relative;
         }
 
         .container {
             max-width: 900px;
             width: 100%;
-            background: #ffffff;
+            background: #1a1a1a;
             border-radius: 24px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,193,7,0.1);
             overflow: hidden;
             border: 1px solid rgba(255,193,7,0.2);
         }
 
         .header {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-            color: #1a1a1a;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+            color: #f5f5f5;
             padding: 50px 30px;
             text-align: center;
             border-bottom: 2px solid rgba(255,193,7,0.3);
@@ -73,7 +73,7 @@
             margin-bottom: 10px;
             font-weight: 800;
             font-family: 'Montserrat', sans-serif;
-            background: linear-gradient(135deg, #E11D23 0%, #FFC107 100%);
+            background: linear-gradient(135deg, #FFC107 0%, #E11D23 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -81,13 +81,13 @@
 
         .header p {
             font-size: 1.1em;
-            color: #666;
+            color: #999;
             font-weight: 400;
         }
 
         .content {
             padding: 40px 30px;
-            background: #ffffff;
+            background: #1a1a1a;
         }
 
         .section {
@@ -97,7 +97,7 @@
         .section-title {
             font-size: 1.3em;
             font-weight: 700;
-            color: #E11D23;
+            color: #FFC107;
             margin-bottom: 25px;
             padding-bottom: 12px;
             border-bottom: 3px solid rgba(255,193,7,0.4);
@@ -114,19 +114,19 @@
         }
 
         .option-card {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-            border: 2px solid rgba(0,0,0,0.08);
+            background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+            border: 2px solid rgba(255,193,7,0.2);
             border-radius: 16px;
             padding: 30px 25px;
             text-align: center;
             cursor: pointer;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             text-decoration: none;
-            color: #1a1a1a;
+            color: #f5f5f5;
             display: block;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
 
         .option-card::before {
@@ -146,16 +146,16 @@
 
         .option-card:hover {
             transform: translateY(-8px);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+            box-shadow: 0 20px 50px rgba(255,193,7,0.2);
             border-color: rgba(255,193,7,0.5);
-            background: linear-gradient(135deg, #ffffff 0%, #fffef5 100%);
+            background: linear-gradient(135deg, #1f1f1f 0%, #1a1a1a 100%);
         }
 
         .option-card.active {
-            background: linear-gradient(135deg, rgba(255,193,7,0.1) 0%, rgba(225,29,35,0.08) 100%);
-            color: #E11D23;
+            background: linear-gradient(135deg, rgba(255,193,7,0.15) 0%, rgba(225,29,35,0.1) 100%);
+            color: #FFC107;
             border-color: #FFC107;
-            box-shadow: 0 10px 40px rgba(255,193,7,0.3), inset 0 0 0 2px rgba(255,193,7,0.2);
+            box-shadow: 0 10px 40px rgba(255,193,7,0.4), inset 0 0 0 2px rgba(255,193,7,0.3);
         }
 
         .option-card.active .option-icon {
@@ -178,21 +178,21 @@
             font-weight: 700;
             margin-bottom: 10px;
             font-family: 'Montserrat', sans-serif;
-            color: #1a1a1a;
+            color: #f5f5f5;
         }
 
         .option-card.active .option-title {
-            color: #E11D23;
+            color: #FFC107;
         }
 
         .option-desc {
             font-size: 0.95em;
-            color: #666;
+            color: #999;
             line-height: 1.6;
         }
 
         .option-card.active .option-desc {
-            color: #888;
+            color: #ccc;
         }
 
         .role-buttons {
@@ -274,7 +274,7 @@
             position: fixed;
             top: 20px;
             left: 20px;
-            color: #E11D23;
+            color: #FFC107;
             text-decoration: none;
             font-size: 0.9em;
             font-weight: 600;
@@ -283,11 +283,11 @@
             gap: 8px;
             transition: all 0.3s;
             z-index: 1000;
-            background: rgba(255,255,255,0.95);
+            background: rgba(26,26,26,0.95);
             padding: 10px 18px;
             border-radius: 25px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            border: 1px solid rgba(225,29,35,0.2);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,193,7,0.3);
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
@@ -296,10 +296,11 @@
         }
 
         .back-link:hover {
-            color: #E11D23;
-            background: #ffffff;
-            box-shadow: 0 4px 15px rgba(225,29,35,0.3);
+            color: #FFC107;
+            background: #1a1a1a;
+            box-shadow: 0 4px 15px rgba(255,193,7,0.4);
             transform: translateX(-3px);
+            border-color: rgba(255,193,7,0.5);
         }
 
         .back-link:active {

@@ -1,155 +1,55 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { Menu, X, ChevronRight, Clock, Calendar, Users, Newspaper, Trophy, MapPin, Mail, Phone, Instagram, Facebook } from 'lucide-react'
+import { ChevronRight, Clock, Calendar, Users, Newspaper, Trophy, MapPin, Mail, Phone, Instagram, Facebook } from 'lucide-react'
 import './LandingPage.css'
 
 function LandingPage() {
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [athletes, setAthletes] = useState([])
+  const [schedules, setSchedules] = useState([])
+  const [news, setNews] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50)
+    const fetchData = async () => {
+      try {
+        const [athletesRes, schedulesRes, newsRes] = await Promise.all([
+          fetch('/api/athletes'),
+          fetch('/api/schedules'),
+          fetch('/api/news')
+        ])
+        const athletesData = await athletesRes.json()
+        const schedulesData = await schedulesRes.json()
+        const newsData = await newsRes.json()
+        
+        setAthletes(athletesData.slice(0, 3)) // Ambil 3 pertama untuk preview
+        setSchedules(schedulesData.slice(0, 3)) // Ambil 3 pertama untuk preview
+        setNews(newsData.slice(0, 3)) // Ambil 3 pertama untuk preview
+      } catch (error) {
+        console.error('Error fetching data:', error)
+      } finally {
+        setLoading(false)
+      }
     }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    fetchData()
   }, [])
-
-  const navLinks = [
-    { name: 'Beranda', href: '/', isHash: false },
-    { name: 'Tentang', href: '/tentang', isHash: false },
-    { name: 'Atlet', href: '/atlet', isHash: false },
-    { name: 'Jadwal', href: '/jadwal', isHash: false },
-    { name: 'Berita', href: '/berita', isHash: false },
-    { name: 'Kontak', href: '/kontak', isHash: false },
-  ]
 
   return (
     <div className="bg-rich-black min-h-screen text-off-white font-body selection:bg-crimson selection:text-white">
-      
-      {/* --- NAVBAR --- */}
-      <nav className={`fixed w-full z-50 transition-all duration-300 ${
-        isScrolled 
-          ? 'bg-black/80 backdrop-blur-md border-b border-white/10 py-4' 
-          : 'bg-transparent py-6'
-      }`}>
-        <div className="container mx-auto px-6 flex justify-between items-center">
-          
-          {/* Logo Branding */}
-          <a href="/" className="flex items-center gap-3 group">
-            <img 
-              src="/logo.jpeg" 
-              alt="FPTI Karanganyar" 
-              className="w-12 h-12 rounded-full object-cover border-2 border-goldenrod/50 group-hover:border-goldenrod group-hover:scale-110 transition-all duration-300 shadow-[0_0_15px_rgba(255,193,7,0.3)]"
-              onError={(e) => {
-                console.error('Logo failed to load:', e.target.src);
-                // Fallback jika logo tidak ter-load
-                e.target.style.display = 'none';
-              }}
-            />
-            <div className="flex flex-col">
-              <span className="font-heading font-bold text-xl tracking-wider">FPTI</span>
-              <span className="text-[10px] text-goldenrod uppercase tracking-[0.2em]">Karanganyar</span>
-            </div>
-          </a>
-
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
-              link.isHash ? (
-                <a 
-                  key={link.name} 
-                  href={link.href} 
-                  className="text-sm uppercase tracking-wide hover:text-crimson transition-colors duration-300 relative group"
-                >
-                  {link.name}
-                  <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-crimson transition-all duration-300 group-hover:w-full"></span>
-                </a>
-              ) : (
-                <Link 
-                  key={link.name} 
-                  to={link.href} 
-                  className="text-sm uppercase tracking-wide hover:text-crimson transition-colors duration-300 relative group"
-                >
-                  {link.name}
-                  <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-crimson transition-all duration-300 group-hover:w-full"></span>
-                </Link>
-              )
-            ))}
-            
-            {/* Timer Sistem Button */}
-            <a 
-              href="/timersistem"
-              className="flex items-center gap-2 px-5 py-2 border border-goldenrod/50 text-goldenrod rounded-full hover:bg-goldenrod hover:text-black transition-all duration-300 shadow-[0_0_15px_rgba(255,193,7,0.2)]"
-            >
-              <Clock size={16} />
-              <span className="text-xs font-bold uppercase">Timer Sistem</span>
-            </a>
-          </div>
-
-          {/* Mobile Toggle */}
-          <button 
-            className="md:hidden text-white" 
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-
-        {/* Mobile Menu Dropdown */}
-        {isMenuOpen && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="md:hidden absolute top-full left-0 w-full bg-black border-b border-gray-800 p-6 flex flex-col gap-4"
-          >
-            {navLinks.map((link) => (
-              link.isHash ? (
-                <a 
-                  key={link.name} 
-                  href={link.href} 
-                  className="text-lg font-medium hover:text-crimson"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {link.name}
-                </a>
-              ) : (
-                <Link 
-                  key={link.name} 
-                  to={link.href} 
-                  className="text-lg font-medium hover:text-crimson"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {link.name}
-                </Link>
-              )
-            ))}
-            <a 
-              href="/timersistem"
-              className="mt-2 w-full py-3 bg-crimson text-white font-bold rounded text-center"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Timer Sistem
-            </a>
-          </motion.div>
-        )}
-      </nav>
-
       {/* --- HERO SECTION --- */}
       <section id="home" className="relative h-screen flex items-center justify-center overflow-hidden">
         {/* Background Image Overlay */}
         <div 
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: "url('https://images.unsplash.com/photo-1522163182402-834f871fd851?q=80&w=2003&auto=format&fit=crop')"
+            backgroundImage: "url('/beranda.jpeg')"
           }}
         >
           <div className="absolute inset-0 bg-gradient-to-t from-rich-black via-rich-black/70 to-transparent"></div>
           <div className="absolute inset-0 bg-black/40"></div>
         </div>
 
-        <div className="container mx-auto px-6 relative z-10 text-center md:text-left pt-20">
+        <div className="container mx-auto px-6 relative z-10 text-center md:text-left pt-32 md:pt-24">
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -267,29 +167,12 @@ function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                id: 1,
-                name: 'Ahmad Rizki',
-                category: 'Speed Climbing',
-                achievement: 'Medali Emas Kejurnas 2024',
-                image: 'https://picsum.photos/seed/climbing1/800/600'
-              },
-              {
-                id: 2,
-                name: 'Siti Nurhaliza',
-                category: 'Lead / Boulder',
-                achievement: 'Juara 1 Kejurprov Jateng',
-                image: 'https://picsum.photos/seed/climbing2/800/600'
-              },
-              {
-                id: 3,
-                name: 'Budi Santoso',
-                category: 'Boulder',
-                achievement: 'Medali Perak Porprov 2024',
-                image: 'https://picsum.photos/seed/climbing3/800/600'
-              }
-            ].map((athlete, index) => (
+            {loading ? (
+              <div className="col-span-3 text-center text-gray-400 py-10">Memuat data...</div>
+            ) : athletes.length === 0 ? (
+              <div className="col-span-3 text-center text-gray-400 py-10">Belum ada data atlet</div>
+            ) : (
+              athletes.map((athlete, index) => (
               <motion.div
                 key={athlete.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -299,13 +182,13 @@ function LandingPage() {
                 className="group relative h-[400px] rounded-xl overflow-hidden cursor-pointer"
               >
                 <img 
-                  src={athlete.image}
+                  src={athlete.image && athlete.image.startsWith('http') ? athlete.image : (athlete.image ? athlete.image : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23E11D23" width="800" height="600"/%3E%3Ctext fill="%23FFFFFF" font-family="Arial" font-size="24" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E')}
                   alt={athlete.name}
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   loading="lazy"
                   onError={(e) => {
-                    // Fallback ke placeholder jika gambar gagal load
-                    e.target.src = `https://via.placeholder.com/800x600/E11D23/FFFFFF?text=${encodeURIComponent(athlete.name)}`;
+                    // Fallback ke SVG placeholder jika gambar gagal load
+                    e.target.src = `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23E11D23" width="800" height="600"/%3E%3Ctext fill="%23FFFFFF" font-family="Arial" font-size="20" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3E${encodeURIComponent(athlete.name)}%3C/text%3E%3C/svg%3E`;
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
@@ -316,11 +199,12 @@ function LandingPage() {
                   </span>
                   <h3 className="text-2xl font-heading font-bold text-white mb-1">{athlete.name}</h3>
                   <p className="text-gray-300 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    {athlete.achievement}
+                    {athlete.achievement || 'Tidak ada prestasi'}
                   </p>
                 </div>
               </motion.div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -334,11 +218,12 @@ function LandingPage() {
           </div>
 
           <div className="max-w-3xl mx-auto">
-            {[
-              { date: '15 Des 2024', title: 'Kejurkab Karanganyar', status: 'upcoming' },
-              { date: '10 Nov 2024', title: 'Kejurprov Jateng', status: 'past' },
-              { date: '5 Okt 2024', title: 'Kejurnas Indonesia', status: 'past' },
-            ].map((event, index) => (
+            {loading ? (
+              <div className="text-center text-gray-400 py-10">Memuat data...</div>
+            ) : schedules.length === 0 ? (
+              <div className="text-center text-gray-400 py-10">Belum ada data jadwal</div>
+            ) : (
+              schedules.map((event, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, x: -30 }}
@@ -354,14 +239,21 @@ function LandingPage() {
                 <div className="flex-1 pb-8 border-b border-gray-800">
                   <div className="text-goldenrod text-sm font-bold mb-1">{event.date}</div>
                   <h3 className="text-xl font-heading font-bold mb-2">{event.title}</h3>
+                  <p className="text-gray-400 text-sm mb-2">{event.location}</p>
                   {event.status === 'upcoming' && (
                     <span className="inline-block px-3 py-1 bg-crimson/20 text-crimson text-xs rounded-full">
                       Akan Datang
                     </span>
                   )}
+                  {event.status === 'past' && (
+                    <span className="inline-block px-3 py-1 bg-gray-600/20 text-gray-400 text-xs rounded-full">
+                      Selesai
+                    </span>
+                  )}
                 </div>
               </motion.div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -375,7 +267,7 @@ function LandingPage() {
               <h2 className="text-4xl font-heading font-bold">Berita & Artikel</h2>
             </div>
             <Link 
-              to="/atlet"
+              to="/berita"
               className="text-sm border-b border-goldenrod text-goldenrod pb-1 hover:text-white hover:border-white transition-colors"
             >
               Lihat Semua
@@ -383,34 +275,14 @@ function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { 
-                id: 1,
-                category: 'Kompetisi', 
-                color: 'crimson',
-                title: 'Kejurkab Karanganyar 2024 Sukses Digelar',
-                description: 'Kompetisi panjat tebing tingkat kabupaten berhasil diselenggarakan dengan antusiasme tinggi dari peserta...',
-                image: 'https://picsum.photos/seed/news1/800/600'
-              },
-              { 
-                id: 2,
-                category: 'Latihan', 
-                color: 'goldenrod',
-                title: 'Program Latihan Intensif untuk Atlet Muda',
-                description: 'FPTI Karanganyar meluncurkan program latihan khusus untuk mengembangkan bakat atlet muda...',
-                image: 'https://picsum.photos/seed/news2/800/600'
-              },
-              { 
-                id: 3,
-                category: 'Prestasi', 
-                color: 'crimson',
-                title: 'Atlet FPTI Raih Medali di Kejurprov',
-                description: 'Prestasi membanggakan diraih oleh atlet FPTI Karanganyar dalam kejuaraan provinsi Jawa Tengah...',
-                image: 'https://picsum.photos/seed/news3/800/600'
-              },
-            ].map((news, index) => (
+            {loading ? (
+              <div className="col-span-3 text-center text-gray-400 py-10">Memuat data...</div>
+            ) : news.length === 0 ? (
+              <div className="col-span-3 text-center text-gray-400 py-10">Belum ada data berita</div>
+            ) : (
+              news.map((article, index) => (
               <motion.div
-                key={news.id}
+                key={article.id}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -419,29 +291,32 @@ function LandingPage() {
               >
                 <div className="h-48 overflow-hidden">
                   <img 
-                    src={news.image}
-                    alt={news.title}
+                    src={article.image && article.image.startsWith('http') ? article.image : (article.image ? article.image : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23E11D23" width="800" height="600"/%3E%3Ctext fill="%23FFFFFF" font-family="Arial" font-size="24" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E')}
+                    alt={article.title}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     loading="lazy"
                     onError={(e) => {
-                      // Fallback ke placeholder jika gambar gagal load
-                      e.target.src = `https://via.placeholder.com/800x600/E11D23/FFFFFF?text=${encodeURIComponent(news.category)}`;
+                      // Fallback ke SVG placeholder jika gambar gagal load
+                      e.target.src = `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23E11D23" width="800" height="600"/%3E%3Ctext fill="%23FFFFFF" font-family="Arial" font-size="20" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3E${encodeURIComponent(article.category || 'News')}%3C/text%3E%3C/svg%3E`;
                     }}
                   />
                 </div>
                 <div className="p-6">
                   <span className={`inline-block px-3 py-1 ${
-                    news.color === 'crimson' 
+                    article.color === 'crimson' 
                       ? 'bg-crimson/20 text-crimson' 
                       : 'bg-goldenrod/20 text-goldenrod'
                   } text-xs rounded-full mb-3 font-bold`}>
-                    {news.category}
+                    {article.category}
                   </span>
-                  <h3 className="text-xl font-heading font-bold mb-2 text-white">{news.title}</h3>
-                  <p className="text-gray-400 text-sm leading-relaxed">{news.description}</p>
+                  <h3 className="text-xl font-heading font-bold mb-2 text-white">{article.title}</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed" dangerouslySetInnerHTML={{ 
+                    __html: article.description ? article.description.substring(0, 100) + '...' : 'Tidak ada deskripsi'
+                  }}></p>
                 </div>
               </motion.div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </section>

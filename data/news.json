@@ -1,0 +1,57 @@
+[
+  {
+    "id": 1,
+    "category": "Kompetisi",
+    "color": "crimson",
+    "title": "Kejurkab Karanganyar 2024 Sukses Digelar",
+    "description": "Kompetisi panjat tebing tingkat kabupaten berhasil diselenggarakan dengan antusiasme tinggi dari peserta. Total 150 atlet dari berbagai klub mengikuti kompetisi ini.",
+    "date": "10 Desember 2024",
+    "image": "https://picsum.photos/seed/news1/800/600"
+  },
+  {
+    "id": 2,
+    "category": "Latihan",
+    "color": "goldenrod",
+    "title": "Program Latihan Intensif untuk Atlet Muda",
+    "description": "FPTI Karanganyar meluncurkan program latihan khusus untuk mengembangkan bakat atlet muda. Program ini akan berlangsung selama 3 bulan dengan pelatih berpengalaman.",
+    "date": "5 Desember 2024",
+    "image": "https://picsum.photos/seed/news2/800/600"
+  },
+  {
+    "id": 3,
+    "category": "Prestasi",
+    "color": "crimson",
+    "title": "Atlet FPTI Raih Medali di Kejurprov",
+    "description": "Prestasi membanggakan diraih oleh atlet FPTI Karanganyar dalam kejuaraan provinsi Jawa Tengah. Total 5 medali berhasil dibawa pulang.",
+    "date": "28 November 2024",
+    "image": "https://picsum.photos/seed/news3/800/600"
+  },
+  {
+    "id": 4,
+    "category": "Kompetisi",
+    "color": "crimson",
+    "title": "Pendaftaran Kejurnas 2025 Dibuka",
+    "description": "Pendaftaran untuk Kejuaraan Nasional 2025 sudah dibuka. Segera daftarkan atlet Anda sebelum kuota penuh.",
+    "date": "20 November 2024",
+    "image": "https://picsum.photos/seed/news4/800/600"
+  },
+  {
+    "id": 5,
+    "category": "Latihan",
+    "color": "goldenrod",
+    "title": "Workshop Teknik Panjat Tebing untuk Pemula",
+    "description": "Workshop khusus untuk pemula akan diadakan akhir bulan ini. Daftar segera karena terbatas untuk 30 peserta.",
+    "date": "15 November 2024",
+    "image": "https://picsum.photos/seed/news5/800/600"
+  },
+  {
+    "id": 6,
+    "category": "Prestasi",
+    "color": "crimson",
+    "title": "Atlet FPTI Lolos ke Kejurnas",
+    "description": "Tiga atlet FPTI Karanganyar berhasil lolos ke Kejuaraan Nasional setelah menjuarai kompetisi tingkat provinsi.",
+    "date": "1 November 2024",
+    "image": "https://picsum.photos/seed/news6/800/600"
+  }
+]
+

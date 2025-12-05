@@ -1,0 +1,51 @@
+[
+  {
+    "id": 1,
+    "name": "Ahmad Rizki",
+    "category": "Speed Climbing",
+    "achievement": "Medali Emas Kejurnas 2024",
+    "age": 22,
+    "image": "https://picsum.photos/seed/climbing1/800/600"
+  },
+  {
+    "id": 2,
+    "name": "Siti Nurhaliza",
+    "category": "Lead / Boulder",
+    "achievement": "Juara 1 Kejurprov Jateng",
+    "age": 20,
+    "image": "https://picsum.photos/seed/climbing2/800/600"
+  },
+  {
+    "id": 3,
+    "name": "Budi Santoso",
+    "category": "Boulder",
+    "achievement": "Medali Perak Porprov 2024",
+    "age": 24,
+    "image": "https://picsum.photos/seed/climbing3/800/600"
+  },
+  {
+    "id": 4,
+    "name": "Rina Wati",
+    "category": "Speed Climbing",
+    "achievement": "Juara 3 Kejurnas 2024",
+    "age": 19,
+    "image": "https://picsum.photos/seed/climbing4/800/600"
+  },
+  {
+    "id": 5,
+    "name": "Dedi Kurniawan",
+    "category": "Lead",
+    "achievement": "Medali Emas Kejurda",
+    "age": 25,
+    "image": "https://picsum.photos/seed/climbing5/800/600"
+  },
+  {
+    "id": 6,
+    "name": "Maya Sari",
+    "category": "Boulder",
+    "achievement": "Juara 2 Kejurprov",
+    "age": 21,
+    "image": "https://picsum.photos/seed/climbing6/800/600"
+  }
+]
+

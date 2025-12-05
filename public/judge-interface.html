@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Judge Interface - Live Score Boulder</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js" defer></script>
+    <script src="/socket.io/socket.io.js" defer></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <noscript>
+        <div style="text-align: center; padding: 50px; color: #fff;">
+            <h2>JavaScript diperlukan untuk menggunakan halaman ini</h2>
+            <p>Silakan aktifkan JavaScript di browser Anda.</p>
+        </div>
+    </noscript>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-gold: #FFC107;
+            --primary-gold-dark: #FFA000;
+            --primary-crimson: #E11D23;
+            --primary-crimson-dark: #c91a20;
+            --bg-dark: #1a1a1a;
+            --bg-darker: #0a0a0a;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #F5F5F5;
+            --text-secondary: #B8BCC8;
+            --success: #00FF88;
+            --warning: #FFB800;
+            --danger: #E11D23;
+            --info: #5B9BD5;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            color: #F5F5F5;
+            min-height: 100vh;
+            padding: 0;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        /* Premium Header */
+        .header {
+            background: #1a1a1a;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .header h1 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #FFC107;
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .competition-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .competition-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .competition-name::before {
+            content: '🏆';
+            font-size: 1.5rem;
+        }
+
+        /* Boulder Selector */
+        .boulder-selector {
+            background: #1a1a1a;
+            border: 1px solid rgba(255, 193, 7, 0.2);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .boulder-selector h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #FFC107;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .boulder-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+        }
+
+        .boulder-btn {
+            padding: 15px 20px;
+            background: #0a0a0a;
+            border: 2px solid rgba(255, 193, 7, 0.3);
+            border-radius: 8px;
+            color: #FFC107;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .boulder-btn:hover {
+            border-color: #FFC107;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+        }
+
+        .boulder-btn.active {
+            background: linear-gradient(135deg, #FFC107 0%, #FFA000 100%);
+            color: #0a0a0a;
+            border-color: #FFC107;
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.5);
+        }
+
+        /* Climber List */
+        .climber-list {
+            display: grid;
+            gap: 20px;
+        }
+
+        .climber-item {
+            background: #1a1a1a;
+            border: 1px solid rgba(255, 193, 7, 0.2);
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+        }
+
+        .climber-item:hover {
+            border-color: rgba(255, 193, 7, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .climber-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .climber-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #F5F5F5;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .climber-bib {
+            background: linear-gradient(135deg, #E11D23 0%, #c91a20 100%);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 15px rgba(225, 29, 35, 0.3);
+        }
+
+        .score-display {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .score-item {
+            background: #0a0a0a;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s;
+        }
+
+        .score-item:hover {
+            background: #0a0a0a;
+            border-color: rgba(255, 193, 7, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .score-label {
+            font-size: 0.8rem;
+            color: #B8BCC8;
+            margin-bottom: 8px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .score-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #FFC107;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .score-value.zone {
+            color: #E11D23;
+        }
+
+        .score-value.top {
+            color: #00FF88;
+        }
+
+        .score-value.final {
+            color: #00FF88;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 18px 24px;
+            border: none;
+            border-radius: 14px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-attempt {
+            background: linear-gradient(135deg, #5B9BD5 0%, #4a90e2 100%);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(91, 155, 213, 0.3);
+        }
+
+        .btn-attempt:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(91, 155, 213, 0.5);
+        }
+
+        .btn-zone {
+            background: linear-gradient(135deg, #E11D23 0%, #c91a20 100%);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(225, 29, 35, 0.3);
+        }
+
+        .btn-zone:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(225, 29, 35, 0.5);
+        }
+
+        .btn-top {
+            background: linear-gradient(135deg, #00FF88 0%, #00CC6A 100%);
+            color: #000;
+            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
+            font-weight: 700;
+        }
+
+        .btn-top:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 255, 136, 0.5);
+        }
+
+        .btn-finalize {
+            background: linear-gradient(135deg, #FFC107 0%, #FFA000 100%);
+            color: #0a0a0a;
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+            font-weight: 700;
+        }
+
+        .btn-finalize:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 193, 7, 0.6);
+        }
+
+        /* Status Messages */
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .error {
+            background: rgba(225, 29, 35, 0.15);
+            border: 1px solid rgba(225, 29, 35, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #FF6B6B;
+        }
+
+        .success {
+            background: rgba(0, 255, 136, 0.15);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #00FF88;
+        }
+
+        /* Auth Form */
+        .auth-form {
+            max-width: 480px;
+            margin: 100px auto;
+            background: #1a1a1a;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .auth-form h2 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            color: #FFC107;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: #0a0a0a;
+            border: 2px solid rgba(255, 193, 7, 0.3);
+            border-radius: 8px;
+            color: #F5F5F5;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #FFC107;
+            background: #0a0a0a;
+            box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.2);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #FFC107 0%, #FFA000 100%);
+            color: #0a0a0a;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 193, 7, 0.5);
+        }
+
+        .btn-logout {
+            background: linear-gradient(135deg, #E11D23 0%, #c91a20 100%);
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(225, 29, 35, 0.3);
+        }
+
+        .btn-logout:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(225, 29, 35, 0.5);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .boulder-buttons {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .action-buttons {
+                grid-template-columns: 1fr;
+            }
+
+            .score-display {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .climber-item {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Login Form -->
+        <div v-if="!authenticated" class="auth-form">
+            <h2>Judge Login</h2>
+            <div v-if="error" class="error">{{ error }}</div>
+            <form @submit.prevent="login">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" v-model="loginForm.username" autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" v-model="loginForm.password" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="btn-login">Login</button>
+            </form>
+        </div>
+
+        <!-- Main Interface -->
+        <div v-else class="container">
+            <div class="header">
+                <h1>Judge Interface</h1>
+                <div style="text-align: center; color: var(--text-secondary); margin-bottom: 15px; font-size: 0.95rem; letter-spacing: 2px; text-transform: uppercase;">
+                    Live Score Boulder
+                </div>
+                <div v-if="!competition" style="margin-top: 15px; color: var(--text-secondary); text-align: center;">
+                    Memuat data kompetisi...
+                </div>
+                <div class="competition-info" v-if="competition">
+                    <div class="competition-name">
+                        {{ competition.name }}
+                    </div>
+                    <div>
+                        <button @click="logout" class="btn-logout">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="error" class="error">
+                {{ error }}
+                <div v-if="error.includes('No active competition')" style="margin-top: 15px;">
+                    <p>Silakan buat kompetisi aktif melalui admin dashboard terlebih dahulu.</p>
+                    <a href="/admin-dashboard" style="display: inline-block; margin-top: 15px; padding: 12px 24px; background: linear-gradient(135deg, var(--primary-gold) 0%, var(--primary-gold-dark) 100%); color: var(--bg-dark); text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(255, 215, 0, 0.4);">
+                        Buka Admin Dashboard
+                    </a>
+                </div>
+            </div>
+            <div v-if="success" class="success">{{ success }}</div>
+
+            <!-- Boulder Selector -->
+            <div class="boulder-selector" v-if="competition">
+                <h2>Pilih Boulder</h2>
+                <div class="boulder-buttons">
+                    <button
+                        v-for="num in competition.total_boulders"
+                        :key="num"
+                        @click="selectBoulder(num)"
+                        :class="['boulder-btn', { active: selectedBoulder === num }]"
+                    >
+                        Boulder {{ num }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Climber List -->
+            <div class="climber-list" v-if="selectedBoulder && climbers.length > 0">
+                <div v-for="climber in climbers" :key="climber.id" class="climber-item">
+                    <div class="climber-header">
+                        <div class="climber-name">{{ climber.name }}</div>
+                        <div class="climber-bib">Bib #{{ climber.bib_number }}</div>
+                    </div>
+
+                    <div class="score-display">
+                        <div class="score-item">
+                            <div class="score-label">Attempts</div>
+                            <div class="score-value">{{ getScore(climber.id).attempts || 0 }}</div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-label">Zone</div>
+                            <div class="score-value zone">
+                                {{ getScore(climber.id).reached_zone ? '✓' : '✗' }}
+                                <span v-if="getScore(climber.id).zone_attempt" style="font-size: 0.7em; display: block; margin-top: 4px;">
+                                    ({{ getScore(climber.id).zone_attempt }})
+                                </span>
+                            </div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-label">Top</div>
+                            <div class="score-value top">
+                                {{ getScore(climber.id).reached_top ? '✓' : '✗' }}
+                                <span v-if="getScore(climber.id).top_attempt" style="font-size: 0.7em; display: block; margin-top: 4px;">
+                                    ({{ getScore(climber.id).top_attempt }})
+                                </span>
+                            </div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-label">Points</div>
+                            <div class="score-value" style="color: #00FF88; font-size: 1.5rem;">
+                                {{ calculatePoints(getScore(climber.id)) }}
+                            </div>
+                        </div>
+                        <div class="score-item" v-if="getScore(climber.id).is_finalized">
+                            <div class="score-label">Status</div>
+                            <div class="score-value final">Final</div>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button
+                            @click="updateScore(climber.id, 'attempt')"
+                            :disabled="getScore(climber.id).is_finalized"
+                            class="btn btn-attempt"
+                        >
+                            + Attempt
+                        </button>
+                        <button
+                            @click="updateScore(climber.id, 'zone')"
+                            :disabled="getScore(climber.id).reached_zone || getScore(climber.id).is_finalized"
+                            class="btn btn-zone"
+                        >
+                            Zone
+                        </button>
+                        <button
+                            @click="updateScore(climber.id, 'top')"
+                            :disabled="getScore(climber.id).reached_top || getScore(climber.id).is_finalized"
+                            class="btn btn-top"
+                        >
+                            Top
+                        </button>
+                        <button
+                            @click="updateScore(climber.id, 'finalize')"
+                            :disabled="getScore(climber.id).is_finalized"
+                            class="btn btn-finalize"
+                        >
+                            Finalize
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="loading" class="loading">Memuat data...</div>
+            <div v-if="!selectedBoulder && competition" class="loading">
+                Silakan pilih boulder terlebih dahulu
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Wait for all scripts to load
+        window.addEventListener('load', function() {
+            // Retry checking Vue if not loaded yet
+            let retries = 0;
+            const maxRetries = 10;
+            
+            function initApp() {
+                // Check if Vue is loaded
+                if (typeof Vue === 'undefined') {
+                    if (retries < maxRetries) {
+                        retries++;
+                        setTimeout(initApp, 100);
+                        return;
+                    }
+                    document.getElementById('app').innerHTML = '<div style="text-align: center; padding: 50px; color: #fff; background: rgba(220, 20, 60, 0.2); border: 2px solid #dc143c; border-radius: 12px; margin: 50px;"><h2>Error: Vue.js tidak ter-load</h2><p>Silakan refresh halaman atau cek koneksi internet.</p><p>Pastikan koneksi internet aktif untuk memuat Vue.js dari CDN.</p></div>';
+                    return;
+                }
+
+            try {
+                const { createApp } = Vue;
+
+                createApp({
+            data() {
+                return {
+                    authenticated: false,
+                    competition: null,
+                    climbers: [],
+                    selectedBoulder: null,
+                    scores: {},
+                    loading: false,
+                    error: null,
+                    success: null,
+                    loginForm: {
+                        username: '',
+                        password: ''
+                    },
+                    socket: null
+                }
+            },
+            mounted() {
+                this.checkAuth();
+                this.initSocket();
+            },
+            methods: {
+                async checkAuth() {
+                    try {
+                        const response = await fetch('/api/check-auth', {
+                            credentials: 'include'
+                        });
+                        const data = await response.json();
+                        this.authenticated = data.authenticated;
+                        if (this.authenticated) {
+                            this.loadCompetition();
+                        }
+                    } catch (error) {
+                        console.error('Auth check error:', error);
+                    }
+                },
+                async login() {
+                    try {
+                        const response = await fetch('/api/login', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify(this.loginForm)
+                        });
+                        const data = await response.json();
+                        if (response.ok) {
+                            this.authenticated = true;
+                            this.error = null;
+                            this.loadCompetition();
+                        } else {
+                            this.error = data.error || 'Login gagal';
+                        }
+                    } catch (error) {
+                        this.error = 'Error: ' + error.message;
+                    }
+                },
+                async logout() {
+                    try {
+                        await fetch('/api/logout', {
+                            method: 'POST',
+                            credentials: 'include'
+                        });
+                        this.authenticated = false;
+                        this.competition = null;
+                        this.climbers = [];
+                        this.selectedBoulder = null;
+                        this.scores = {};
+                    } catch (error) {
+                        console.error('Logout error:', error);
+                    }
+                },
+                async loadCompetition() {
+                    try {
+                        console.log('Fetching active competition...');
+                        const response = await fetch('/api/competitions/active', {
+                            credentials: 'include'
+                        });
+                        console.log('Response status:', response.status);
+                        if (response.ok) {
+                            this.competition = await response.json();
+                            console.log('Competition loaded:', this.competition);
+                            this.loadClimbers();
+                        } else {
+                            const errorData = await response.json();
+                            console.error('Error response:', errorData);
+                            this.error = errorData.error || 'Tidak ada kompetisi aktif. Silakan buat kompetisi melalui admin dashboard.';
+                        }
+                    } catch (error) {
+                        console.error('Error loading competition:', error);
+                        this.error = 'Error loading competition: ' + error.message;
+                    }
+                },
+                async loadClimbers() {
+                    if (!this.competition) return;
+                    try {
+                        const response = await fetch(`/api/competitions/${this.competition.id}/climbers`);
+                        if (response.ok) {
+                            this.climbers = await response.json();
+                            this.loadScores();
+                        }
+                    } catch (error) {
+                        this.error = 'Error loading climbers: ' + error.message;
+                    }
+                },
+                async loadScores() {
+                    if (!this.competition || !this.selectedBoulder) return;
+                    this.loading = true;
+                    try {
+                        const scorePromises = this.climbers.map(climber =>
+                            fetch(`/api/competitions/${this.competition.id}/climbers/${climber.id}/boulders/${this.selectedBoulder}`, {
+                                credentials: 'include'
+                            }).then(res => res.json())
+                        );
+                        const scores = await Promise.all(scorePromises);
+                        scores.forEach(score => {
+                            this.scores[score.climber_id] = score;
+                        });
+                    } catch (error) {
+                        this.error = 'Error loading scores: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                selectBoulder(boulderNumber) {
+                    this.selectedBoulder = boulderNumber;
+                    this.loadScores();
+                },
+                getScore(climberId) {
+                    return this.scores[climberId] || {
+                        attempts: 0,
+                        reached_zone: false,
+                        reached_top: false,
+                        zone_attempt: null,
+                        top_attempt: null,
+                        is_finalized: false
+                    };
+                },
+                calculatePoints(score) {
+                    if (!score) return '0.0';
+                    
+                    const isTop = score.reached_top === 1 || score.reached_top === true;
+                    const topAttempts = score.top_attempt || 0;
+                    const isZone = score.reached_zone === 1 || score.reached_zone === true;
+                    const zoneAttempts = score.zone_attempt || 0;
+                    
+                    // If Top is reached, use Top formula
+                    if (isTop && topAttempts > 0) {
+                        const points = 25.0 - ((topAttempts - 1) * 0.1);
+                        return Math.max(0, parseFloat(points.toFixed(1)));
+                    }
+                    
+                    // If Zone is reached (but no Top), use Zone formula
+                    if (isZone && zoneAttempts > 0) {
+                        const points = 10.0 - ((zoneAttempts - 1) * 0.1);
+                        return Math.max(0, parseFloat(points.toFixed(1)));
+                    }
+                    
+                    // If neither Top nor Zone reached, score is 0
+                    return '0.0';
+                },
+                async updateScore(climberId, action) {
+                    if (!this.competition || !this.selectedBoulder) return;
+                    
+                    this.error = null;
+                    this.success = null;
+                    this.loading = true;
+
+                    try {
+                        const response = await fetch(
+                            `/api/competitions/${this.competition.id}/climbers/${climberId}/boulders/${this.selectedBoulder}`,
+                            {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                credentials: 'include',
+                                body: JSON.stringify({ action })
+                            }
+                        );
+
+                        const data = await response.json();
+                        if (response.ok) {
+                            this.scores[climberId] = data;
+                            this.success = `Score updated successfully!`;
+                            setTimeout(() => {
+                                this.success = null;
+                            }, 3000);
+                        } else {
+                            this.error = data.error || 'Failed to update score';
+                        }
+                    } catch (error) {
+                        this.error = 'Error: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                initSocket() {
+                    this.socket = io();
+                    this.socket.on('score-updated', (data) => {
+                        if (data.competition_id === this.competition?.id && 
+                            data.boulder_number === this.selectedBoulder) {
+                            this.scores[data.climber_id] = data.score;
+                        }
+                    });
+                }
+            }
+                }).mount('#app');
+            } catch (error) {
+                console.error('Error mounting Vue app:', error);
+                document.getElementById('app').innerHTML = '<div style="text-align: center; padding: 50px; color: #fff; background: rgba(220, 20, 60, 0.2); border: 2px solid #dc143c; border-radius: 12px; margin: 50px;"><h2>Error: Gagal memuat aplikasi</h2><p>' + error.message + '</p><p>Silakan refresh halaman atau hubungi administrator.</p></div>';
+            }
+            }
+            
+            initApp();
+        });
+    </script>
+</body>
+</html>
