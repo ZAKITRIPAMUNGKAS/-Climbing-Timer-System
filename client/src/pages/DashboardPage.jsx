@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Trophy, Users, Calendar, TrendingUp } from 'lucide-react'
+import { Trophy, Users, Calendar, TrendingUp, Monitor, ExternalLink } from 'lucide-react'
 
 function DashboardPage() {
   const [stats, setStats] = useState({
@@ -136,6 +136,144 @@ function DashboardPage() {
             <div className="font-semibold text-gray-900">Judge Interface</div>
             <div className="text-sm text-gray-500">Input scores for competitions</div>
           </Link>
+        </div>
+      </div>
+
+      {/* OBS Overlay Links Section */}
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+        <div className="flex items-center gap-2 mb-4">
+          <Monitor className="text-indigo-600" size={24} />
+          <h2 className="text-xl font-bold text-gray-900">OBS Overlay Links</h2>
+        </div>
+        <p className="text-sm text-gray-600 mb-4">Copy these links to use in OBS Browser Source for live streaming overlays.</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Speed Lower Third */}
+          <div className="p-4 border border-gray-200 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold text-gray-900">Speed Lower Third</div>
+              <ExternalLink className="text-gray-400" size={16} />
+            </div>
+            <div className="text-xs text-gray-600 mb-3">Live timer & climber info for Speed competitions</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={`${window.location.origin}/overlay/speed-lower-third`}
+                className="flex-1 px-3 py-2 text-xs bg-white border border-gray-300 rounded-md font-mono"
+                onClick={(e) => e.target.select()}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/overlay/speed-lower-third`)
+                  alert('Link copied to clipboard!')
+                }}
+                className="px-3 py-2 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700 transition-colors"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+
+          {/* Boulder Current Climber */}
+          <div className="p-4 border border-gray-200 rounded-lg bg-gradient-to-br from-amber-50 to-yellow-50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold text-gray-900">Boulder Current Climber</div>
+              <ExternalLink className="text-gray-400" size={16} />
+            </div>
+            <div className="text-xs text-gray-600 mb-3">Current climber card with name and total points only</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={`${window.location.origin}/overlay/boulder-current?competition=ID&search=NAME_OR_BIB`}
+                className="flex-1 px-3 py-2 text-xs bg-white border border-gray-300 rounded-md font-mono"
+                onClick={(e) => e.target.select()}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/overlay/boulder-current?competition=ID&search=NAME_OR_BIB`)
+                  alert('Link copied! Replace ID and NAME_OR_BIB with actual values.')
+                }}
+                className="px-3 py-2 bg-amber-600 text-white text-xs rounded-md hover:bg-amber-700 transition-colors"
+              >
+                Copy
+              </button>
+            </div>
+            <div className="text-xs text-amber-700 mt-2 space-y-1">
+              <div>⚠️ Replace "ID" with competition ID</div>
+              <div>⚠️ Replace "NAME_OR_BIB" with climber name or bib number (optional)</div>
+              <div className="text-gray-600 mt-1">Example: ?competition=3&search=KEMIN or ?competition=3&search=1</div>
+            </div>
+          </div>
+
+          {/* Boulder Timer */}
+          <div className="p-4 border border-gray-200 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold text-gray-900">Boulder Live Timer</div>
+              <ExternalLink className="text-gray-400" size={16} />
+            </div>
+            <div className="text-xs text-gray-600 mb-3">Live countdown timer from boulder timer system</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={`${window.location.origin}/overlay/boulder-timer`}
+                className="flex-1 px-3 py-2 text-xs bg-white border border-gray-300 rounded-md font-mono"
+                onClick={(e) => e.target.select()}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/overlay/boulder-timer`)
+                  alert('Link copied to clipboard!')
+                }}
+                className="px-3 py-2 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors"
+              >
+                Copy
+              </button>
+            </div>
+            <div className="text-xs text-gray-500 mt-2">Optional: ?position=top-right|top-left|bottom-right|bottom-left</div>
+          </div>
+
+          {/* Boulder Leaderboard */}
+          <div className="p-4 border border-gray-200 rounded-lg bg-gradient-to-br from-cyan-50 to-teal-50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold text-gray-900">Boulder Leaderboard</div>
+              <ExternalLink className="text-gray-400" size={16} />
+            </div>
+            <div className="text-xs text-gray-600 mb-3">Full leaderboard display for OBS with 2-column layout</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={`${window.location.origin}/overlay/boulder-leaderboard?competition=ID`}
+                className="flex-1 px-3 py-2 text-xs bg-white border border-gray-300 rounded-md font-mono"
+                onClick={(e) => e.target.select()}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/overlay/boulder-leaderboard?competition=ID`)
+                  alert('Link copied! Replace ID with competition ID.')
+                }}
+                className="px-3 py-2 bg-cyan-600 text-white text-xs rounded-md hover:bg-cyan-700 transition-colors"
+              >
+                Copy
+              </button>
+            </div>
+            <div className="text-xs text-cyan-700 mt-2">⚠️ Replace "ID" with actual competition ID</div>
+          </div>
+        </div>
+
+        {/* Usage Instructions */}
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="font-semibold text-gray-900 mb-2 text-sm">📋 How to Use in OBS:</h3>
+          <ol className="text-xs text-gray-600 space-y-1 list-decimal list-inside">
+            <li>Open OBS Studio and add a new "Browser Source"</li>
+            <li>Paste the copied URL into the URL field</li>
+            <li>Set width: 1920, height: 1080 (or your stream resolution)</li>
+            <li>Check "Shutdown source when not visible" and "Refresh browser when scene becomes active"</li>
+            <li>For chroma key, add <code className="bg-gray-200 px-1 rounded">?chroma=true</code> to the URL</li>
+          </ol>
         </div>
       </div>
     </div>

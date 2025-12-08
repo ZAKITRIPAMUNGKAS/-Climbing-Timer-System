@@ -10,14 +10,17 @@ async function initDatabase() {
         // Connect tanpa database dulu untuk create database
         connection = await mysql.createConnection({
             host: process.env.DB_HOST || '127.0.0.1',
-            user: process.env.DB_USER || 'root',
-            password: process.env.DB_PASSWORD || '272800',
-            port: process.env.DB_PORT || 3306
+            user: process.env.DB_USER || 'emsimemy_db',
+            password: process.env.DB_PASSWORD || 'c290^&uz%Fm@i.oy',
+            port: process.env.DB_PORT || 3306,
+            // Fix authentication plugin issue
+            authPlugin: 'mysql_native_password',
+            ssl: false
         });
 
         console.log('Creating database...');
-        await connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME || 'fpti_karanganyar'} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-        await connection.query(`USE ${process.env.DB_NAME || 'fpti_karanganyar'}`);
+        await connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME || 'emsimemy_db'} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+        await connection.query(`USE ${process.env.DB_NAME || 'emsimemy_db'}`);
 
         console.log('Creating tables...');
         

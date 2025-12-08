@@ -123,21 +123,21 @@ function JudgeInterfacePage() {
       {/* Fullscreen Header */}
       {isFullscreen && (
         <div className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <Gavel size={28} className="text-blue-600" />
-                  Judge Interface
+          <div className="px-4 sm:px-6 py-3 sm:py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <Gavel size={24} className="text-blue-600 sm:w-7 sm:h-7" />
+                  <span>Judge Interface</span>
                 </h2>
-                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                <span className="px-2 sm:px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
                   Fullscreen Mode
                 </span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                 <button
                   onClick={toggleFullscreen}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 text-sm"
                   title="Exit Fullscreen"
                 >
                   <Minimize2 size={18} />
@@ -145,7 +145,7 @@ function JudgeInterfacePage() {
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm"
                 >
                   <LogOut size={18} />
                   <span className="hidden sm:inline">Logout</span>
@@ -159,17 +159,17 @@ function JudgeInterfacePage() {
       {/* Regular Header (if not fullscreen) */}
       {!isFullscreen && (
         <div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Gavel size={28} className="text-blue-600" />
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Gavel size={24} className="text-blue-600 sm:w-7 sm:h-7" />
                 Judge Interface
               </h2>
-              <p className="text-gray-600 mt-1">Input scores for competitions</p>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">Input scores for competitions</p>
             </div>
             <button
               onClick={toggleFullscreen}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
               title="Enter Fullscreen Mode"
             >
               <Maximize2 size={18} />
@@ -179,10 +179,10 @@ function JudgeInterfacePage() {
         </div>
       )}
 
-      <div className={isFullscreen ? "p-6" : ""}>
+      <div className={isFullscreen ? "p-3 sm:p-4 lg:p-6" : ""}>
 
       {/* Competition Selection */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Select Competition
         </label>
@@ -205,18 +205,18 @@ function JudgeInterfacePage() {
 
           {/* Score Input */}
       {selectedCompetition && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mt-4 sm:mt-6">
+          <div className="p-4 sm:p-6 border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">{selectedCompetition.name}</h3>
-                <p className="text-sm text-gray-600 capitalize">{selectedCompetition.type} Competition</p>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">{selectedCompetition.name}</h3>
+                <p className="text-xs sm:text-sm text-gray-600 capitalize">{selectedCompetition.type} Competition</p>
               </div>
               <div className="flex items-center gap-2">
                 {selectedCompetition.type === 'boulder' ? (
-                  <Trophy className="text-blue-600" size={24} />
+                  <Trophy className="text-blue-600" size={20} />
                 ) : (
-                  <Timer className="text-purple-600" size={24} />
+                  <Timer className="text-purple-600" size={20} />
                 )}
               </div>
             </div>
@@ -224,14 +224,14 @@ function JudgeInterfacePage() {
 
           {/* Tabs for Speed Finals */}
           {selectedCompetition.type === 'speed' && selectedCompetition.status === 'finals' && (
-            <div className="p-6 border-b border-gray-200">
-              <div className="inline-flex bg-gray-100 rounded-lg p-1 gap-1">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <div className="inline-flex bg-gray-100 rounded-lg p-1 gap-1 w-full sm:w-auto">
                 <button
                   onClick={() => {
                     setActiveTab('qualification')
                     fetchClimbers(selectedCompetition.id, selectedCompetition.type)
                   }}
-                  className={`px-4 py-2 font-semibold transition-all rounded-md ${
+                  className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm sm:text-base font-semibold transition-all rounded-md ${
                     activeTab === 'qualification'
                       ? 'bg-white shadow text-gray-900'
                       : 'text-gray-500 hover:text-gray-700'
@@ -244,7 +244,7 @@ function JudgeInterfacePage() {
                     setActiveTab('finals')
                     fetchFinalsMatches(selectedCompetition.id)
                   }}
-                  className={`px-4 py-2 font-semibold transition-all rounded-md ${
+                  className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm sm:text-base font-semibold transition-all rounded-md ${
                     activeTab === 'finals'
                       ? 'bg-white shadow text-gray-900'
                       : 'text-gray-500 hover:text-gray-700'
@@ -257,9 +257,9 @@ function JudgeInterfacePage() {
           )}
           
           {/* Search */}
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-4 sm:p-6 border-b border-gray-200">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 placeholder={
@@ -269,18 +269,18 @@ function JudgeInterfacePage() {
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 sm:pl-10 pr-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
           {/* Content: Finals Matches or Climbers List */}
           {activeTab === 'finals' && selectedCompetition.status === 'finals' ? (
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {finalsMatches.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No finals matches found</p>
-                  <p className="text-sm text-gray-400 mt-2">
+                <div className="text-center py-8 sm:py-12">
+                  <p className="text-sm sm:text-base text-gray-500">No finals matches found</p>
+                  <p className="text-xs sm:text-sm text-gray-400 mt-2">
                     Generate bracket first from Manage Competitions
                   </p>
                 </div>
@@ -297,15 +297,15 @@ function JudgeInterfacePage() {
                       )
                     })
                     .map((match) => (
-                      <div key={match.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                      <div key={match.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                        <div className="flex-1 w-full">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                            <span className="px-2 sm:px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
                               {match.stage}
                             </span>
                             <span className="text-xs text-gray-500">Match {match.match_order}</span>
                           </div>
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div>
                               <div className="text-sm text-gray-600">Lane A</div>
                               <div className="font-semibold text-gray-900">
@@ -345,9 +345,9 @@ function JudgeInterfacePage() {
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 ml-4">
+                        <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-4 mt-3 sm:mt-0">
                           <button
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
                             onClick={() => {
                               setSelectedMatch(match)
                               setShowFinalsModal(true)
@@ -362,30 +362,30 @@ function JudgeInterfacePage() {
               )}
             </div>
           ) : (
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {filteredClimbers.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No climbers found</p>
-                  <p className="text-sm text-gray-400 mt-2">
+                <div className="text-center py-8 sm:py-12">
+                  <p className="text-sm sm:text-base text-gray-500">No climbers found</p>
+                  <p className="text-xs sm:text-sm text-gray-400 mt-2">
                     {searchQuery ? 'Try a different search term' : 'Add climbers to this competition first'}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {filteredClimbers.map((climber) => (
-                    <div key={climber.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                    <div key={climber.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                          <span className="px-2 sm:px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs sm:text-sm font-semibold">
                             #{climber.bib_number}
                           </span>
-                          <h4 className="font-semibold text-gray-900">{climber.name}</h4>
+                          <h4 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{climber.name}</h4>
                           {climber.team && (
-                            <span className="text-sm text-gray-600">• {climber.team}</span>
+                            <span className="text-xs sm:text-sm text-gray-600">• {climber.team}</span>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
                         <button
                           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                           onClick={() => {

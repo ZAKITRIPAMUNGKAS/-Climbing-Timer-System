@@ -8,10 +8,13 @@ async function createSpeedTables() {
     try {
         connection = await mysql.createConnection({
             host: process.env.DB_HOST || '127.0.0.1',
-            user: process.env.DB_USER || 'root',
-            password: process.env.DB_PASSWORD || '272800',
+            user: process.env.DB_USER || 'emsimemy_db',
+            password: process.env.DB_PASSWORD || 'c290^&uz%Fm@i.oy',
             port: process.env.DB_PORT || 3306,
-            database: process.env.DB_NAME || 'fpti_karanganyar'
+            database: process.env.DB_NAME || 'emsimemy_db',
+            // Fix authentication plugin issue
+            authPlugin: 'mysql_native_password',
+            ssl: false
         });
 
         console.log('Creating Speed Climbing tables...');

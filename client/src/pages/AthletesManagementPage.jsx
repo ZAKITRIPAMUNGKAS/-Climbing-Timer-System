@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Upload, Search, Edit, Trash2, Download, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Plus, Upload, Search, Edit, Trash2, Download, AlertCircle, CheckCircle2, X } from 'lucide-react'
 import BulkUploadModal from '../components/BulkUploadModal'
 
 function AthletesManagementPage() {
@@ -9,6 +9,10 @@ function AthletesManagementPage() {
   const [loading, setLoading] = useState(true)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
+  const [editingAthlete, setEditingAthlete] = useState(null)
+  const [editForm, setEditForm] = useState({ name: '', age: '', achievement: '' })
+  const [selectedImage, setSelectedImage] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
 
   useEffect(() => {
     fetchAthletes()
@@ -22,8 +26,8 @@ function AthletesManagementPage() {
       setFilteredAthletes(
         athletes.filter(athlete =>
           athlete.name?.toLowerCase().includes(query) ||
-          athlete.team?.toLowerCase().includes(query) ||
-          athlete.bib_number?.toString().includes(query)
+          athlete.age?.toString().includes(query) ||
+          athlete.achievement?.toLowerCase().includes(query)
         )
       )
     }
@@ -73,6 +77,103 @@ function AthletesManagementPage() {
     setShowUploadModal(false)
     setMessage({ type: 'success', text: 'Upload berhasil! Data atlet telah ditambahkan.' })
     fetchAthletes()
+  }
+
+  const handleEdit = (athlete) => {
+    setEditingAthlete(athlete)
+    setEditForm({
+      name: athlete.name || '',
+      age: athlete.age || '',
+      achievement: athlete.achievement || ''
+    })
+    setSelectedImage(null)
+    setImagePreview(athlete.image ? `${window.location.origin}${athlete.image}` : null)
+  }
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setMessage({ type: 'error', text: 'File harus berupa gambar' })
+        return
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setMessage({ type: 'error', text: 'Ukuran file maksimal 5MB' })
+        return
+      }
+      setSelectedImage(file)
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!editForm.name.trim()) {
+      setMessage({ type: 'error', text: 'Nama atlet wajib diisi' })
+      return
+    }
+    
+    if (!editForm.age || parseInt(editForm.age) < 1) {
+      setMessage({ type: 'error', text: 'Umur wajib diisi dan harus lebih dari 0' })
+      return
+    }
+
+    try {
+      // Use FormData if image is selected, otherwise use JSON
+      let response
+      if (selectedImage) {
+        const formData = new FormData()
+        formData.append('name', editForm.name.trim())
+        formData.append('category', editingAthlete.category || 'Boulder')
+        formData.append('age', editForm.age ? parseInt(editForm.age) : '')
+        formData.append('achievement', editForm.achievement.trim() || '')
+        formData.append('image', selectedImage)
+        if (editingAthlete.image) {
+          formData.append('existingImage', editingAthlete.image)
+        }
+
+        response = await fetch(`/api/athletes/${editingAthlete.id}`, {
+          method: 'PUT',
+          credentials: 'include',
+          body: formData
+        })
+      } else {
+        response = await fetch(`/api/athletes/${editingAthlete.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            name: editForm.name.trim(),
+            category: editingAthlete.category || 'Boulder',
+            age: editForm.age ? parseInt(editForm.age) : null,
+            achievement: editForm.achievement.trim() || '',
+            existingImage: editingAthlete.image || null
+          })
+        })
+      }
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Data atlet berhasil diperbarui' })
+        setEditingAthlete(null)
+        setSelectedImage(null)
+        setImagePreview(null)
+        fetchAthletes()
+      } else {
+        const error = await response.json()
+        setMessage({ type: 'error', text: error.error || 'Gagal memperbarui data atlet' })
+      }
+    } catch (error) {
+      console.error('Error updating athlete:', error)
+      setMessage({ type: 'error', text: 'Terjadi kesalahan saat memperbarui data' })
+    }
   }
 
   if (loading) {
@@ -132,7 +233,7 @@ function AthletesManagementPage() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
-            placeholder="Cari atlet berdasarkan nama, tim, atau nomor bib..."
+            placeholder="Cari atlet berdasarkan nama, umur, atau achievement..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -151,8 +252,8 @@ function AthletesManagementPage() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">No</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nama</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Tim</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Bib Number</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Umur</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Achievement</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -170,11 +271,17 @@ function AthletesManagementPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-semibold text-gray-900">{athlete.name}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{athlete.team || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{athlete.bib_number || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {athlete.age ? `${athlete.age} tahun` : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{athlete.achievement || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center gap-2">
-                        <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                        <button 
+                          onClick={() => handleEdit(athlete)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit Atlet"
+                        >
                           <Edit size={16} />
                         </button>
                         <button
@@ -199,6 +306,126 @@ function AthletesManagementPage() {
           onClose={() => setShowUploadModal(false)}
           onSuccess={handleUploadSuccess}
         />
+      )}
+
+      {/* Edit Athlete Modal */}
+      {editingAthlete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">Edit Atlet</h3>
+              <button
+                onClick={() => setEditingAthlete(null)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* Image Upload */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Foto Atlet
+                </label>
+                <div className="space-y-3">
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="relative w-32 h-32 border-2 border-gray-300 rounded-lg overflow-hidden">
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  {/* File Input */}
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <svg className="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Klik untuk upload</span> atau drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">PNG, JPG, GIF (MAX. 5MB)</p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                    />
+                  </label>
+                  {selectedImage && (
+                    <p className="text-xs text-gray-600">
+                      File dipilih: {selectedImage.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Nama Atlet <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Masukkan nama atlet"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Umur <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={editForm.age}
+                  onChange={(e) => setEditForm({ ...editForm, age: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Masukkan umur (contoh: 22)"
+                  min="1"
+                  max="100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Achievement / Prestasi
+                </label>
+                <input
+                  type="text"
+                  value={editForm.achievement}
+                  onChange={(e) => setEditForm({ ...editForm, achievement: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Masukkan achievement (contoh: JUARA HARAPAN DIA)"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => setEditingAthlete(null)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-semibold"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleUpdate}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+              >
+                Simpan Perubahan
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

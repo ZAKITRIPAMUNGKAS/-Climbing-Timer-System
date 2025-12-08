@@ -13,6 +13,7 @@ function LiveScorePage() {
   const [climbers, setClimbers] = useState([]) // For Start List PDF
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
+  const [isUpdating, setIsUpdating] = useState(false) // Indicator for real-time updates
   const socketRef = useRef(null)
 
   useEffect(() => {
@@ -26,20 +27,23 @@ function LiveScorePage() {
       return
     }
 
+    const compId = parseInt(competitionId)
+
     // Initialize socket connection
     socketRef.current = io()
 
-    // Listen for score updates
+    // Listen for score updates from judge interface
     socketRef.current.on('score-updated', (data) => {
-      console.log('Score updated:', data)
-      // Refresh leaderboard when score is updated
-      if (competition && data.competition_id === competition.id) {
-        fetchLeaderboard(competition.id)
+      console.log('[LIVE SCORE] Score updated from judge interface:', data)
+      // Refresh leaderboard when score is updated (check by competition_id)
+      if (data.competition_id === compId) {
+        console.log('[LIVE SCORE] Refreshing leaderboard for competition:', compId)
+        fetchLeaderboard(compId)
       }
     })
 
     // Fetch competition by ID
-    fetchCompetition(parseInt(competitionId))
+    fetchCompetition(compId)
 
     return () => {
       if (socketRef.current) {
@@ -119,16 +123,20 @@ function LiveScorePage() {
     if (!compId) return
 
     try {
+      setIsUpdating(true)
       const response = await fetch(`/api/competitions/${compId}/leaderboard`)
       if (response.ok) {
         const data = await response.json()
         setLeaderboard(data)
         setFilteredLeaderboard(data)
         setLoading(false)
+        // Reset updating indicator after a short delay
+        setTimeout(() => setIsUpdating(false), 1000)
       }
     } catch (error) {
       console.error('Error fetching leaderboard:', error)
       setLoading(false)
+      setIsUpdating(false)
     }
   }
 
@@ -171,59 +179,59 @@ function LiveScorePage() {
 
   return (
     <PublicLayout>
-      <div className="min-h-screen bg-rich-black text-off-white font-body pt-24 md:pt-20">
+      <div className="min-h-screen bg-rich-black text-off-white font-body pt-20 sm:pt-24 md:pt-20 pb-8">
         {/* Header */}
-        <div className="bg-gunmetal border-b border-white/10 py-8">
-          <div className="container mx-auto px-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold mb-2 text-goldenrod tracking-tight">
+        <div className="bg-gunmetal border-b border-white/10 py-6 sm:py-8">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sm:gap-6">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-goldenrod tracking-tight break-words">
                   Live Score Boulder
                 </h1>
-                <div className="flex items-center gap-2">
-                  <Trophy className="text-gray-400" size={18} />
-                  <p className="text-lg text-gray-300 font-medium">{competition.name}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Trophy className="text-gray-400 flex-shrink-0" size={18} />
+                  <p className="text-base sm:text-lg text-gray-300 font-medium break-words">{competition.name}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full md:w-auto">
                 {/* Big Screen Button */}
                 <Link
                   to={`/big-screen/${competition.id}`}
                   target="_blank"
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-lg"
+                  className="px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-lg text-sm sm:text-base"
                   title="Open Big Screen Mode (Videotron View)"
                 >
-                  <Monitor size={18} />
+                  <Monitor size={16} className="sm:w-4 sm:h-4" />
                   <span className="hidden sm:inline">Big Screen</span>
                 </Link>
                 {/* PDF Export Buttons */}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleExportStartList}
-                    className="px-4 py-2 bg-goldenrod text-rich-black rounded-lg font-semibold hover:bg-yellow-500 transition-colors flex items-center gap-2 shadow-lg"
+                    className="px-3 sm:px-4 py-2 bg-goldenrod text-rich-black rounded-lg font-semibold hover:bg-yellow-500 transition-colors flex items-center gap-2 shadow-lg text-sm sm:text-base"
                     title="Export Start List PDF"
                   >
-                    <FileText size={18} />
+                    <FileText size={16} className="sm:w-[18px] sm:h-[18px]" />
                     <span className="hidden sm:inline">Start List</span>
                   </button>
                   <button
                     onClick={handleExportResultList}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-lg"
+                    className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-lg text-sm sm:text-base"
                     title="Export Result List PDF"
                   >
-                    <Download size={18} />
+                    <Download size={16} className="sm:w-[18px] sm:h-[18px]" />
                     <span className="hidden sm:inline">Results</span>
                   </button>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex-shrink-0">
                   <div className="text-xs text-gray-400 mb-1 uppercase tracking-wider font-medium">Status</div>
-                  <div className={`text-xl font-bold flex items-center gap-2 ${
+                  <div className={`text-lg sm:text-xl font-bold flex items-center gap-2 ${
                     competition.status === 'active' ? 'text-green-400' : 'text-gray-500'
                   }`}>
-                    <div className={`w-2.5 h-2.5 rounded-full ${
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
                       competition.status === 'active' ? 'bg-green-400' : 'bg-gray-500'
                     }`}></div>
-                    {competition.status === 'active' ? 'Aktif' : 'Selesai'}
+                    <span className="whitespace-nowrap">{competition.status === 'active' ? 'Aktif' : 'Selesai'}</span>
                   </div>
                 </div>
               </div>
@@ -232,17 +240,17 @@ function LiveScorePage() {
         </div>
 
         {/* Leaderboard */}
-        <main className="container mx-auto px-6 py-8">
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           {/* Search Bar - Clean Design */}
-          <div className="mb-8">
+          <div className="mb-6 sm:mb-8">
             <div className="relative max-w-2xl mx-auto">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 placeholder="Cari atlet berdasarkan nama, tim, atau nomor bib..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-gunmetal border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-goldenrod/50 focus:border-goldenrod text-base text-white placeholder-gray-400 shadow-lg transition-all"
+                className="w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 bg-gunmetal border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-goldenrod/50 focus:border-goldenrod text-sm sm:text-base text-white placeholder-gray-400 shadow-lg transition-all"
               />
             </div>
             {searchQuery && (
@@ -252,55 +260,61 @@ function LiveScorePage() {
             )}
           </div>
 
-          {/* Leaderboard Container - Clean & Modern */}
-          <div className="bg-gunmetal rounded-2xl overflow-hidden shadow-2xl border border-white/10">
-            {/* Header - Simplified */}
-            <div className="bg-gradient-to-r from-rich-black to-gunmetal border-b border-white/10 px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <TrendingUp className="text-goldenrod" size={22} />
-                  <h2 className="text-lg font-bold text-white">Leaderboard</h2>
-                </div>
-                <div className="text-sm text-gray-400">
-                  {leaderboard.length} Atlet
-                </div>
+        {/* Leaderboard Container - New Design */}
+        <div className="bg-rich-black rounded-xl sm:rounded-2xl shadow-2xl border border-white/10 overflow-hidden">
+          {/* Header */}
+          <div className="bg-rich-black border-b border-white/10 px-4 sm:px-6 py-3 sm:py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="text-orange-500" size={18} />
+                <h2 className="text-base sm:text-lg font-bold text-white">Leaderboard</h2>
+              </div>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <span className="text-xs sm:text-sm text-white">{leaderboard.length} Atlet</span>
+                {isUpdating && (
+                  <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-green-500/20 rounded-full border border-green-500/30">
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-[10px] sm:text-xs text-green-400 font-bold">LIVE</span>
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* Leaderboard Cards - Cleaner Spacing */}
-            <div className="p-6 space-y-4">
-              {filteredLeaderboard.length === 0 ? (
-                <div className="text-center py-20">
-                  <div className="flex flex-col items-center gap-4">
-                    <Target className="text-gray-400" size={56} />
-                    <div className="text-gray-400 text-xl font-semibold">
-                      {searchQuery ? 'Tidak ada atlet yang sesuai dengan pencarian' : 'Belum ada data atlet'}
-                    </div>
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery('')}
-                        className="mt-2 px-4 py-2 text-sm text-goldenrod hover:text-yellow-400 transition-colors"
-                      >
-                        Hapus pencarian
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                filteredLeaderboard.map((climber, index) => (
-                  <LeaderboardCard key={climber.id} climber={climber} index={index} />
-                ))
-              )}
-            </div>
           </div>
+
+          {/* Leaderboard - Single Column Vertical Layout */}
+          <div className="p-3 sm:p-4 lg:p-6 space-y-0 overflow-x-auto">
+            {filteredLeaderboard.length === 0 ? (
+              <div className="text-center py-20">
+                <div className="flex flex-col items-center gap-4">
+                  <Target className="text-white/60" size={56} />
+                  <div className="text-white/80 text-xl font-semibold">
+                    {searchQuery ? 'Tidak ada atlet yang sesuai dengan pencarian' : 'Belum ada data atlet'}
+                  </div>
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="mt-2 px-4 py-2 text-sm bg-white/20 text-white hover:bg-white/30 transition-colors rounded-lg"
+                    >
+                      Hapus pencarian
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              filteredLeaderboard.map((climber, index) => (
+                <LeaderboardCard key={climber.id} climber={climber} index={index} />
+              ))
+            )}
+          </div>
+        </div>
 
         {/* Info Box - Cleaner Design */}
-        <div className="mt-10 bg-gunmetal rounded-2xl p-8 border border-white/10 shadow-2xl">
-          <div className="flex items-center gap-3 mb-6">
-            <Info className="text-goldenrod" size={24} />
-            <h3 className="text-xl font-bold text-white">Sistem Poin Kejurnas FPTI</h3>
+        <div className="mt-6 sm:mt-10 bg-gunmetal rounded-2xl p-4 sm:p-6 lg:p-8 border border-white/10 shadow-2xl overflow-x-auto">
+          <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+            <Info className="text-goldenrod flex-shrink-0" size={20} />
+            <h3 className="text-lg sm:text-xl font-bold text-white break-words">Sistem Poin Kejurnas FPTI</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <div className="bg-rich-black rounded-lg p-6 border border-white/10">
               <div className="flex items-center gap-2 mb-4">
                 <Award className="text-goldenrod" size={20} />

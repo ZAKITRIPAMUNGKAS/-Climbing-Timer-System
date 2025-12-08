@@ -11,7 +11,8 @@ import {
   X,
   Timer,
   Gavel,
-  Calendar
+  Calendar,
+  Newspaper
 } from 'lucide-react'
 
 function DashboardLayout({ children }) {
@@ -57,6 +58,7 @@ function DashboardLayout({ children }) {
     { name: 'Manage Competitions', icon: Trophy, path: '/dashboard/competitions' },
     { name: 'Manage Athletes', icon: Users, path: '/dashboard/athletes' },
     { name: 'Manage Schedules', icon: Calendar, path: '/dashboard/schedules' },
+    { name: 'Manage News', icon: Newspaper, path: '/dashboard/news' },
     { name: 'User Management', icon: UserCog, path: '/dashboard/users' },
     { name: 'Settings', icon: Settings, path: '/dashboard/settings' },
   ]

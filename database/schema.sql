@@ -1,9 +1,10 @@
 -- Database Schema untuk FPTI Karanganyar Admin Dashboard
 -- Jalankan script ini untuk membuat database dan tables
+-- Note: Ganti 'emsimemy_db' dengan nama database Anda jika berbeda
 
-CREATE DATABASE IF NOT EXISTS fpti_karanganyar CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS emsimemy_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-USE fpti_karanganyar;
+USE emsimemy_db;
 
 -- Table Users untuk authentication
 CREATE TABLE IF NOT EXISTS users (

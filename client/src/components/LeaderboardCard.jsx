@@ -1,84 +1,92 @@
 import React from 'react'
 
 /**
- * LeaderboardCard Component - Clean Enterprise White Design
+ * LeaderboardCard Component - New Design Style
  * 
- * Layout:
- * - Left: Rank & Info (Rank, Bib, Name, Team)
- * - Center: 4 Grid Boxes (one for each boulder)
- *   - Each column has 2 small square boxes stacked vertically
- *   - Top Box: Displays topAttempts. Background is BLACK if isTop is true, otherwise White/Empty
- *   - Bottom Box: Displays zoneAttempts. Background is BLACK if isZone is true, otherwise White/Empty
- * - Right: Total Score (Green text)
+ * Layout based on reference image:
+ * - Large rank box (yellow-gold)
+ * - Name and team/status
+ * - 2x4 grid of attempt numbers (zone attempts top row, top attempts bottom row)
+ * - Total points (large green)
  */
 function LeaderboardCard({ climber, index }) {
   return (
-    <div className="flex items-center gap-6 p-6 bg-rich-black rounded-xl shadow-2xl border border-white/10 hover:border-goldenrod/30 transition-all duration-200">
-      {/* Left: Rank & Info */}
-      <div className="flex items-center gap-4 min-w-[200px]">
-        {/* Rank Badge */}
-        <div className="flex items-center justify-center w-14 h-14 rounded-lg font-bold text-2xl bg-gunmetal border border-white/10 text-goldenrod">
-          {climber.rank}
+    <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 lg:gap-8 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 bg-rich-black border-b border-white/10 last:border-b-0 hover:bg-gunmetal/30 transition-all duration-200 w-full">
+      {/* Left: Rank Box with Label */}
+      <div className="relative flex-shrink-0">
+        {/* Small Rank Label Box - Above Right */}
+        <div className="absolute -top-1 -right-1 bg-gray-700/90 rounded px-1.5 sm:px-2 py-0.5 z-10 border border-gray-600">
+          <span className="text-[9px] sm:text-[10px] font-bold text-white">#{climber.rank}</span>
         </div>
-        
-        {/* Info */}
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 bg-gunmetal border border-white/10 rounded text-xs font-semibold text-gray-300 tracking-wide">
-              #{climber.bib_number}
-            </span>
-          </div>
-          <div className="font-bold text-lg text-white mb-0.5 tracking-tight">
+        {/* Large Rank Box - Yellow Gold */}
+        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-lg flex items-center justify-center shadow-lg">
+          <span className="text-3xl sm:text-4xl font-black text-gray-900">{climber.rank}</span>
+        </div>
+      </div>
+
+      {/* Center: Name and Score Grid */}
+      <div className="flex-1 min-w-0 w-full sm:w-auto">
+        {/* Name and Team */}
+        <div className="mb-3 sm:mb-4">
+          <div className="text-xl sm:text-2xl font-bold text-white mb-1 uppercase tracking-tight truncate">
             {climber.name}
           </div>
-          {climber.team && (
-            <div className="text-sm text-gray-400">
-              {climber.team}
-            </div>
-          )}
+          <div className="text-xs sm:text-sm text-white/80 font-medium">
+            {climber.team || 'SOLO'}
+          </div>
+        </div>
+
+        {/* Score Grid - 2 rows x 4 columns */}
+        <div className="space-y-1.5">
+          {/* Grid Container */}
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            {climber.scores.map((score, idx) => {
+              const zoneAttempt = score.zoneAttempts || 0
+              const topAttempt = score.topAttempts || 0
+              
+              return (
+                <div key={idx} className="flex flex-col gap-1">
+                  {/* Row 1: Zone Attempt */}
+                  <div className={`w-full h-9 sm:h-11 rounded-md flex items-center justify-center font-bold text-xs sm:text-sm ${
+                    zoneAttempt > 0
+                      ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 text-gray-900 shadow-md'
+                      : 'bg-gray-800 border border-gray-700 text-white/60'
+                  }`}>
+                    {zoneAttempt > 0 ? zoneAttempt : '-'}
+                  </div>
+                  {/* Row 2: Top Attempt */}
+                  <div className={`w-full h-9 sm:h-11 rounded-md flex items-center justify-center font-bold text-xs sm:text-sm ${
+                    topAttempt > 0
+                      ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 text-gray-900 shadow-md'
+                      : 'bg-gray-800 border border-gray-700 text-white/60'
+                  }`}>
+                    {topAttempt > 0 ? topAttempt : '-'}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {/* Boulder Number Labels */}
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            {climber.scores.map((_, idx) => (
+              <div key={idx} className="text-center">
+                <span className="text-[10px] sm:text-xs text-gray-500 font-semibold">{idx + 1}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Center: 4 Grid Boxes */}
-      <div className="flex gap-3 flex-1 justify-center">
-        {climber.scores.map((score, idx) => (
-          <div key={idx} className="flex flex-col gap-1.5 items-center">
-            {/* Top Box */}
-            <div
-              className={`w-14 h-14 rounded-sm border-2 flex items-center justify-center font-bold text-base transition-all duration-200 tabular-nums ${
-                score.isTop
-                  ? 'bg-goldenrod border-goldenrod text-black'
-                  : 'bg-gunmetal border-white/10 text-gray-500'
-              }`}
-            >
-              {score.topAttempts > 0 ? score.topAttempts : '-'}
-            </div>
-            
-            {/* Bottom Box */}
-            <div
-              className={`w-14 h-14 rounded-sm border-2 flex items-center justify-center font-bold text-base transition-all duration-200 tabular-nums ${
-                score.isZone
-                  ? 'bg-goldenrod border-goldenrod text-black'
-                  : 'bg-gunmetal border-white/10 text-gray-500'
-              }`}
-            >
-              {score.zoneAttempts > 0 ? score.zoneAttempts : '-'}
-            </div>
-            
-            {/* Boulder Number Label */}
-            <div className="text-center text-xs text-gray-400 mt-0.5 font-medium">
-              {idx + 1}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Right: Total Score */}
-      <div className="min-w-[120px] text-right">
-        <div className="text-3xl font-bold text-green-400 tabular-nums">
+      {/* Right: Total Points */}
+      <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start w-full sm:w-auto flex-shrink-0 sm:min-w-[120px] lg:min-w-[140px] mt-2 sm:mt-0">
+        <div className="text-3xl sm:text-4xl font-black text-green-400 tabular-nums mb-0 sm:mb-1" style={{
+          textShadow: '0 0 10px rgba(74, 222, 128, 0.5)'
+        }}>
           {climber.totalScore.toFixed(1)}
         </div>
-        <div className="text-xs text-gray-400 mt-1 font-medium">Total Points</div>
+        <div className="text-[10px] sm:text-xs text-white/60 font-medium uppercase tracking-wider">
+          Total Points
+        </div>
       </div>
     </div>
   )

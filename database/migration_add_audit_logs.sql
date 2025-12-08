@@ -1,7 +1,8 @@
 -- Migration: Add audit_logs table for tracking appeals and critical actions
 -- Date: 2024
+-- Note: Ganti 'emsimemy_db' dengan nama database Anda jika berbeda
 
-USE fpti_karanganyar;
+USE emsimemy_db;
 
 CREATE TABLE IF NOT EXISTS audit_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,

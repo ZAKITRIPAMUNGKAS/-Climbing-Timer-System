@@ -8,6 +8,7 @@ const mysql = require('mysql2/promise');
 const multer = require('multer');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
+const MySQLStore = require('express-mysql-session')(session);
 require('dotenv').config();
 // const { SerialPort } = require('serialport'); // Uncomment ketika hardware ready
 
@@ -20,35 +21,65 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const fs = require('fs');
 
-// Session configuration
-app.use(session({
-    secret: process.env.SESSION_SECRET || 'fpti-karanganyar-secret-key-change-in-production',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        secure: false, // Set true jika menggunakan HTTPS
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        httpOnly: true,
-        sameSite: 'lax'
-    },
-    name: 'fpti.session' // Custom session name
-}));
-
 // ============================================
 // MYSQL DATABASE CONNECTION
 // ============================================
 const dbConfig = {
-    host: process.env.DB_HOST || '127.0.0.1',
+    host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '272800',
     database: process.env.DB_NAME || 'fpti_karanganyar',
     port: process.env.DB_PORT || 3306,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    // Fix authentication plugin issue
+    authPlugin: 'mysql_native_password',
+    // Additional connection options
+    ssl: false,
+    reconnect: true
 };
 
 const pool = mysql.createPool(dbConfig);
+
+// MySQL Session Store configuration for production
+const sessionStore = new MySQLStore({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '272800',
+    database: process.env.DB_NAME || 'fpti_karanganyar',
+    port: process.env.DB_PORT || 3306,
+    createDatabaseTable: true, // Auto-create sessions table if not exists
+    schema: {
+        tableName: 'sessions',
+        columnNames: {
+            session_id: 'session_id',
+            expires: 'expires',
+            data: 'data'
+        }
+    },
+    clearExpired: true,
+    checkExpirationInterval: 900000, // Check every 15 minutes
+    expiration: 86400000, // 24 hours
+    // Fix authentication plugin issue
+    connectionLimit: 10,
+    reconnect: true
+}, pool);
+
+// Session configuration
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'fpti-karanganyar-secret-key-change-in-production',
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production' && process.env.HTTPS === 'true', // Set true jika menggunakan HTTPS
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        httpOnly: true,
+        sameSite: 'lax'
+    },
+    name: 'fpti.session' // Custom session name
+}));
 
 // Test database connection
 pool.getConnection()
@@ -130,7 +161,19 @@ const uploadCSV = multer({
 });
 
 // Serve uploaded files
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', (req, res, next) => {
+    const filePath = path.join(uploadsDir, req.path);
+    
+    // Check if file exists
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        // File exists, serve it
+        return express.static(uploadsDir)(req, res, next);
+    }
+    
+    // File doesn't exist - log warning but don't break the app
+    console.warn(`[STATIC] Image not found: /uploads${req.path}`);
+    res.status(404).send('Image not found');
+});
 
 // ============================================
 // AUTHENTICATION MIDDLEWARE
@@ -400,7 +443,20 @@ app.delete('/api/users/:id', requireAuth, async (req, res) => {
 app.get('/api/athletes', async (req, res) => {
     try {
         const [athletes] = await pool.execute('SELECT * FROM athletes ORDER BY id DESC');
-        res.json(athletes);
+        
+        // Check if image files exist, set to null if not found
+        const athletesWithValidImages = athletes.map(athlete => {
+            if (athlete.image) {
+                const imagePath = path.join(__dirname, 'public', athlete.image);
+                if (!fs.existsSync(imagePath)) {
+                    console.warn(`[API] Image not found: ${athlete.image} for athlete ${athlete.id}`);
+                    return { ...athlete, image: null };
+                }
+            }
+            return athlete;
+        });
+        
+        res.json(athletesWithValidImages);
     } catch (error) {
         console.error('[API] Error fetching athletes:', error);
         res.status(500).json({ error: 'Failed to fetch athletes' });
@@ -755,7 +811,20 @@ app.delete('/api/schedules/:id', requireAuth, async (req, res) => {
 app.get('/api/news', async (req, res) => {
     try {
         const [news] = await pool.execute('SELECT * FROM news ORDER BY id DESC');
-        res.json(news);
+        
+        // Check if image files exist, set to null if not found
+        const newsWithValidImages = news.map(item => {
+            if (item.image) {
+                const imagePath = path.join(__dirname, 'public', item.image);
+                if (!fs.existsSync(imagePath)) {
+                    console.warn(`[API] Image not found: ${item.image} for news ${item.id}`);
+                    return { ...item, image: null };
+                }
+            }
+            return item;
+        });
+        
+        res.json(newsWithValidImages);
     } catch (error) {
         console.error('[API] Error fetching news:', error);
         res.status(500).json({ error: 'Failed to fetch news' });
@@ -1429,12 +1498,14 @@ app.put('/api/competitions/:competitionId/climbers/:climberId/boulders/:boulderN
         });
 
         // Emit WebSocket event for real-time update
-        io.emit('score-updated', {
+        const socketData = {
             competition_id: parseInt(competitionId),
             climber_id: parseInt(climberId),
             boulder_number: parseInt(boulderNumber),
             score: score
-        });
+        };
+        console.log('[SOCKET] Emitting score-updated event:', socketData);
+        io.emit('score-updated', socketData);
 
         // Get updated score
         const [updatedScores] = await pool.execute(

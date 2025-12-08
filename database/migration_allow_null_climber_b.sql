@@ -1,7 +1,8 @@
 -- Migration: Allow NULL for climber_b_id to support BYE (Walkover)
 -- This allows matches where a climber advances automatically without an opponent
+-- Note: Ganti 'emsimemy_db' dengan nama database Anda jika berbeda
 
-USE fpti_karanganyar;
+USE emsimemy_db;
 
 -- Modify climber_b_id to allow NULL
 ALTER TABLE speed_finals_matches 
@@ -17,7 +18,7 @@ SELECT
     IS_NULLABLE, 
     COLUMN_TYPE 
 FROM INFORMATION_SCHEMA.COLUMNS 
-WHERE TABLE_SCHEMA = 'fpti_karanganyar' 
+WHERE TABLE_SCHEMA = 'emsimemy_db' 
   AND TABLE_NAME = 'speed_finals_matches' 
   AND COLUMN_NAME = 'climber_b_id';
 

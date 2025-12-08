@@ -49,35 +49,35 @@ function LandingPage() {
           <div className="absolute inset-0 bg-black/40"></div>
         </div>
 
-        <div className="container mx-auto px-6 relative z-10 text-center md:text-left pt-32 md:pt-24">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center md:text-left pt-24 sm:pt-28 md:pt-32 pb-20">
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <h2 className="text-goldenrod font-bold tracking-[0.2em] text-sm mb-4 uppercase">Federasi Panjat Tebing Indonesia</h2>
-            <h1 className="text-5xl md:text-7xl font-heading font-extrabold leading-tight mb-6">
-              Raih Puncak <br />
+            <h2 className="text-goldenrod font-bold tracking-[0.2em] text-xs sm:text-sm mb-3 sm:mb-4 uppercase">Federasi Panjat Tebing Indonesia</h2>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-heading font-extrabold leading-tight mb-4 sm:mb-6">
+              Raih Puncak <br className="hidden sm:block" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-500">
                 Tanpa Batas
               </span>
             </h1>
-            <p className="text-gray-400 text-lg max-w-xl mb-10 leading-relaxed">
+            <p className="text-gray-400 text-base sm:text-lg max-w-xl mx-auto md:mx-0 mb-8 sm:mb-10 leading-relaxed px-4 sm:px-0">
               Wadah resmi pengembangan atlet panjat tebing di Kabupaten Karanganyar. 
               Membentuk karakter tangguh, disiplin, dan berprestasi.
             </p>
             
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center md:justify-start px-4 sm:px-0">
               <Link 
                 to="/jadwal"
-                className="px-8 py-4 bg-crimson text-white font-bold rounded hover:bg-red-700 transition-all flex items-center justify-center gap-2 group"
+                className="px-6 sm:px-8 py-3 sm:py-4 bg-crimson text-white font-bold rounded hover:bg-red-700 transition-all flex items-center justify-center gap-2 group text-sm sm:text-base"
               >
                 Lihat Jadwal Lomba
-                <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                <ChevronRight size={18} className="sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link 
                 to="/atlet"
-                className="px-8 py-4 border border-white/20 text-white font-bold rounded hover:bg-white/10 transition-all backdrop-blur-sm"
+                className="px-6 sm:px-8 py-3 sm:py-4 border border-white/20 text-white font-bold rounded hover:bg-white/10 transition-all backdrop-blur-sm text-sm sm:text-base"
               >
                 Profil Atlet
               </Link>
@@ -90,7 +90,7 @@ function LandingPage() {
           initial={{ opacity: 0, x: 50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.5, duration: 0.8 }}
-          className="hidden md:block absolute bottom-20 right-20 bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-2xl w-64 shadow-2xl"
+          className="hidden lg:block absolute bottom-10 lg:bottom-20 right-4 lg:right-20 bg-white/5 backdrop-blur-xl border border-white/10 p-4 lg:p-6 rounded-2xl w-56 lg:w-64 shadow-2xl"
         >
           <div className="flex items-center gap-4 mb-4 border-b border-white/10 pb-4">
             <div className="bg-goldenrod p-2 rounded-lg text-black">
@@ -109,8 +109,8 @@ function LandingPage() {
       </section>
 
       {/* --- TENTANG SECTION --- */}
-      <section id="about" className="py-20 bg-gunmetal">
-        <div className="container mx-auto px-6">
+      <section id="about" className="py-12 sm:py-16 md:py-20 bg-gunmetal">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -118,21 +118,21 @@ function LandingPage() {
             transition={{ duration: 0.6 }}
             className="max-w-4xl mx-auto text-center"
           >
-            <div className="flex justify-center mb-6">
+            <div className="flex justify-center mb-4 sm:mb-6">
               <img 
                 src="/logo.jpeg" 
                 alt="FPTI Karanganyar" 
-                className="w-32 h-32 rounded-full object-cover border-4 border-goldenrod/50 shadow-[0_0_30px_rgba(255,193,7,0.3)]"
+                className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-goldenrod/50 shadow-[0_0_30px_rgba(255,193,7,0.3)]"
               />
             </div>
-            <h3 className="text-crimson font-bold uppercase tracking-widest text-sm mb-2">Tentang Kami</h3>
-            <h2 className="text-4xl md:text-5xl font-heading font-bold mb-6">FPTI Karanganyar</h2>
-            <p className="text-gray-400 text-lg leading-relaxed mb-8">
+            <h3 className="text-crimson font-bold uppercase tracking-widest text-xs sm:text-sm mb-2">Tentang Kami</h3>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold mb-4 sm:mb-6">FPTI Karanganyar</h2>
+            <p className="text-gray-400 text-base sm:text-lg leading-relaxed mb-6 sm:mb-8 px-4 sm:px-0">
               FPTI Karanganyar adalah komunitas panjat tebing yang berdedikasi untuk mengembangkan 
               olahraga panjat tebing di wilayah Karanganyar dan sekitarnya. Kami menyediakan fasilitas, 
               pelatihan, dan sistem timer profesional untuk mendukung kegiatan kompetisi dan latihan panjat tebing.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mt-8 sm:mt-12">
               <div className="text-center">
                 <div className="text-4xl font-bold text-crimson mb-2">50+</div>
                 <div className="text-gray-400">Atlet Aktif</div>
@@ -151,12 +151,12 @@ function LandingPage() {
       </section>
 
       {/* --- ATLET SECTION --- */}
-      <section id="athletes" className="py-20 bg-rich-black">
-        <div className="container mx-auto px-6">
-          <div className="flex justify-between items-end mb-12">
+      <section id="athletes" className="py-12 sm:py-16 md:py-20 bg-rich-black">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8 sm:mb-12">
             <div>
-              <h3 className="text-crimson font-bold uppercase tracking-widest text-sm mb-2">Squad Kami</h3>
-              <h2 className="text-4xl font-heading font-bold">Atlet Berprestasi</h2>
+              <h3 className="text-crimson font-bold uppercase tracking-widest text-xs sm:text-sm mb-2">Squad Kami</h3>
+              <h2 className="text-3xl sm:text-4xl font-heading font-bold">Atlet Berprestasi</h2>
             </div>
             <Link 
               to="/atlet"
@@ -166,7 +166,7 @@ function LandingPage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {loading ? (
               <div className="col-span-3 text-center text-gray-400 py-10">Memuat data...</div>
             ) : athletes.length === 0 ? (
@@ -179,7 +179,7 @@ function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1, duration: 0.6 }}
-                className="group relative h-[400px] rounded-xl overflow-hidden cursor-pointer"
+                className="group relative h-[300px] sm:h-[350px] md:h-[400px] rounded-xl overflow-hidden cursor-pointer"
               >
                 <img 
                   src={athlete.image && athlete.image.startsWith('http') ? athlete.image : (athlete.image ? athlete.image : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23E11D23" width="800" height="600"/%3E%3Ctext fill="%23FFFFFF" font-family="Arial" font-size="24" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E')}
@@ -210,14 +210,14 @@ function LandingPage() {
       </section>
 
       {/* --- JADWAL SECTION --- */}
-      <section id="schedule" className="py-20 bg-gunmetal">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-12">
-            <h3 className="text-crimson font-bold uppercase tracking-widest text-sm mb-2">Kalender</h3>
-            <h2 className="text-4xl font-heading font-bold">Jadwal Lomba</h2>
+      <section id="schedule" className="py-12 sm:py-16 md:py-20 bg-gunmetal">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8 sm:mb-12">
+            <h3 className="text-crimson font-bold uppercase tracking-widest text-xs sm:text-sm mb-2">Kalender</h3>
+            <h2 className="text-3xl sm:text-4xl font-heading font-bold">Jadwal Lomba</h2>
           </div>
 
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-3xl mx-auto px-4 sm:px-0">
             {loading ? (
               <div className="text-center text-gray-400 py-10">Memuat data...</div>
             ) : schedules.length === 0 ? (
@@ -259,12 +259,12 @@ function LandingPage() {
       </section>
 
       {/* --- BERITA SECTION --- */}
-      <section id="news" className="py-20 bg-rich-black">
-        <div className="container mx-auto px-6">
-          <div className="flex justify-between items-end mb-12">
+      <section id="news" className="py-12 sm:py-16 md:py-20 bg-rich-black">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8 sm:mb-12">
             <div>
-              <h3 className="text-crimson font-bold uppercase tracking-widest text-sm mb-2">Update</h3>
-              <h2 className="text-4xl font-heading font-bold">Berita & Artikel</h2>
+              <h3 className="text-crimson font-bold uppercase tracking-widest text-xs sm:text-sm mb-2">Update</h3>
+              <h2 className="text-3xl sm:text-4xl font-heading font-bold">Berita & Artikel</h2>
             </div>
             <Link 
               to="/berita"
@@ -274,7 +274,7 @@ function LandingPage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {loading ? (
               <div className="col-span-3 text-center text-gray-400 py-10">Memuat data...</div>
             ) : news.length === 0 ? (
@@ -322,14 +322,14 @@ function LandingPage() {
       </section>
 
       {/* --- KONTAK SECTION --- */}
-      <section id="contact" className="py-20 bg-gunmetal">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-12">
-            <h3 className="text-crimson font-bold uppercase tracking-widest text-sm mb-2">Hubungi Kami</h3>
-            <h2 className="text-4xl font-heading font-bold">Kontak</h2>
+      <section id="contact" className="py-12 sm:py-16 md:py-20 bg-gunmetal">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8 sm:mb-12">
+            <h3 className="text-crimson font-bold uppercase tracking-widest text-xs sm:text-sm mb-2">Hubungi Kami</h3>
+            <h2 className="text-3xl sm:text-4xl font-heading font-bold">Kontak</h2>
           </div>
 
-          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -367,8 +367,8 @@ function LandingPage() {
       </section>
 
       {/* --- FOOTER --- */}
-      <footer className="py-10 border-t border-white/10 text-center text-gray-500 text-sm bg-rich-black">
-        <div className="container mx-auto px-6">
+      <footer className="py-8 sm:py-10 border-t border-white/10 text-center text-gray-500 text-sm bg-rich-black">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center gap-6 mb-4">
             <a href="#" className="hover:text-goldenrod transition-colors">
               <Instagram size={20} />

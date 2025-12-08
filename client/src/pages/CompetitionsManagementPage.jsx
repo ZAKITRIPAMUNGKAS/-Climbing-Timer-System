@@ -205,10 +205,10 @@ function CompetitionsManagementPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Manage Competitions</h2>
-          <p className="text-gray-600 mt-1">Create and manage competitions</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Manage Competitions</h2>
+          <p className="text-xs sm:text-sm text-gray-600 mt-1">Create and manage competitions</p>
         </div>
         <button
           onClick={() => {
@@ -216,10 +216,10 @@ function CompetitionsManagementPage() {
             setFormData({ name: '', total_boulders: 4, status: 'active', type: 'boulder' })
             setShowModal(true)
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
         >
-          <Plus size={20} />
-          Add Competition
+          <Plus size={18} />
+          <span>Add Competition</span>
         </button>
       </div>
 

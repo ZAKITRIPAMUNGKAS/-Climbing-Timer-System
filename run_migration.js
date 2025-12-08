@@ -13,10 +13,10 @@ async function runMigration() {
     
     try {
         // Get database credentials
-        const dbPassword = process.env.DB_PASSWORD || '272800'; // Default from server.js
+        const dbPassword = process.env.DB_PASSWORD || 'c290^&uz%Fm@i.oy'; // Default from server.js
         const dbHost = process.env.DB_HOST || '127.0.0.1';
-        const dbUser = process.env.DB_USER || 'root';
-        const dbName = process.env.DB_NAME || 'fpti_karanganyar';
+        const dbUser = process.env.DB_USER || 'emsimemy_db';
+        const dbName = process.env.DB_NAME || 'emsimemy_db';
         
         console.log(`[MIGRATION] 🔌 Connecting to database: ${dbUser}@${dbHost}/${dbName}`);
         
@@ -26,7 +26,10 @@ async function runMigration() {
             user: dbUser,
             password: dbPassword,
             database: dbName,
-            multipleStatements: true // Allow multiple SQL statements
+            multipleStatements: true, // Allow multiple SQL statements
+            // Fix authentication plugin issue
+            authPlugin: 'mysql_native_password',
+            ssl: false
         });
         
         console.log('[MIGRATION] ✅ Connected to database');

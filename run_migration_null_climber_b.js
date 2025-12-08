@@ -11,10 +11,13 @@ async function runMigration() {
     try {
         const dbConfig = {
             host: process.env.DB_HOST || '127.0.0.1',
-            user: process.env.DB_USER || 'root',
-            password: process.env.DB_PASSWORD || '272800', // Same default as server.js
-            database: process.env.DB_NAME || 'fpti_karanganyar',
-            port: process.env.DB_PORT || 3306
+            user: process.env.DB_USER || 'emsimemy_db',
+            password: process.env.DB_PASSWORD || 'c290^&uz%Fm@i.oy', // Same default as server.js
+            database: process.env.DB_NAME || 'emsimemy_db',
+            port: process.env.DB_PORT || 3306,
+            // Fix authentication plugin issue
+            authPlugin: 'mysql_native_password',
+            ssl: false
         };
 
         console.log(`[MIGRATION] 🔌 Connecting to database: ${dbConfig.user}@${dbConfig.host}/${dbConfig.database}`);

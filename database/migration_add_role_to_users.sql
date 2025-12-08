@@ -1,7 +1,8 @@
 -- Migration: Add role column to users table
 -- Run this SQL script to add the role column to existing users table
+-- Note: Ganti 'emsimemy_db' dengan nama database Anda jika berbeda
 
-USE fpti_karanganyar;
+USE emsimemy_db;
 
 -- Add role column to users table
 ALTER TABLE users 

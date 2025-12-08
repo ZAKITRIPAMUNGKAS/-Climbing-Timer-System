@@ -19,6 +19,12 @@ import CompetitionsManagementPage from './pages/CompetitionsManagementPage'
 import UsersManagementPage from './pages/UsersManagementPage'
 import JudgeInterfacePage from './pages/JudgeInterfacePage'
 import SchedulesManagementPage from './pages/SchedulesManagementPage'
+import NewsManagementPage from './pages/NewsManagementPage'
+import SettingsPage from './pages/SettingsPage'
+import SpeedOverlay from './pages/SpeedOverlay'
+import BoulderCurrentOverlay from './pages/BoulderCurrentOverlay'
+import BoulderTimerOverlay from './pages/BoulderTimerOverlay'
+import BoulderLeaderboardOverlay from './pages/BoulderLeaderboardOverlay'
 import './App.css'
 
 function App() {
@@ -41,6 +47,12 @@ function App() {
         <Route path="/live-score" element={<PublicLayout><LiveScorePage /></PublicLayout>} />
         <Route path="/speed-score" element={<PublicLayout><SpeedScorePage /></PublicLayout>} />
         <Route path="/big-screen/:competitionId" element={<BigScreenPage />} />
+        
+        {/* OBS Overlay Routes */}
+        <Route path="/overlay/speed-lower-third" element={<SpeedOverlay />} />
+        <Route path="/overlay/boulder-current" element={<BoulderCurrentOverlay />} />
+        <Route path="/overlay/boulder-timer" element={<BoulderTimerOverlay />} />
+        <Route path="/overlay/boulder-leaderboard" element={<BoulderLeaderboardOverlay />} />
         
         {/* Auth Routes */}
         <Route path="/login" element={<LoginPage />} />
@@ -116,14 +128,21 @@ function App() {
           } 
         />
         <Route 
+          path="/dashboard/news" 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <NewsManagementPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
           path="/dashboard/settings" 
           element={
             <ProtectedRoute>
               <DashboardLayout>
-                <div className="p-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
-                  <p className="text-gray-600 mt-2">Coming soon...</p>
-                </div>
+                <SettingsPage />
               </DashboardLayout>
             </ProtectedRoute>
           } 
