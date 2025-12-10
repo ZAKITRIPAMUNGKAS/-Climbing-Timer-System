@@ -206,7 +206,7 @@
 
         .sensor-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 15px;
             margin: 20px 0;
         }
@@ -269,6 +269,7 @@
             transition: all 0.3s;
             background: #ffffff;
             color: #1a1a1a;
+            cursor: pointer;
         }
 
         .athlete-input:focus {
@@ -280,6 +281,10 @@
 
         .athlete-input::placeholder {
             color: #999;
+        }
+
+        .athlete-input option {
+            padding: 8px;
         }
 
         /* Controls */
@@ -458,6 +463,21 @@
                 </div>
             </div>
 
+            <!-- Competition Selection -->
+            <div class="card">
+                <div class="card-title">🏆 Pilih Kompetisi</div>
+                <select v-model="selectedCompetitionId" @change="onCompetitionChange" class="athlete-input" style="margin-top: 0;">
+                    <option value="">-- Pilih Kompetisi Speed --</option>
+                    <option v-for="comp in speedCompetitions" :key="comp.id" :value="comp.id">
+                        {{ comp.name }} ({{ comp.status }})
+                    </option>
+                </select>
+                <div v-if="selectedCompetitionId" style="margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 8px; border: 1px solid rgba(33,150,243,0.2);">
+                    <strong>Kompetisi Aktif:</strong> {{ selectedCompetitionName }}
+                </div>
+            </div>
+
+
             <!-- Match Status -->
             <div class="match-status-badge">
                 <div class="match-status-text" :class="'match-' + matchStatus.toLowerCase()">
@@ -483,12 +503,6 @@
                         </div>
                         <div class="sensor-grid">
                             <div class="sensor-item">
-                                <div class="sensor-label">Sensor Bawah</div>
-                                <div class="sensor-value" :class="laneA.sensorBottom ? 'on' : 'off'">
-                                    {{ laneA.sensorBottom ? 'ON' : 'OFF' }}
-                                </div>
-                            </div>
-                            <div class="sensor-item">
                                 <div class="sensor-label">Sensor Atas</div>
                                 <div class="sensor-value" :class="laneA.sensorTop ? 'on' : 'off'">
                                     {{ laneA.sensorTop ? 'HIT' : 'OFF' }}
@@ -496,12 +510,18 @@
                             </div>
                         </div>
                         <div class="timer-display">{{ laneA.finalDuration }}</div>
-                        <input 
-                            type="text" 
-                            v-model="laneA.athleteName" 
-                            @blur="updateAthleteName('A', laneA.athleteName)"
-                            placeholder="Nama Atlet A"
+                        <select 
+                            v-model="laneA.athleteId" 
+                            @change="updateAthlete('A', laneA.athleteId)"
                             class="athlete-input">
+                            <option value="">Pilih Nama Atlet A</option>
+                            <option v-for="athlete in athletes" :key="athlete.id" :value="athlete.id">
+                                {{ athlete.name }}{{ athlete.team ? ' (' + athlete.team + ')' : '' }}
+                            </option>
+                        </select>
+                        <div v-if="laneA.saved" style="margin-top: 10px; padding: 8px; background: #4caf50; color: white; border-radius: 6px; font-size: 0.9em; text-align: center;">
+                            ✓ Tersimpan ke Database
+                        </div>
                     </div>
 
                     <!-- Lane B -->
@@ -514,12 +534,6 @@
                         </div>
                         <div class="sensor-grid">
                             <div class="sensor-item">
-                                <div class="sensor-label">Sensor Bawah</div>
-                                <div class="sensor-value" :class="laneB.sensorBottom ? 'on' : 'off'">
-                                    {{ laneB.sensorBottom ? 'ON' : 'OFF' }}
-                                </div>
-                            </div>
-                            <div class="sensor-item">
                                 <div class="sensor-label">Sensor Atas</div>
                                 <div class="sensor-value" :class="laneB.sensorTop ? 'on' : 'off'">
                                     {{ laneB.sensorTop ? 'HIT' : 'OFF' }}
@@ -527,12 +541,18 @@
                             </div>
                         </div>
                         <div class="timer-display">{{ laneB.finalDuration }}</div>
-                        <input 
-                            type="text" 
-                            v-model="laneB.athleteName" 
-                            @blur="updateAthleteName('B', laneB.athleteName)"
-                            placeholder="Nama Atlet B"
+                        <select 
+                            v-model="laneB.athleteId" 
+                            @change="updateAthlete('B', laneB.athleteId)"
                             class="athlete-input">
+                            <option value="">Pilih Nama Atlet B</option>
+                            <option v-for="athlete in athletes" :key="athlete.id" :value="athlete.id">
+                                {{ athlete.name }}{{ athlete.team ? ' (' + athlete.team + ')' : '' }}
+                            </option>
+                        </select>
+                        <div v-if="laneB.saved" style="margin-top: 10px; padding: 8px; background: #4caf50; color: white; border-radius: 6px; font-size: 0.9em; text-align: center;">
+                            ✓ Tersimpan ke Database
+                        </div>
                     </div>
                 </div>
             </div>
@@ -544,17 +564,36 @@
                     <button class="btn-arm" 
                             @click="armMatch" 
                             :disabled="matchStatus !== 'IDLE'"
-                            :title="matchStatus !== 'IDLE' ? 'Reset match terlebih dahulu' : 'ARM MATCH untuk memulai'">
-                        🔒 ARM MATCH
-                    </button>
-                    <button class="btn-start" 
-                            @click="startMatch" 
-                            :disabled="matchStatus !== 'ARMED'">
+                            :title="matchStatus !== 'IDLE' ? 'Reset match terlebih dahulu' : 'START MATCH untuk memulai'">
                         ▶️ START MATCH
                     </button>
                     <button class="btn-reset" 
                             @click="resetMatch">
                         ⏹️ RESET
+                    </button>
+                </div>
+            </div>
+
+            <!-- Manual Save Controls -->
+            <div class="card" v-if="selectedCompetitionId">
+                <div class="card-title">💾 Simpan ke Database</div>
+                <div style="margin-bottom: 15px; padding: 12px; background: #fff3cd; border-radius: 8px; border: 1px solid rgba(255,193,7,0.3); font-size: 0.9em; color: #856404;">
+                    <strong>Info:</strong> Data akan otomatis tersimpan saat race selesai. Gunakan tombol di bawah untuk menyimpan manual jika diperlukan.
+                </div>
+                <div class="controls">
+                    <button 
+                        class="btn-arm" 
+                        @click="manualSave('A')"
+                        :disabled="!laneA.athleteId || laneA.status !== 'FINISHED' || !selectedCompetitionId"
+                        style="background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); color: white;">
+                        💾 Simpan Lane A
+                    </button>
+                    <button 
+                        class="btn-arm" 
+                        @click="manualSave('B')"
+                        :disabled="!laneB.athleteId || laneB.status !== 'FINISHED' || !selectedCompetitionId"
+                        style="background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); color: white;">
+                        💾 Simpan Lane B
                     </button>
                 </div>
             </div>
@@ -568,18 +607,8 @@
                     </div>
                     <div class="sim-grid">
                         <button class="sim-btn" 
-                                :class="{ active: laneA.sensorBottom }"
-                                @click="toggleSensor('A', 'bottom')">
-                            A: Bottom {{ laneA.sensorBottom ? 'ON' : 'OFF' }}
-                        </button>
-                        <button class="sim-btn" 
                                 @click="triggerSensor('A', 'top')">
                             A: Top Hit
-                        </button>
-                        <button class="sim-btn" 
-                                :class="{ active: laneB.sensorBottom }"
-                                @click="toggleSensor('B', 'bottom')">
-                            B: Bottom {{ laneB.sensorBottom ? 'ON' : 'OFF' }}
                         </button>
                         <button class="sim-btn" 
                                 @click="triggerSensor('B', 'top')">
@@ -588,8 +617,7 @@
                     </div>
                     <div style="margin-top: 15px; padding: 12px; background: linear-gradient(135deg, rgba(255,193,7,0.1) 0%, rgba(225,29,35,0.08) 100%); border-radius: 6px; font-size: 0.85em; color: #E11D23; border: 1px solid rgba(255,193,7,0.3);">
                         <strong>Keyboard Shortcuts:</strong><br>
-                        A = Toggle Lane A Bottom | Q = Hit Lane A Top<br>
-                        L = Toggle Lane B Bottom | P = Hit Lane B Top
+                        Q = Hit Lane A Top | P = Hit Lane B Top
                     </div>
                 </div>
             </div>
@@ -605,24 +633,31 @@
                     matchStatus: 'IDLE',
                     laneA: {
                         status: 'IDLE',
-                        sensorBottom: false,
                         sensorTop: false,
                         finalDuration: '00:00.000',
-                        athleteName: ''
+                        athleteName: '',
+                        athleteId: '',
+                        saved: false
                     },
                     laneB: {
                         status: 'IDLE',
-                        sensorBottom: false,
                         sensorTop: false,
                         finalDuration: '00:00.000',
-                        athleteName: ''
+                        athleteName: '',
+                        athleteId: '',
+                        saved: false
                     },
                     socket: null,
-                    isSimulation: true
+                    isSimulation: true,
+                    athletes: [],
+                    speedCompetitions: [],
+                    selectedCompetitionId: '',
+                    selectedCompetitionName: ''
                 }
             },
             mounted() {
                 this.socket = io();
+                this.fetchSpeedCompetitions();
 
                 this.socket.on('connect', () => {
                     console.log('[ADMIN] Socket connected');
@@ -638,9 +673,51 @@
 
                 this.socket.on('race-state', (state) => {
                     console.log('[ADMIN] Received race-state:', state.matchStatus);
+                    const oldStatusA = this.laneA?.status;
+                    const oldStatusB = this.laneB?.status;
+                    const oldMatchStatus = this.matchStatus;
+                    
                     this.matchStatus = state.matchStatus || 'IDLE';
-                    this.laneA = { ...state.laneA };
-                    this.laneB = { ...state.laneB };
+                    
+                    // Preserve athleteId and saved status
+                    const athleteIdA = this.laneA.athleteId;
+                    const athleteIdB = this.laneB.athleteId;
+                    const savedA = this.laneA.saved;
+                    const savedB = this.laneB.saved;
+                    
+                    this.laneA = { ...state.laneA, athleteId: athleteIdA, saved: savedA };
+                    this.laneB = { ...state.laneB, athleteId: athleteIdB, saved: savedB };
+                    
+                    // Auto-save to database when race finishes
+                    if (state.matchStatus === 'FINISHED' && oldMatchStatus !== 'FINISHED') {
+                        console.log('[ADMIN] Race finished, attempting auto-save...');
+                        // Delay sedikit untuk memastikan finalDuration sudah ter-update
+                        setTimeout(() => {
+                            if (this.laneA.status === 'FINISHED' && this.laneA.athleteId && this.selectedCompetitionId) {
+                                console.log('[ADMIN] Auto-saving Lane A...');
+                                this.saveTimeToDatabase('A', this.laneA);
+                            }
+                            if (this.laneB.status === 'FINISHED' && this.laneB.athleteId && this.selectedCompetitionId) {
+                                console.log('[ADMIN] Auto-saving Lane B...');
+                                this.saveTimeToDatabase('B', this.laneB);
+                            }
+                        }, 500);
+                    }
+                    
+                    // Also check individual lane status changes
+                    if (oldStatusA !== 'FINISHED' && this.laneA.status === 'FINISHED' && this.laneA.athleteId && this.selectedCompetitionId) {
+                        console.log('[ADMIN] Lane A finished, attempting auto-save...');
+                        setTimeout(() => {
+                            this.saveTimeToDatabase('A', this.laneA);
+                        }, 500);
+                    }
+                    if (oldStatusB !== 'FINISHED' && this.laneB.status === 'FINISHED' && this.laneB.athleteId && this.selectedCompetitionId) {
+                        console.log('[ADMIN] Lane B finished, attempting auto-save...');
+                        setTimeout(() => {
+                            this.saveTimeToDatabase('B', this.laneB);
+                        }, 500);
+                    }
+                    
                     console.log('[ADMIN] Updated local state. matchStatus:', this.matchStatus);
                 });
 
@@ -648,14 +725,8 @@
                 document.addEventListener('keydown', (e) => {
                     const key = e.key.toUpperCase();
                     switch(key) {
-                        case 'A':
-                            this.toggleSensor('A', 'bottom');
-                            break;
                         case 'Q':
                             this.triggerSensor('A', 'top');
-                            break;
-                        case 'L':
-                            this.toggleSensor('B', 'bottom');
                             break;
                         case 'P':
                             this.triggerSensor('B', 'top');
@@ -664,6 +735,144 @@
                 });
             },
             methods: {
+                async fetchSpeedCompetitions() {
+                    try {
+                        const response = await fetch('/api/speed-competitions');
+                        if (response.ok) {
+                            this.speedCompetitions = await response.json();
+                            console.log('[ADMIN] Loaded', this.speedCompetitions.length, 'speed competitions');
+                        }
+                    } catch (error) {
+                        console.error('[ADMIN] Error fetching speed competitions:', error);
+                        this.speedCompetitions = [];
+                    }
+                },
+                async onCompetitionChange() {
+                    if (!this.selectedCompetitionId) {
+                        this.athletes = [];
+                        this.selectedCompetitionName = '';
+                        return;
+                    }
+                    
+                    const comp = this.speedCompetitions.find(c => c.id == this.selectedCompetitionId);
+                    this.selectedCompetitionName = comp ? comp.name : '';
+                    
+                    try {
+                        const response = await fetch(`/api/speed-competitions/${this.selectedCompetitionId}/climbers`);
+                        if (response.ok) {
+                            this.athletes = await response.json();
+                            console.log('[ADMIN] Loaded', this.athletes.length, 'athletes from speed competition');
+                        } else {
+                            this.athletes = [];
+                        }
+                    } catch (error) {
+                        console.error('[ADMIN] Error fetching athletes:', error);
+                        this.athletes = [];
+                    }
+                },
+                parseTimeToSeconds(timeStr) {
+                    // Parse format "00:06.500" to seconds (6.5)
+                    // Round to 3 decimal places for consistency
+                    if (!timeStr || timeStr === '00:00.000') return null;
+                    const parts = timeStr.split(':');
+                    const minutes = parseInt(parts[0]) || 0;
+                    const secParts = parts[1].split('.');
+                    const seconds = parseInt(secParts[0]) || 0;
+                    const ms = parseInt(secParts[1].padEnd(3, '0').substring(0, 3), 10) || 0; // Ensure 3 digits
+                    const totalSeconds = minutes * 60 + seconds + ms / 1000;
+                    // Round to 3 decimal places to ensure consistency
+                    return Math.round(totalSeconds * 1000) / 1000;
+                },
+                async saveTimeToDatabase(lane, laneData) {
+                    console.log('[ADMIN] saveTimeToDatabase called:', {
+                        lane,
+                        competitionId: this.selectedCompetitionId,
+                        athleteId: laneData.athleteId,
+                        time: laneData.finalDuration,
+                        status: laneData.status
+                    });
+                    
+                    if (!this.selectedCompetitionId) {
+                        console.warn('[ADMIN] Cannot save: no competition selected');
+                        alert('Pilih kompetisi terlebih dahulu!');
+                        return;
+                    }
+                    
+                    if (!laneData.athleteId) {
+                        console.warn('[ADMIN] Cannot save: no athlete selected for lane', lane);
+                        alert(`Pilih atlet untuk Lane ${lane} terlebih dahulu!`);
+                        return;
+                    }
+                    
+                    const timeInSeconds = this.parseTimeToSeconds(laneData.finalDuration);
+                    if (timeInSeconds === null || timeInSeconds === 0) {
+                        console.warn('[ADMIN] Cannot save: invalid time', laneData.finalDuration);
+                        alert('Waktu tidak valid atau masih 00:00.000');
+                        return;
+                    }
+                    
+                    console.log('[ADMIN] Parsed time:', timeInSeconds, 'seconds');
+                    
+                    // Automatically determine which lane field to update based on lane
+                    // Lane A -> lane_a_time, Lane B -> lane_b_time
+                    const isLaneA = lane === 'A';
+                    const isLaneB = lane === 'B';
+                    
+                    // Get current score to preserve other lane's data
+                    try {
+                        console.log('[ADMIN] Fetching current scores...');
+                        const getScoreRes = await fetch(`/api/speed-competitions/${this.selectedCompetitionId}/qualification`);
+                        let currentScore = null;
+                        if (getScoreRes.ok) {
+                            const leaderboard = await getScoreRes.json();
+                            const climberScore = leaderboard.find(s => s.climber_id == laneData.athleteId);
+                            if (climberScore) {
+                                currentScore = climberScore;
+                                console.log('[ADMIN] Found existing score:', currentScore);
+                            } else {
+                                console.log('[ADMIN] No existing score found, will create new');
+                            }
+                        }
+                        
+                        const updateData = {
+                            lane_a_time: isLaneA ? timeInSeconds : (currentScore?.lane_a_time || null),
+                            lane_b_time: isLaneB ? timeInSeconds : (currentScore?.lane_b_time || null),
+                            lane_a_status: isLaneA ? (laneData.status === 'FINISHED' ? 'VALID' : 'FALL') : (currentScore?.lane_a_status || 'VALID'),
+                            lane_b_status: isLaneB ? (laneData.status === 'FINISHED' ? 'VALID' : 'FALL') : (currentScore?.lane_b_status || 'VALID')
+                        };
+                        
+                        console.log('[ADMIN] Sending update data:', updateData);
+                        
+                        const response = await fetch(`/api/speed-competitions/${this.selectedCompetitionId}/qualification/${laneData.athleteId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify(updateData)
+                        });
+                        
+                        if (response.ok) {
+                            const result = await response.json();
+                            console.log('[ADMIN] Successfully saved! Response:', result);
+                            console.log(`[ADMIN] Successfully saved ${lane} time (${this.selectedAttempt === 'A' ? 'Attempt 1' : 'Attempt 2'}) to database`);
+                            if (lane === 'A') {
+                                this.laneA.saved = true;
+                                setTimeout(() => { this.laneA.saved = false; }, 5000);
+                            } else {
+                                this.laneB.saved = true;
+                                setTimeout(() => { this.laneB.saved = false; }, 5000);
+                            }
+                        } else {
+                            const error = await response.json();
+                            console.error('[ADMIN] Error saving time:', error);
+                            alert('Gagal menyimpan waktu: ' + (error.error || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('[ADMIN] Error saving time to database:', error);
+                        alert('Terjadi kesalahan saat menyimpan waktu: ' + error.message);
+                    }
+                },
                 armMatch() {
                     console.log('[ADMIN] armMatch() called');
                     
@@ -683,29 +892,37 @@
                     this.socket.emit('arm-match');
                     console.log('[ADMIN] arm-match event emitted');
                 },
-                startMatch() {
-                    this.socket.emit('start-match');
-                },
                 resetMatch() {
                     if (confirm('Reset match? Semua progress akan hilang.')) {
                         this.socket.emit('reset-match');
                     }
                 },
-                updateAthleteName(lane, name) {
+                updateAthlete(lane, athleteId) {
+                    const athlete = this.athletes.find(a => a.id == athleteId);
+                    const athleteName = athlete ? athlete.name : '';
+                    
                     this.socket.emit('update-athlete-name', {
                         lane: lane,
-                        name: name
+                        name: athleteName
                     });
-                },
-                toggleSensor(lane, sensor) {
-                    if (sensor === 'bottom') {
-                        const currentValue = lane === 'A' ? this.laneA.sensorBottom : this.laneB.sensorBottom;
-                        this.socket.emit('simulate-sensor', {
-                            lane: lane,
-                            sensor: sensor,
-                            value: !currentValue
-                        });
+                    
+                    if (lane === 'A') {
+                        this.laneA.athleteName = athleteName;
+                        this.laneA.athleteId = athleteId;
+                        this.laneA.saved = false; // Reset saved status when athlete changes
+                    } else {
+                        this.laneB.athleteName = athleteName;
+                        this.laneB.athleteId = athleteId;
+                        this.laneB.saved = false; // Reset saved status when athlete changes
                     }
+                },
+                manualSave(lane) {
+                    const laneData = lane === 'A' ? this.laneA : this.laneB;
+                    if (!laneData.athleteId || laneData.status !== 'FINISHED') {
+                        alert('Lane harus sudah selesai (FINISHED) dan atlet harus dipilih');
+                        return;
+                    }
+                    this.saveTimeToDatabase(lane, laneData);
                 },
                 triggerSensor(lane, sensor) {
                     if (sensor === 'top') {

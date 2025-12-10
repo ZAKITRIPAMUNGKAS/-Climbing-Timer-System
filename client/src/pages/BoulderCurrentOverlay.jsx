@@ -4,81 +4,82 @@ import { io } from 'socket.io-client'
 import OverlayLayout from '../components/OverlayLayout'
 
 /**
- * BoulderCurrentOverlay Component - Current Climber Name Card
+ * BoulderCurrentOverlay Component - Climber Card by Search
  * 
- * Displays a compact card showing the climber currently on the wall.
+ * Displays a compact card showing the climber based on search parameter (name or bib).
  * Shows: Name, Team, and Current Score (Top/Zone)
- * Updates instantly when a judge inputs "Zone" or "Top"
+ * Updates score in real-time when judge inputs "Zone" or "Top"
  */
 function BoulderCurrentOverlay() {
   const [searchParams] = useSearchParams()
   const competitionId = searchParams.get('competition')
-  const searchQuery = searchParams.get('search') // Search by name or bib
+  const searchQuery = searchParams.get('search') // Search by name or bib (required)
   const position = searchParams.get('position') || 'bottom-left' // 'bottom-left' or 'top-left'
   
   const [currentClimber, setCurrentClimber] = useState(null)
   const [totalScore, setTotalScore] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null) // 'not_found', 'wrong_type', 'no_climbers'
+  const [error, setError] = useState(null) // 'not_found', 'wrong_type', 'no_climbers', 'no_search'
   const socketRef = useRef(null)
 
+  // Fetch climber when competition or search changes
   useEffect(() => {
     if (!competitionId) {
       console.log('[OVERLAY] No competition ID provided')
+      setError('not_found')
       setLoading(false)
       return
     }
 
-    console.log('[OVERLAY] Initializing overlay for competition:', competitionId)
+    if (!searchQuery) {
+      console.log('[OVERLAY] No search parameter provided')
+      setError('no_search')
+      setLoading(false)
+      return
+    }
 
-    // Initialize socket connection
-    socketRef.current = io()
+    console.log('[OVERLAY] Fetching climber for competition:', competitionId, 'search:', searchQuery)
+    fetchClimberBySearch(competitionId)
+  }, [competitionId, searchQuery])
 
-    // Listen for score updates from judge interface
-    socketRef.current.on('score-updated', (data) => {
+  // Setup socket listener for score updates
+  useEffect(() => {
+    if (!competitionId || !currentClimber) return
+
+    // Initialize socket connection for real-time score updates
+    if (!socketRef.current) {
+      socketRef.current = io()
+    }
+
+    // Listen for score updates from judge interface (only update score, not climber)
+    const handleScoreUpdate = (data) => {
       console.log('[OVERLAY] Score updated event received:', data)
-      if (data.competition_id === parseInt(competitionId)) {
-        // When score is updated, that climber becomes the current climber
-        console.log('[OVERLAY] Score update matches competition, updating climber...')
-        fetchClimberById(competitionId, data.climber_id)
-        // fetchTotalScore will be called inside fetchClimberById
+      if (data.competition_id === parseInt(competitionId) && data.climber_id === currentClimber.id) {
+        // Only update score if it's for the current climber
+        console.log('[OVERLAY] Score update matches current climber, updating score...')
+        fetchTotalScore(competitionId, currentClimber.id)
       }
-    })
+    }
+    
+    socketRef.current.on('score-updated', handleScoreUpdate)
 
-    // Fetch initial data
-    fetchCurrentClimber(competitionId)
+    // Cleanup
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off('score-updated', handleScoreUpdate)
+      }
+    }
+  }, [competitionId, currentClimber])
 
-    // Cleanup on unmount
+  // Cleanup socket on unmount
+  useEffect(() => {
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect()
+        socketRef.current = null
       }
     }
-  }, [competitionId])
-
-  // Fetch climber by ID (when score is updated)
-  const fetchClimberById = async (compId, climberId) => {
-    try {
-      console.log('[OVERLAY] Fetching climber by ID:', climberId)
-      const response = await fetch(`/api/competitions/${compId}/climbers`)
-      if (response.ok) {
-        const climbers = await response.json()
-        console.log('[OVERLAY] Found climbers:', climbers.length)
-        const climber = climbers.find(c => c.id === climberId)
-        if (climber) {
-          console.log('[OVERLAY] Setting current climber from score update:', climber.name)
-          setCurrentClimber(climber)
-          fetchTotalScore(compId, climberId)
-        } else {
-          console.warn('[OVERLAY] Climber not found in list:', climberId)
-        }
-      } else {
-        console.error('[OVERLAY] Failed to fetch climbers:', response.status)
-      }
-    } catch (error) {
-      console.error('[OVERLAY] Error fetching climber by ID:', error)
-    }
-  }
+  }, [])
 
   // Fetch total score for climber
   const fetchTotalScore = async (compId, climberId) => {
@@ -96,10 +97,10 @@ function BoulderCurrentOverlay() {
     }
   }
 
-  // Fetch current climber - Simplified logic
-  const fetchCurrentClimber = async (compId) => {
+  // Fetch climber by search parameter (name or bib)
+  const fetchClimberBySearch = async (compId) => {
     try {
-      console.log('[OVERLAY] Fetching current climber for competition:', compId)
+      console.log('[OVERLAY] Fetching climber by search for competition:', compId, 'search:', searchQuery)
       setError(null)
       
       // First, check if competition exists (try boulder first)
@@ -127,28 +128,21 @@ function BoulderCurrentOverlay() {
         console.log('[OVERLAY] Climbers data received:', climbers.length, 'climbers')
         
         if (climbers && climbers.length > 0) {
-          let activeClimber = null
+          // Search by name or bib
+          const query = searchQuery.toLowerCase().trim()
+          const activeClimber = climbers.find(c => 
+            c.name.toLowerCase().includes(query) || 
+            c.bib_number.toString() === query
+          )
           
-          // If search query provided, find by name or bib
-          if (searchQuery) {
-            const query = searchQuery.toLowerCase().trim()
-            activeClimber = climbers.find(c => 
-              c.name.toLowerCase().includes(query) || 
-              c.bib_number.toString() === query
-            )
-            
-            if (!activeClimber) {
-              console.warn('[OVERLAY] ⚠️ No climber found matching search:', searchQuery)
-              setError('no_climbers')
-              setLoading(false)
-              return
-            }
-          } else {
-            // Get first climber from list if no search
-            activeClimber = climbers[0]
+          if (!activeClimber) {
+            console.warn('[OVERLAY] ⚠️ No climber found matching search:', searchQuery)
+            setError('no_climbers')
+            setLoading(false)
+            return
           }
           
-          console.log('[OVERLAY] ✅ Setting current climber:', activeClimber.name, 'ID:', activeClimber.id)
+          console.log('[OVERLAY] ✅ Found climber:', activeClimber.name, 'ID:', activeClimber.id)
           setCurrentClimber(activeClimber)
           setError(null)
           fetchTotalScore(compId, activeClimber.id)
@@ -165,7 +159,7 @@ function BoulderCurrentOverlay() {
       
       setLoading(false)
     } catch (error) {
-      console.error('[OVERLAY] ❌ Error fetching current climber:', error)
+      console.error('[OVERLAY] ❌ Error fetching climber by search:', error)
       setError('not_found')
       setLoading(false)
     }
@@ -226,9 +220,14 @@ function BoulderCurrentOverlay() {
       errorDetail = 'This competition has no climbers yet. Add climbers in Manage Competitions.'
       iconColor = 'bg-yellow-400'
       textColor = 'text-yellow-200'
+    } else if (error === 'no_search') {
+      errorMessage = 'Missing Search Parameter'
+      errorDetail = 'Add ?search=NAME_OR_BIB to the URL (e.g., ?competition=1&search=KEMIN or ?competition=1&search=1)'
+      iconColor = 'bg-red-400'
+      textColor = 'text-red-200'
     } else if (!competitionId) {
       errorMessage = 'Missing Competition ID'
-      errorDetail = 'Add ?competition=ID to the URL (e.g., ?competition=1)'
+      errorDetail = 'Add ?competition=ID to the URL (e.g., ?competition=1&search=NAME_OR_BIB)'
       iconColor = 'bg-red-400'
       textColor = 'text-red-200'
     }
@@ -268,14 +267,44 @@ function BoulderCurrentOverlay() {
           
           {/* Content - Horizontal Layout */}
           <div className="relative z-10 flex items-center justify-between gap-6">
-            {/* Left: Name */}
-            <div className="flex-1 min-w-0">
-              <div className="text-3xl font-black text-white uppercase leading-tight truncate" style={{
-                fontFamily: "'Roboto Condensed', 'Inter', sans-serif",
-                letterSpacing: '0.5px',
-                textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
-              }}>
-                {currentClimber.name}
+            {/* Left: Photo and Name */}
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+              {/* Photo */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/20 flex-shrink-0 border-2 border-white/30 flex items-center justify-center shadow-md overflow-hidden">
+                {currentClimber.photo ? (
+                  <img 
+                    src={currentClimber.photo.startsWith('http') ? currentClimber.photo : `${window.location.origin}${currentClimber.photo}`}
+                    alt={currentClimber.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none'
+                      e.target.nextElementSibling.style.display = 'flex'
+                    }}
+                  />
+                ) : null}
+                <svg 
+                  className={`w-8 h-8 sm:w-10 sm:h-10 text-white/60 ${currentClimber.photo ? 'hidden' : ''}`}
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" 
+                  />
+                </svg>
+              </div>
+              {/* Name */}
+              <div className="flex-1 min-w-0">
+                <div className="text-3xl font-black text-white uppercase leading-tight truncate" style={{
+                  fontFamily: "'Roboto Condensed', 'Inter', sans-serif",
+                  letterSpacing: '0.5px',
+                  textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
+                }}>
+                  {currentClimber.name}
+                </div>
               </div>
             </div>
 

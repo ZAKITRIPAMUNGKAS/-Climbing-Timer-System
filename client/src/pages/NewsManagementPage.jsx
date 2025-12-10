@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Upload, Search, Edit, Trash2, AlertCircle, CheckCircle2, X, Calendar, Tag } from 'lucide-react'
+import ReactQuill from 'react-quill'
+import 'react-quill/dist/quill.snow.css'
 
 function NewsManagementPage() {
   const [news, setNews] = useState([])
@@ -129,7 +131,7 @@ function NewsManagementPage() {
       category: article.category || '',
       color: article.color || 'crimson',
       date: article.date || '',
-      description: stripHtmlTags(article.description || '')
+      description: article.description || ''
     })
     setSelectedImage(null)
     setImagePreview(article.image ? `${window.location.origin}${article.image}` : null)
@@ -201,7 +203,7 @@ function NewsManagementPage() {
         formData.append('category', editForm.category.trim())
         formData.append('color', editForm.color)
         formData.append('date', editForm.date)
-        formData.append('description', textToHtml(editForm.description.trim()) || '')
+        formData.append('description', editForm.description || '')
         formData.append('image', selectedImage)
         if (editingNews && editingNews.image) {
           formData.append('existingImage', editingNews.image)
@@ -229,7 +231,7 @@ function NewsManagementPage() {
             category: editForm.category.trim(),
             color: editForm.color,
             date: editForm.date,
-            description: textToHtml(editForm.description.trim()) || '',
+            description: editForm.description || '',
             existingImage: editingNews.image || null
           })
         })
@@ -539,15 +541,34 @@ function NewsManagementPage() {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Deskripsi
                 </label>
-                <textarea
-                  value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-sans"
-                  placeholder="Masukkan deskripsi berita. Tekan Enter untuk baris baru, double Enter untuk paragraf baru."
-                  rows="6"
-                />
+                <div className="border border-gray-300 rounded-lg overflow-hidden">
+                  <ReactQuill
+                    theme="snow"
+                    value={editForm.description}
+                    onChange={(value) => setEditForm({ ...editForm, description: value })}
+                    placeholder="Masukkan deskripsi berita..."
+                    modules={{
+                      toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        [{ 'align': [] }],
+                        ['link'],
+                        ['clean']
+                      ]
+                    }}
+                    formats={[
+                      'header',
+                      'bold', 'italic', 'underline', 'strike',
+                      'list', 'bullet',
+                      'align',
+                      'link'
+                    ]}
+                    style={{ minHeight: '300px' }}
+                  />
+                </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  Tips: Tekan Enter untuk baris baru. Double Enter (baris kosong) untuk membuat paragraf baru.
+                  Gunakan toolbar di atas untuk memformat teks (bold, italic, dll). Paragraf akan otomatis di-indent saat ditampilkan.
                 </p>
               </div>
 

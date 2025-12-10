@@ -1,14 +1,65 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, Clock, Calendar, Users, Newspaper, Trophy, MapPin, Mail, Phone, Instagram, Facebook } from 'lucide-react'
 import './LandingPage.css'
 
 function LandingPage() {
+  const navigate = useNavigate()
   const [athletes, setAthletes] = useState([])
   const [schedules, setSchedules] = useState([])
   const [news, setNews] = useState([])
+  const [nextEvent, setNextEvent] = useState(null)
+  const [daysUntil, setDaysUntil] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  // Helper function to parse Indonesian date
+  const parseIndonesianDate = (dateStr) => {
+    if (!dateStr) return null
+    
+    const monthMap = {
+      'januari': 0, 'februari': 1, 'maret': 2, 'april': 3, 'mei': 4, 'juni': 5,
+      'juli': 6, 'agustus': 7, 'september': 8, 'oktober': 9, 'november': 10, 'desember': 11
+    }
+    
+    // Try to parse format like "15 Desember 2024"
+    const parts = dateStr.toLowerCase().trim().split(/\s+/)
+    if (parts.length >= 3) {
+      const day = parseInt(parts[0])
+      const monthName = parts[1]
+      const year = parseInt(parts[2])
+      
+      if (monthMap[monthName] !== undefined && !isNaN(day) && !isNaN(year)) {
+        const date = new Date(year, monthMap[monthName], day)
+        // Validate the date
+        if (date.getDate() === day && date.getMonth() === monthMap[monthName] && date.getFullYear() === year) {
+          return date
+        }
+      }
+    }
+    
+    // Try ISO format (YYYY-MM-DD)
+    const isoDate = new Date(dateStr)
+    if (!isNaN(isoDate.getTime())) {
+      return isoDate
+    }
+    
+    return null
+  }
+
+  // Helper function to calculate days until event
+  const calculateDaysUntil = (eventDate) => {
+    if (!eventDate) return null
+    
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    eventDate.setHours(0, 0, 0, 0)
+    
+    const diffTime = eventDate - today
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    return diffDays >= 0 ? diffDays : null
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,6 +76,26 @@ function LandingPage() {
         setAthletes(athletesData.slice(0, 3)) // Ambil 3 pertama untuk preview
         setSchedules(schedulesData.slice(0, 3)) // Ambil 3 pertama untuk preview
         setNews(newsData.slice(0, 3)) // Ambil 3 pertama untuk preview
+        
+        // Find next upcoming event
+        const upcomingEvents = schedulesData.filter(e => e.status === 'upcoming')
+        if (upcomingEvents.length > 0) {
+          // Sort by date to get the nearest one
+          const sortedEvents = upcomingEvents.sort((a, b) => {
+            const dateA = parseIndonesianDate(a.date)
+            const dateB = parseIndonesianDate(b.date)
+            if (!dateA) return 1
+            if (!dateB) return -1
+            return dateA - dateB
+          })
+          
+          const nearestEvent = sortedEvents[0]
+          const eventDate = parseIndonesianDate(nearestEvent.date)
+          const days = calculateDaysUntil(eventDate)
+          
+          setNextEvent(nearestEvent)
+          setDaysUntil(days)
+        }
       } catch (error) {
         console.error('Error fetching data:', error)
       } finally {
@@ -86,26 +157,30 @@ function LandingPage() {
         </div>
 
         {/* Floating Stats Card */}
-        <motion.div 
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5, duration: 0.8 }}
-          className="hidden lg:block absolute bottom-10 lg:bottom-20 right-4 lg:right-20 bg-white/5 backdrop-blur-xl border border-white/10 p-4 lg:p-6 rounded-2xl w-56 lg:w-64 shadow-2xl"
-        >
-          <div className="flex items-center gap-4 mb-4 border-b border-white/10 pb-4">
-            <div className="bg-goldenrod p-2 rounded-lg text-black">
-              <Calendar size={20}/>
+        {nextEvent && daysUntil !== null && (
+          <motion.div 
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+            className="hidden lg:block absolute bottom-10 lg:bottom-20 right-4 lg:right-20 bg-white/5 backdrop-blur-xl border border-white/10 p-4 lg:p-6 rounded-2xl w-56 lg:w-64 shadow-2xl"
+          >
+            <div className="flex items-center gap-4 mb-4 border-b border-white/10 pb-4">
+              <div className="bg-goldenrod p-2 rounded-lg text-black">
+                <Calendar size={20}/>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 uppercase">Event Selanjutnya</p>
+                <p className="font-bold text-sm line-clamp-2">{nextEvent.title}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-gray-400 uppercase">Event Selanjutnya</p>
-              <p className="font-bold text-sm">Kejurkab Karanganyar</p>
+            <div className="flex justify-between items-end">
+              <div className="text-3xl font-bold text-crimson">{daysUntil}</div>
+              <div className="text-sm text-gray-400 mb-1">
+                {daysUntil === 0 ? 'Hari ini' : daysUntil === 1 ? 'Hari lagi' : 'Hari lagi'}
+              </div>
             </div>
-          </div>
-          <div className="flex justify-between items-end">
-            <div className="text-3xl font-bold text-crimson">12</div>
-            <div className="text-sm text-gray-400 mb-1">Hari lagi</div>
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
       </section>
 
       {/* --- TENTANG SECTION --- */}
@@ -287,6 +362,7 @@ function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1, duration: 0.6 }}
+                onClick={() => navigate(`/berita/${article.id}`)}
                 className="bg-gunmetal rounded-xl overflow-hidden hover:scale-105 transition-transform duration-300 cursor-pointer group"
               >
                 <div className="h-48 overflow-hidden">

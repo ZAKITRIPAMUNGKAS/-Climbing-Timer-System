@@ -162,10 +162,21 @@ function LeaderboardRow({ climber }) {
         {climber.rank}
       </div>
 
-      {/* Profile Picture Placeholder - Empty */}
+      {/* Profile Picture */}
       <div className="w-10 h-10 rounded-full bg-white/20 flex-shrink-0 border-2 border-white/30 flex items-center justify-center shadow-md overflow-hidden">
+        {climber.photo ? (
+          <img 
+            src={climber.photo.startsWith('http') ? climber.photo : `${window.location.origin}${climber.photo}`}
+            alt={climber.name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.style.display = 'none'
+              e.target.nextElementSibling.style.display = 'flex'
+            }}
+          />
+        ) : null}
         <svg 
-          className="w-6 h-6 text-white/60" 
+          className={`w-6 h-6 text-white/60 ${climber.photo ? 'hidden' : ''}`}
           fill="none" 
           stroke="currentColor" 
           viewBox="0 0 24 24"

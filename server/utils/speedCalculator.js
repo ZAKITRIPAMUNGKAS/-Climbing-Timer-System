@@ -34,8 +34,8 @@ function calculateQualificationScore(laneATime, laneBTime, laneAStatus, laneBSta
         };
     }
     
-    // Calculate total time
-    const totalTime = parseFloat((laneATime + laneBTime).toFixed(2));
+    // Calculate total time - round to 3 decimal places for consistency
+    const totalTime = Math.round((laneATime + laneBTime) * 1000) / 1000;
     
     return {
         totalTime: totalTime,

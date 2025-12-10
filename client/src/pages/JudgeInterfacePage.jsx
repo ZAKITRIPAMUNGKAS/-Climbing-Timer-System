@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { io } from 'socket.io-client'
 import { Gavel, Trophy, Timer, Search, Maximize2, Minimize2, LogOut } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import Swal from 'sweetalert2'
 import ScoreInputModal from '../components/ScoreInputModal'
 import FinalsMatchInputModal from '../components/FinalsMatchInputModal'
+import QualificationCard from '../components/QualificationCard'
 
 function JudgeInterfacePage() {
   const navigate = useNavigate()
@@ -13,6 +16,7 @@ function JudgeInterfacePage() {
   const [selectedCompetition, setSelectedCompetition] = useState(null)
   const [climbers, setClimbers] = useState([])
   const [finalsMatches, setFinalsMatches] = useState([])
+  const [qualificationScores, setQualificationScores] = useState([]) // For speed qualification scores
   const [activeTab, setActiveTab] = useState('qualification') // 'qualification' or 'finals'
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -20,6 +24,30 @@ function JudgeInterfacePage() {
   const [selectedClimber, setSelectedClimber] = useState(null)
   const [showFinalsModal, setShowFinalsModal] = useState(false)
   const [selectedMatch, setSelectedMatch] = useState(null)
+  // For boulder route-based judging
+  const [selectedBoulderRoute, setSelectedBoulderRoute] = useState(null)
+  const [climberScores, setClimberScores] = useState({}) // Store scores for each climber
+  const socketRef = useRef(null)
+
+  // Find next unjudged climber for a route
+  const findNextUnjudgedClimber = (routeNum) => {
+    if (!climbers.length) return null
+    
+    for (const climber of climbers) {
+      const score = climberScores[climber.id]
+      if (!score) return climber // No score yet
+      
+      const isFinalized = score.is_finalized === 1 || score.is_finalized === true
+      const isDisqualified = score.is_disqualified === 1 || score.is_disqualified === true
+      
+      // Check if this climber's score for this route is finalized
+      // We need to check the specific route score
+      if (!isFinalized || (isDisqualified && !isFinalized)) {
+        return climber
+      }
+    }
+    return null // All climbers are judged
+  }
 
   const handleLogout = async () => {
     try {
@@ -43,18 +71,67 @@ function JudgeInterfacePage() {
 
   useEffect(() => {
     fetchCompetitions()
+    
+    // Initialize socket connection
+    socketRef.current = io()
+    
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+      }
+    }
   }, [])
+
+  // Separate effect for socket listener with selectedCompetition dependency
+  useEffect(() => {
+    if (!socketRef.current) return
+    
+    const handleQualificationUpdate = (data) => {
+      if (selectedCompetition && selectedCompetition.type === 'speed' && selectedCompetition.id === data.speed_competition_id) {
+        fetchQualificationScores(selectedCompetition.id)
+      }
+    }
+    
+    socketRef.current.on('speed-qualification-updated', handleQualificationUpdate)
+    
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off('speed-qualification-updated', handleQualificationUpdate)
+      }
+    }
+  }, [selectedCompetition])
 
   useEffect(() => {
     if (selectedCompetition) {
-      if (selectedCompetition.type === 'speed' && selectedCompetition.status === 'finals') {
-        // Fetch finals matches for speed competitions in finals stage
-        fetchFinalsMatches(selectedCompetition.id)
+      if (selectedCompetition.type === 'speed') {
+        // For speed competitions, always fetch climbers
+        fetchClimbers(selectedCompetition.id, selectedCompetition.type)
+        // Fetch qualification scores if on qualification tab
+        if (activeTab === 'qualification') {
+          fetchQualificationScores(selectedCompetition.id)
+        }
+        // Fetch finals matches if on finals tab and status is finals
+        if (activeTab === 'finals' && selectedCompetition.status === 'finals') {
+          fetchFinalsMatches(selectedCompetition.id)
+        }
       } else {
         fetchClimbers(selectedCompetition.id, selectedCompetition.type)
       }
+      // Reset selected route when competition changes
+      if (selectedCompetition.type === 'boulder') {
+        setSelectedBoulderRoute(null)
+        setClimberScores({})
+      }
     }
   }, [selectedCompetition, activeTab])
+
+  // Fetch scores for all climbers when route is selected (for boulder)
+  useEffect(() => {
+    if (selectedCompetition && selectedCompetition.type === 'boulder' && selectedBoulderRoute && climbers.length > 0 && showScoreModal) {
+      // Only fetch when modal is open to avoid unnecessary calls
+      fetchClimberScoresForRoute()
+    }
+  }, [selectedBoulderRoute, climbers, selectedCompetition, showScoreModal])
 
   const fetchFinalsMatches = async (competitionId) => {
     try {
@@ -65,6 +142,18 @@ function JudgeInterfacePage() {
       }
     } catch (error) {
       console.error('Error fetching finals matches:', error)
+    }
+  }
+
+  const fetchQualificationScores = async (competitionId) => {
+    try {
+      const response = await fetch(`/api/speed-competitions/${competitionId}/qualification`)
+      if (response.ok) {
+        const data = await response.json()
+        setQualificationScores(data)
+      }
+    } catch (error) {
+      console.error('Error fetching qualification scores:', error)
     }
   }
 
@@ -103,6 +192,75 @@ function JudgeInterfacePage() {
     } catch (error) {
       console.error('Error fetching climbers:', error)
     }
+  }
+
+  const fetchClimberScoresForRoute = async () => {
+    if (!selectedCompetition || !selectedBoulderRoute) return
+    
+    try {
+      const scores = {}
+      for (const climber of climbers) {
+        const response = await fetch(
+          `/api/competitions/${selectedCompetition.id}/climbers/${climber.id}/boulders/${selectedBoulderRoute}`
+        )
+        if (response.ok) {
+          const score = await response.json()
+          scores[climber.id] = score
+        }
+      }
+      setClimberScores(scores)
+    } catch (error) {
+      console.error('Error fetching climber scores:', error)
+    }
+  }
+
+  // Get next/previous unjudged climber for current route
+  const getNextUnjudgedClimber = (currentClimberId, direction = 'next') => {
+    if (!selectedBoulderRoute) return null
+    
+    const currentIndex = climbers.findIndex(c => c.id === currentClimberId)
+    if (currentIndex === -1) return null
+
+    const startIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1
+    const endIndex = direction === 'next' ? climbers.length : -1
+    const step = direction === 'next' ? 1 : -1
+
+    for (let i = startIndex; i !== endIndex; i += step) {
+      const climber = climbers[i]
+      const score = climberScores[climber.id]
+      
+      // If no score, this climber hasn't been judged yet
+      if (!score) return climber
+      
+      // Check if finalized for this route
+      const isFinalized = score.is_finalized === 1 || score.is_finalized === true
+      if (!isFinalized) {
+        return climber
+      }
+    }
+    
+    // If all remaining climbers are judged, wrap around
+    if (direction === 'next') {
+      // Try from beginning
+      for (let i = 0; i < currentIndex; i++) {
+        const climber = climbers[i]
+        const score = climberScores[climber.id]
+        if (!score) return climber
+        const isFinalized = score.is_finalized === 1 || score.is_finalized === true
+        if (!isFinalized) return climber
+      }
+    } else {
+      // Try from end
+      for (let i = climbers.length - 1; i > currentIndex; i--) {
+        const climber = climbers[i]
+        const score = climberScores[climber.id]
+        if (!score) return climber
+        const isFinalized = score.is_finalized === 1 || score.is_finalized === true
+        if (!isFinalized) return climber
+      }
+    }
+    
+    return null
   }
 
   const filteredClimbers = climbers.filter(climber =>
@@ -191,6 +349,10 @@ function JudgeInterfacePage() {
           onChange={(e) => {
             const comp = competitions.find(c => c.id === parseInt(e.target.value))
             setSelectedCompetition(comp || null)
+            // Reset to qualification tab for speed competitions
+            if (comp && comp.type === 'speed') {
+              setActiveTab('qualification')
+            }
           }}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
@@ -222,14 +384,15 @@ function JudgeInterfacePage() {
             </div>
           </div>
 
-          {/* Tabs for Speed Finals */}
-          {selectedCompetition.type === 'speed' && selectedCompetition.status === 'finals' && (
+          {/* Tabs for Speed Competitions */}
+          {selectedCompetition.type === 'speed' && (
             <div className="p-4 sm:p-6 border-b border-gray-200">
               <div className="inline-flex bg-gray-100 rounded-lg p-1 gap-1 w-full sm:w-auto">
                 <button
                   onClick={() => {
                     setActiveTab('qualification')
                     fetchClimbers(selectedCompetition.id, selectedCompetition.type)
+                    fetchQualificationScores(selectedCompetition.id)
                   }}
                   className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm sm:text-base font-semibold transition-all rounded-md ${
                     activeTab === 'qualification'
@@ -239,19 +402,21 @@ function JudgeInterfacePage() {
                 >
                   Qualification
                 </button>
-                <button
-                  onClick={() => {
-                    setActiveTab('finals')
-                    fetchFinalsMatches(selectedCompetition.id)
-                  }}
-                  className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm sm:text-base font-semibold transition-all rounded-md ${
-                    activeTab === 'finals'
-                      ? 'bg-white shadow text-gray-900'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Finals
-                </button>
+                {selectedCompetition.status === 'finals' && (
+                  <button
+                    onClick={() => {
+                      setActiveTab('finals')
+                      fetchFinalsMatches(selectedCompetition.id)
+                    }}
+                    className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm sm:text-base font-semibold transition-all rounded-md ${
+                      activeTab === 'finals'
+                        ? 'bg-white shadow text-gray-900'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Finals
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -273,6 +438,71 @@ function JudgeInterfacePage() {
               />
             </div>
           </div>
+
+          {/* Boulder Route Selection */}
+          {selectedCompetition && selectedCompetition.type === 'boulder' && !selectedBoulderRoute && !showScoreModal && (
+            <div className="p-4 sm:p-6">
+              <h4 className="text-sm font-medium text-gray-700 mb-4">Pilih Jalur (Route) untuk Dinilai</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {Array.from({ length: selectedCompetition.total_boulders || 4 }, (_, i) => {
+                  const routeNum = i + 1
+                  return (
+                    <button
+                      key={routeNum}
+                      onClick={async () => {
+                        setSelectedBoulderRoute(routeNum)
+                        // Fetch scores first, then find next unjudged climber
+                        if (climbers.length > 0) {
+                          // Fetch scores for this route
+                          const scores = {}
+                          for (const climber of climbers) {
+                            try {
+                              const response = await fetch(
+                                `/api/competitions/${selectedCompetition.id}/climbers/${climber.id}/boulders/${routeNum}`
+                              )
+                              if (response.ok) {
+                                const score = await response.json()
+                                scores[climber.id] = score
+                              }
+                            } catch (error) {
+                              console.error('Error fetching score:', error)
+                            }
+                          }
+                          setClimberScores(scores)
+                          
+                          // Find next unjudged climber
+                          let nextClimber = null
+                          for (const climber of climbers) {
+                            const score = scores[climber.id]
+                            if (!score) {
+                              nextClimber = climber
+                              break
+                            }
+                            const isFinalized = score.is_finalized === 1 || score.is_finalized === true
+                            if (!isFinalized) {
+                              nextClimber = climber
+                              break
+                            }
+                          }
+                          
+                          // If all judged, start from first
+                          if (!nextClimber) {
+                            nextClimber = climbers[0]
+                          }
+                          
+                          setSelectedClimber(nextClimber)
+                          setShowScoreModal(true)
+                        }
+                      }}
+                      className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg"
+                    >
+                      Jalur {routeNum}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Content: Finals Matches or Climbers List */}
           {activeTab === 'finals' && selectedCompetition.status === 'finals' ? (
@@ -417,16 +647,84 @@ function JudgeInterfacePage() {
       {/* Score Input Modal */}
       {showScoreModal && selectedClimber && selectedCompetition && (
         <ScoreInputModal
+          key={`${selectedClimber.id}-${selectedBoulderRoute}`} // Force re-render when climber or route changes
           isOpen={showScoreModal}
           onClose={() => {
             setShowScoreModal(false)
             setSelectedClimber(null)
+            // Reset route selection when closing modal
+            if (selectedCompetition.type === 'boulder') {
+              setSelectedBoulderRoute(null)
+              setClimberScores({})
+            }
           }}
           climber={selectedClimber}
           competition={selectedCompetition}
-          onSuccess={() => {
+          boulderRoute={selectedBoulderRoute}
+          allClimbers={climbers}
+          climberScores={climberScores}
+          onNavigateClimber={(direction) => {
+            if (!selectedClimber || !selectedBoulderRoute) return
+            const nextClimber = getNextUnjudgedClimber(selectedClimber.id, direction)
+            if (nextClimber) {
+              setSelectedClimber(nextClimber)
+              // Refresh scores when navigating
+              fetchClimberScoresForRoute()
+            } else {
+              // Show message if no more unjudged climbers
+              Swal.fire({
+                icon: 'info',
+                title: 'Tidak ada peserta lain',
+                text: direction === 'next' 
+                  ? 'Tidak ada peserta berikutnya yang belum dinilai'
+                  : 'Tidak ada peserta sebelumnya yang belum dinilai',
+                timer: 2000,
+                showConfirmButton: false
+              })
+            }
+          }}
+          onSuccess={(action) => {
+            // Refresh qualification scores for speed competitions
+            if (selectedCompetition.type === 'speed' && activeTab === 'qualification') {
+              fetchQualificationScores(selectedCompetition.id)
+            }
             // Refresh climbers or scores if needed
-            fetchClimbers(selectedCompetition.id, selectedCompetition.type)
+            if (selectedCompetition.type === 'boulder' && selectedBoulderRoute) {
+              // Auto-advance to next climber if action is 'finalize' (or 'top' which auto-finalizes)
+              if (action === 'finalize') {
+                const currentIndex = climbers.findIndex(c => c.id === selectedClimber.id)
+                if (currentIndex < climbers.length - 1) {
+                  // Move to next climber - use setTimeout to ensure state updates properly
+                  setTimeout(() => {
+                    const nextClimber = climbers[currentIndex + 1]
+                    setSelectedClimber(nextClimber)
+                    // Refresh scores for the route after climber change
+                    fetchClimberScoresForRoute()
+                  }, 100)
+                  // Keep modal open for next climber - it will auto-refresh with new climber data via useEffect
+                } else {
+                  // All climbers done, close modal and reset
+                  setShowScoreModal(false)
+                  setSelectedClimber(null)
+                  setSelectedBoulderRoute(null)
+                  setClimberScores({})
+                  
+                  // Show completion message
+                  Swal.fire({
+                    icon: 'success',
+                    title: 'Selesai!',
+                    text: `Semua peserta untuk Jalur ${selectedBoulderRoute} sudah selesai dinilai.`,
+                    timer: 2000,
+                    showConfirmButton: false
+                  })
+                }
+              } else {
+                // For other actions (attempt, zone, disqualify), just refresh scores but keep modal open
+                fetchClimberScoresForRoute()
+              }
+            } else {
+              fetchClimbers(selectedCompetition.id, selectedCompetition.type)
+            }
           }}
         />
       )}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Save, Lock, Unlock } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { useAuth } from '../hooks/useAuth'
+import { formatTimeMMSSmmm, parseTimeMMSSmmm } from '../utils/timeFormat'
 
 function FinalsMatchInputModal({ isOpen, onClose, match, competition, onSuccess }) {
   const { isAdmin } = useAuth()
@@ -17,8 +18,8 @@ function FinalsMatchInputModal({ isOpen, onClose, match, competition, onSuccess 
   useEffect(() => {
     if (isOpen && match) {
       setMatchScore({
-        time_a: match.time_a || '',
-        time_b: match.time_b || '',
+        time_a: match.time_a ? formatTimeMMSSmmm(match.time_a) : '',
+        time_b: match.time_b ? formatTimeMMSSmmm(match.time_b) : '',
         status_a: match.status_a || 'VALID',
         status_b: match.status_b || 'VALID'
       })
@@ -41,6 +42,10 @@ function FinalsMatchInputModal({ isOpen, onClose, match, competition, onSuccess 
 
     try {
       setLoading(true)
+      // Convert MM:SS.mmm format to seconds before sending
+      const timeASeconds = matchScore.time_a ? parseTimeMMSSmmm(matchScore.time_a) : null
+      const timeBSeconds = matchScore.time_b ? parseTimeMMSSmmm(matchScore.time_b) : null
+      
       const response = await fetch(
         `/api/speed-competitions/${competition.id}/finals/${match.id}`,
         {
@@ -48,8 +53,8 @@ function FinalsMatchInputModal({ isOpen, onClose, match, competition, onSuccess 
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            time_a: matchScore.time_a ? parseFloat(matchScore.time_a) : null,
-            time_b: matchScore.time_b ? parseFloat(matchScore.time_b) : null,
+            time_a: timeASeconds,
+            time_b: timeBSeconds,
             status_a: matchScore.status_a,
             status_b: matchScore.status_b
           })
@@ -248,17 +253,18 @@ function FinalsMatchInputModal({ isOpen, onClose, match, competition, onSuccess 
               {/* Lane A */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Lane A Time (seconds)
+                  Lane A Time (MM:SS.mmm)
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
                   value={matchScore.time_a}
                   onChange={(e) => setMatchScore({ ...matchScore, time_a: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  placeholder="e.g., 6.50"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
+                  placeholder="00:06.500"
                   disabled={match.is_finalized}
+                  pattern="\d{1,2}:\d{2}\.\d{1,3}"
                 />
+                <p className="text-xs text-gray-500 mt-1">Format: MM:SS.mmm (contoh: 00:06.500 untuk 6.5 detik)</p>
                 <select
                   value={matchScore.status_a}
                   onChange={(e) => setMatchScore({ ...matchScore, status_a: e.target.value })}
@@ -275,17 +281,18 @@ function FinalsMatchInputModal({ isOpen, onClose, match, competition, onSuccess 
               {/* Lane B */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Lane B Time (seconds)
+                  Lane B Time (MM:SS.mmm)
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
                   value={matchScore.time_b}
                   onChange={(e) => setMatchScore({ ...matchScore, time_b: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  placeholder="e.g., 6.30"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
+                  placeholder="00:06.300"
                   disabled={match.is_finalized}
+                  pattern="\d{1,2}:\d{2}\.\d{1,3}"
                 />
+                <p className="text-xs text-gray-500 mt-1">Format: MM:SS.mmm (contoh: 00:06.300 untuk 6.3 detik)</p>
                 <select
                   value={matchScore.status_b}
                   onChange={(e) => setMatchScore({ ...matchScore, status_b: e.target.value })}

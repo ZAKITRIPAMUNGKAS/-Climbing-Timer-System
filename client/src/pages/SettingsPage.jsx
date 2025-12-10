@@ -85,10 +85,20 @@ function SettingsPage() {
     setLoading(true)
     try {
       // Export all data as JSON
+      const [competitionsRes, athletesRes, usersRes] = await Promise.all([
+        fetch('/api/competitions'),
+        fetch('/api/athletes'),
+        fetch('/api/users')
+      ])
+
+      if (!competitionsRes.ok || !athletesRes.ok || !usersRes.ok) {
+        throw new Error('Failed to fetch some data')
+      }
+
       const [competitions, athletes, users] = await Promise.all([
-        fetch('/api/competitions').then(r => r.json()),
-        fetch('/api/athletes').then(r => r.json()),
-        fetch('/api/users').then(r => r.json())
+        competitionsRes.json(),
+        athletesRes.json(),
+        usersRes.json()
       ])
 
       const exportData = {

@@ -7,6 +7,7 @@ import AboutPage from './pages/AboutPage'
 import AthletesPage from './pages/AthletesPage'
 import SchedulePage from './pages/SchedulePage'
 import NewsPage from './pages/NewsPage'
+import NewsDetailPage from './pages/NewsDetailPage'
 import ContactPage from './pages/ContactPage'
 import LiveScorePage from './pages/LiveScorePage'
 import SpeedScorePage from './pages/SpeedScorePage'
@@ -21,6 +22,7 @@ import JudgeInterfacePage from './pages/JudgeInterfacePage'
 import SchedulesManagementPage from './pages/SchedulesManagementPage'
 import NewsManagementPage from './pages/NewsManagementPage'
 import SettingsPage from './pages/SettingsPage'
+import ClimbersPhotoManagementPage from './pages/ClimbersPhotoManagementPage'
 import SpeedOverlay from './pages/SpeedOverlay'
 import BoulderCurrentOverlay from './pages/BoulderCurrentOverlay'
 import BoulderTimerOverlay from './pages/BoulderTimerOverlay'
@@ -42,6 +44,7 @@ function App() {
         <Route path="/atlet" element={<PublicLayout><AthletesPage /></PublicLayout>} />
         <Route path="/jadwal" element={<PublicLayout><SchedulePage /></PublicLayout>} />
         <Route path="/berita" element={<PublicLayout><NewsPage /></PublicLayout>} />
+        <Route path="/berita/:id" element={<PublicLayout><NewsDetailPage /></PublicLayout>} />
         <Route path="/kontak" element={<PublicLayout><ContactPage /></PublicLayout>} />
         <Route path="/live-score-selector" element={<PublicLayout><LiveScoreSelectorPage /></PublicLayout>} />
         <Route path="/live-score" element={<PublicLayout><LiveScorePage /></PublicLayout>} />
@@ -144,6 +147,14 @@ function App() {
               <DashboardLayout>
                 <SettingsPage />
               </DashboardLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/dashboard/competitions/:competitionId/climbers-photos" 
+          element={
+            <ProtectedRoute>
+              <ClimbersPhotoManagementPage />
             </ProtectedRoute>
           } 
         />

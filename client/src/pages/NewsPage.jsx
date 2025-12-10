@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Search, Calendar } from 'lucide-react'
 import PublicLayout from '../components/PublicLayout'
 import './LandingPage.css'
 
 function NewsPage() {
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
   const [news, setNews] = useState([])
@@ -104,6 +106,7 @@ function NewsPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1, duration: 0.6 }}
+                onClick={() => navigate(`/berita/${article.id}`)}
                 className="bg-gunmetal rounded-xl overflow-hidden hover:scale-105 transition-transform duration-300 cursor-pointer group"
               >
                 <div className="h-48 overflow-hidden">

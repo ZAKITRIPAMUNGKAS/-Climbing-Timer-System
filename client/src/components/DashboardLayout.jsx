@@ -14,6 +14,7 @@ import {
   Calendar,
   Newspaper
 } from 'lucide-react'
+import { clearSession } from '../utils/session'
 
 function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -43,6 +44,10 @@ function DashboardLayout({ children }) {
 
   const handleLogout = async () => {
     try {
+      // Clear localStorage session
+      clearSession()
+      
+      // Clear server session
       await fetch('/api/logout', {
         method: 'POST',
         credentials: 'include'
@@ -50,6 +55,8 @@ function DashboardLayout({ children }) {
       navigate('/login', { replace: true })
     } catch (error) {
       console.error('Logout error:', error)
+      // Still navigate even if server logout fails
+      navigate('/login', { replace: true })
     }
   }
 

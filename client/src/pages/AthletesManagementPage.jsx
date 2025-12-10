@@ -8,9 +8,10 @@ function AthletesManagementPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [showModal, setShowModal] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [editingAthlete, setEditingAthlete] = useState(null)
-  const [editForm, setEditForm] = useState({ name: '', age: '', achievement: '' })
+  const [editForm, setEditForm] = useState({ name: '', school: '', achievement: '', category: 'Boulder' })
   const [selectedImage, setSelectedImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
 
@@ -26,7 +27,7 @@ function AthletesManagementPage() {
       setFilteredAthletes(
         athletes.filter(athlete =>
           athlete.name?.toLowerCase().includes(query) ||
-          athlete.age?.toString().includes(query) ||
+          athlete.school?.toLowerCase().includes(query) ||
           athlete.achievement?.toLowerCase().includes(query)
         )
       )
@@ -83,11 +84,13 @@ function AthletesManagementPage() {
     setEditingAthlete(athlete)
     setEditForm({
       name: athlete.name || '',
-      age: athlete.age || '',
-      achievement: athlete.achievement || ''
+      school: athlete.school || '',
+      achievement: athlete.achievement || '',
+      category: athlete.category || 'Boulder'
     })
     setSelectedImage(null)
     setImagePreview(athlete.image ? `${window.location.origin}${athlete.image}` : null)
+    setShowModal(true)
   }
 
   const handleImageChange = (e) => {
@@ -113,66 +116,104 @@ function AthletesManagementPage() {
     }
   }
 
-  const handleUpdate = async () => {
+  const handleSubmit = async () => {
     if (!editForm.name.trim()) {
       setMessage({ type: 'error', text: 'Nama atlet wajib diisi' })
       return
     }
     
-    if (!editForm.age || parseInt(editForm.age) < 1) {
-      setMessage({ type: 'error', text: 'Umur wajib diisi dan harus lebih dari 0' })
+    if (!editForm.school || editForm.school.trim() === '') {
+      setMessage({ type: 'error', text: 'Asal sekolah wajib diisi' })
       return
     }
 
-    try {
-      // Use FormData if image is selected, otherwise use JSON
-      let response
-      if (selectedImage) {
-        const formData = new FormData()
-        formData.append('name', editForm.name.trim())
-        formData.append('category', editingAthlete.category || 'Boulder')
-        formData.append('age', editForm.age ? parseInt(editForm.age) : '')
-        formData.append('achievement', editForm.achievement.trim() || '')
-        formData.append('image', selectedImage)
-        if (editingAthlete.image) {
-          formData.append('existingImage', editingAthlete.image)
-        }
+    // Image is optional for both new and existing athletes
 
-        response = await fetch(`/api/athletes/${editingAthlete.id}`, {
-          method: 'PUT',
-          credentials: 'include',
-          body: formData
-        })
-      } else {
-        response = await fetch(`/api/athletes/${editingAthlete.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            name: editForm.name.trim(),
-            category: editingAthlete.category || 'Boulder',
-            age: editForm.age ? parseInt(editForm.age) : null,
-            achievement: editForm.achievement.trim() || '',
-            existingImage: editingAthlete.image || null
+    try {
+      let response
+      
+      if (editingAthlete) {
+        // Update existing athlete
+        if (selectedImage) {
+          const formData = new FormData()
+          formData.append('name', editForm.name.trim())
+          formData.append('category', editForm.category || 'Boulder')
+          formData.append('school', editForm.school.trim() || '')
+          formData.append('achievement', editForm.achievement.trim() || '')
+          formData.append('image', selectedImage)
+          if (editingAthlete.image) {
+            formData.append('existingImage', editingAthlete.image)
+          }
+
+          response = await fetch(`/api/athletes/${editingAthlete.id}`, {
+            method: 'PUT',
+            credentials: 'include',
+            body: formData
           })
-        })
+        } else {
+          response = await fetch(`/api/athletes/${editingAthlete.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              name: editForm.name.trim(),
+              category: editForm.category || 'Boulder',
+              school: editForm.school.trim() || '',
+              achievement: editForm.achievement.trim() || '',
+              existingImage: editingAthlete.image || null
+            })
+          })
+        }
+      } else {
+        // Create new athlete
+        if (selectedImage) {
+          // If image is provided, use FormData
+          const formData = new FormData()
+          formData.append('name', editForm.name.trim())
+          formData.append('category', editForm.category || 'Boulder')
+          formData.append('school', editForm.school.trim() || '')
+          formData.append('achievement', editForm.achievement.trim() || '')
+          formData.append('image', selectedImage)
+
+          response = await fetch('/api/athletes', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+          })
+        } else {
+          // If no image, use JSON (don't send FormData with empty image field)
+          response = await fetch('/api/athletes', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              name: editForm.name.trim(),
+              category: editForm.category || 'Boulder',
+              school: editForm.school.trim() || '',
+              achievement: editForm.achievement.trim() || ''
+            })
+          })
+        }
       }
 
       if (response.ok) {
-        setMessage({ type: 'success', text: 'Data atlet berhasil diperbarui' })
+        setMessage({ type: 'success', text: editingAthlete ? 'Data atlet berhasil diperbarui' : 'Atlet berhasil ditambahkan' })
         setEditingAthlete(null)
         setSelectedImage(null)
         setImagePreview(null)
+        setShowModal(false)
         fetchAthletes()
       } else {
         const error = await response.json()
-        setMessage({ type: 'error', text: error.error || 'Gagal memperbarui data atlet' })
+        setMessage({ type: 'error', text: error.error || (editingAthlete ? 'Gagal memperbarui data atlet' : 'Gagal menambahkan atlet') })
       }
     } catch (error) {
-      console.error('Error updating athlete:', error)
-      setMessage({ type: 'error', text: 'Terjadi kesalahan saat memperbarui data' })
+      console.error('Error saving athlete:', error)
+      setMessage({ type: 'error', text: 'Terjadi kesalahan saat menyimpan data' })
     }
   }
 
@@ -201,6 +242,13 @@ function AthletesManagementPage() {
             <span>Bulk Upload</span>
           </button>
           <button
+            onClick={() => {
+              setEditingAthlete(null)
+              setEditForm({ name: '', school: '', achievement: '', category: 'Boulder' })
+              setSelectedImage(null)
+              setImagePreview(null)
+              setShowModal(true)
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
           >
             <Plus size={18} />
@@ -233,7 +281,7 @@ function AthletesManagementPage() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
-            placeholder="Cari atlet berdasarkan nama, umur, atau achievement..."
+            placeholder="Cari atlet berdasarkan nama, asal sekolah, atau achievement..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -252,7 +300,8 @@ function AthletesManagementPage() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">No</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nama</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Umur</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Kategori</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Asal Sekolah</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Achievement</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
               </tr>
@@ -260,7 +309,7 @@ function AthletesManagementPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredAthletes.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                     {searchQuery ? 'Tidak ada atlet yang sesuai dengan pencarian' : 'Belum ada data atlet'}
                   </td>
                 </tr>
@@ -272,7 +321,12 @@ function AthletesManagementPage() {
                       <div className="text-sm font-semibold text-gray-900">{athlete.name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {athlete.age ? `${athlete.age} tahun` : '-'}
+                      <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                        {athlete.category || 'Boulder'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {athlete.school || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{athlete.achievement || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -308,23 +362,28 @@ function AthletesManagementPage() {
         />
       )}
 
-      {/* Edit Athlete Modal */}
-      {editingAthlete && (
+      {/* Add/Edit Athlete Modal */}
+      {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900">Edit Atlet</h3>
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
+              <h3 className="text-xl font-bold text-gray-900">{editingAthlete ? 'Edit Atlet' : 'Tambah Atlet'}</h3>
               <button
-                onClick={() => setEditingAthlete(null)}
+                onClick={() => {
+                  setShowModal(false)
+                  setEditingAthlete(null)
+                  setSelectedImage(null)
+                  setImagePreview(null)
+                }}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-4">
+            {/* Modal Body - Scrollable */}
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
               {/* Image Upload */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -382,17 +441,31 @@ function AthletesManagementPage() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Umur <span className="text-red-500">*</span>
+                  Asal Sekolah / Team <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="number"
-                  value={editForm.age}
-                  onChange={(e) => setEditForm({ ...editForm, age: e.target.value })}
+                  type="text"
+                  value={editForm.school}
+                  onChange={(e) => setEditForm({ ...editForm, school: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Masukkan umur (contoh: 22)"
-                  min="1"
-                  max="100"
+                  placeholder="Masukkan asal sekolah atau team (contoh: SMA N 1 Karanganyar)"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Kategori <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={editForm.category}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="Boulder">Boulder</option>
+                  <option value="Speed Climbing">Speed Climbing</option>
+                  <option value="Lead">Lead</option>
+                  <option value="Lead / Boulder">Lead / Boulder</option>
+                </select>
               </div>
 
               <div>
@@ -410,18 +483,23 @@ function AthletesManagementPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 flex-shrink-0">
               <button
-                onClick={() => setEditingAthlete(null)}
+                onClick={() => {
+                  setShowModal(false)
+                  setEditingAthlete(null)
+                  setSelectedImage(null)
+                  setImagePreview(null)
+                }}
                 className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-semibold"
               >
                 Batal
               </button>
               <button
-                onClick={handleUpdate}
+                onClick={handleSubmit}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
               >
-                Simpan Perubahan
+                {editingAthlete ? 'Simpan Perubahan' : 'Tambah Atlet'}
               </button>
             </div>
           </div>

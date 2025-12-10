@@ -33,12 +33,12 @@ function BoulderTimerOverlay() {
 
     // Listen for timer sync events
     socketRef.current.on('sync-time', (data) => {
-      setTimerState({
+      setTimerState(prevState => ({
         phase: data.phase,
         timeLeft: data.timeLeft,
         isPaused: data.isPaused,
-        config: data.config || timerState.config
-      })
+        config: data.config || prevState.config
+      }))
     })
 
     // Cleanup on unmount
@@ -67,22 +67,22 @@ function BoulderTimerOverlay() {
   // Get phase display info
   const getPhaseInfo = () => {
     if (timerState.phase === 'IDLE') {
-      return { label: 'READY', color: 'text-white/80', bgColor: 'bg-white/20' }
+      return { label: 'READY', color: 'text-white/80', bgColor: 'bg-white/20', dotBgColor: 'bg-white/80' }
     } else if (timerState.phase === 'CLIMBING') {
       if (timerState.isPaused) {
-        return { label: 'PAUSED', color: 'text-yellow-200', bgColor: 'bg-yellow-500/30' }
+        return { label: 'PAUSED', color: 'text-yellow-200', bgColor: 'bg-yellow-500/30', dotBgColor: 'bg-yellow-200' }
       }
       // Check if warning or danger time
       if (timerState.timeLeft <= 10 && timerState.timeLeft > 0) {
-        return { label: 'CLIMBING', color: 'text-red-200', bgColor: 'bg-red-500/30' }
+        return { label: 'CLIMBING', color: 'text-red-200', bgColor: 'bg-red-500/30', dotBgColor: 'bg-red-200' }
       } else if (timerState.timeLeft <= timerState.config.warningTime && timerState.timeLeft > 10) {
-        return { label: 'CLIMBING', color: 'text-yellow-200', bgColor: 'bg-yellow-500/30' }
+        return { label: 'CLIMBING', color: 'text-yellow-200', bgColor: 'bg-yellow-500/30', dotBgColor: 'bg-yellow-200' }
       }
-      return { label: 'CLIMBING', color: 'text-white', bgColor: 'bg-white/20' }
+      return { label: 'CLIMBING', color: 'text-white', bgColor: 'bg-white/20', dotBgColor: 'bg-white' }
     } else if (timerState.phase === 'REST') {
-      return { label: 'REST', color: 'text-white/90', bgColor: 'bg-white/20' }
+      return { label: 'REST', color: 'text-white/90', bgColor: 'bg-white/20', dotBgColor: 'bg-white/90' }
     }
-    return { label: 'READY', color: 'text-white/80', bgColor: 'bg-white/20' }
+    return { label: 'READY', color: 'text-white/80', bgColor: 'bg-white/20', dotBgColor: 'bg-white/80' }
   }
 
   const phaseInfo = getPhaseInfo()
@@ -101,7 +101,7 @@ function BoulderTimerOverlay() {
             {/* Phase Label */}
             <div className="mb-3">
               <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${phaseInfo.bgColor} border border-white/30`}>
-                <div className={`w-2 h-2 rounded-full ${phaseInfo.color.replace('text-', 'bg-')} ${timerState.phase === 'CLIMBING' && !timerState.isPaused ? 'animate-pulse' : ''}`}></div>
+                <div className={`w-2 h-2 rounded-full ${phaseInfo.dotBgColor} ${timerState.phase === 'CLIMBING' && !timerState.isPaused ? 'animate-pulse' : ''}`}></div>
                 <span className={`text-xs font-bold ${phaseInfo.color} uppercase tracking-wider`} style={{
                   fontFamily: "'Roboto Condensed', 'Inter', sans-serif",
                   letterSpacing: '0.1em',
@@ -167,4 +167,3 @@ function BoulderTimerOverlay() {
 }
 
 export default BoulderTimerOverlay
-

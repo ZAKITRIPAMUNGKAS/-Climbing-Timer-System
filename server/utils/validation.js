@@ -49,8 +49,8 @@ const speedFinalsScoreSchema = z.object({
 
 // Boulder Score Action Schema
 const boulderScoreActionSchema = z.object({
-    action: z.enum(['attempt', 'zone', 'top', 'finalize'], {
-        errorMap: () => ({ message: 'Action must be attempt, zone, top, or finalize' })
+    action: z.enum(['attempt', 'zone', 'top', 'finalize', 'disqualify'], {
+        errorMap: () => ({ message: 'Action must be attempt, zone, top, finalize, or disqualify' })
     })
 });
 

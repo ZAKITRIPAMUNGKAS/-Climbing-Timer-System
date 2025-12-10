@@ -124,7 +124,7 @@ function AthletesPage() {
                     {athlete.category}
                   </span>
                   <h3 className="text-2xl font-heading font-bold text-white mb-2">{athlete.name}</h3>
-                  <p className="text-gray-300 text-sm mb-2">Umur: {athlete.age} tahun</p>
+                  <p className="text-gray-300 text-sm mb-2">Asal Sekolah: {athlete.school || '-'}</p>
                   <p className="text-goldenrod text-sm font-medium">
                     {athlete.achievement || 'Tidak ada prestasi'}
                   </p>

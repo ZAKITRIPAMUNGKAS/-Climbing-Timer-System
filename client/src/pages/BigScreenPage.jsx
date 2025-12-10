@@ -12,9 +12,14 @@ function BigScreenPage() {
   const scrollContainerRef = useRef(null)
   const socketRef = useRef(null)
 
+  // Fetch competition data on mount
   useEffect(() => {
-    // Determine competition type and fetch data
     fetchCompetitionData()
+  }, [competitionId])
+
+  // Setup socket listeners when competition type is determined
+  useEffect(() => {
+    if (!competitionType) return
 
     // Initialize socket for real-time updates
     socketRef.current = io()
@@ -41,6 +46,9 @@ function BigScreenPage() {
 
     return () => {
       if (socketRef.current) {
+        socketRef.current.off('score-updated')
+        socketRef.current.off('speed-qualification-updated')
+        socketRef.current.off('speed-finals-updated')
         socketRef.current.disconnect()
       }
     }
@@ -54,45 +62,61 @@ function BigScreenPage() {
     let animationFrameId = null
     let scrollPosition = 0
     let isScrolling = false
+    let scrollDirection = 1 // 1 for down, -1 for up
+    const scrollSpeed = 0.5 // pixels per frame
 
-    const checkAndStartScroll = () => {
+    const startAutoScroll = () => {
       const content = container.querySelector('.scroll-content')
       if (!content) {
         // Retry after a short delay if content not ready
-        setTimeout(checkAndStartScroll, 100)
+        setTimeout(startAutoScroll, 100)
         return
       }
 
       const containerHeight = container.clientHeight
       const contentHeight = content.scrollHeight
 
-      // Only enable auto-scroll if content is taller than container
-      if (contentHeight > containerHeight && !isScrolling) {
+      // Always enable auto-scroll for big screen
+      if (!isScrolling) {
         isScrolling = true
-        const scrollSpeed = 0.3 // pixels per frame
 
         const scroll = () => {
-          scrollPosition += scrollSpeed
           const maxScroll = contentHeight - containerHeight
           
+          // Update scroll position
+          scrollPosition += scrollSpeed * scrollDirection
+          
+          // Check if we've reached the bottom
           if (scrollPosition >= maxScroll) {
-            // Smooth loop back to top
-            scrollPosition = 0
-            container.scrollTop = 0
-          } else {
-            container.scrollTop = scrollPosition
+            scrollPosition = maxScroll
+            // Wait 2 seconds at bottom, then scroll back up
+            setTimeout(() => {
+              scrollDirection = -1
+            }, 2000)
           }
-
+          
+          // Check if we've reached the top
+          if (scrollPosition <= 0) {
+            scrollPosition = 0
+            // Wait 2 seconds at top, then scroll down
+            setTimeout(() => {
+              scrollDirection = 1
+            }, 2000)
+          }
+          
+          container.scrollTop = scrollPosition
           animationFrameId = requestAnimationFrame(scroll)
         }
 
-        // Start scrolling
-        animationFrameId = requestAnimationFrame(scroll)
+        // Start scrolling after initial delay
+        setTimeout(() => {
+          animationFrameId = requestAnimationFrame(scroll)
+        }, 1000)
       }
     }
 
-    // Wait a bit for content to render, then check
-    const timeoutId = setTimeout(checkAndStartScroll, 300)
+    // Wait a bit for content to render, then start
+    const timeoutId = setTimeout(startAutoScroll, 500)
 
     return () => {
       clearTimeout(timeoutId)
@@ -100,6 +124,7 @@ function BigScreenPage() {
         cancelAnimationFrame(animationFrameId)
       }
       isScrolling = false
+      scrollPosition = 0
     }
   }, [leaderboard])
 
@@ -200,10 +225,11 @@ function BigScreenPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="min-h-screen bg-rich-black text-off-white flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl font-bold mb-4">LOADING...</div>
-          <div className="text-2xl text-gray-400">Memuat data kompetisi</div>
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-goldenrod mb-4"></div>
+          <div className="text-4xl md:text-5xl font-bold mb-2 text-goldenrod">LOADING...</div>
+          <div className="text-xl md:text-2xl text-gray-400">Memuat data kompetisi</div>
         </div>
       </div>
     )
@@ -211,10 +237,10 @@ function BigScreenPage() {
 
   if (!competition || leaderboard.length === 0) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="min-h-screen bg-rich-black text-off-white flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl font-bold mb-4">NO DATA</div>
-          <div className="text-2xl text-gray-400">Tidak ada data untuk ditampilkan</div>
+          <div className="text-4xl md:text-5xl font-bold mb-2 text-goldenrod">NO DATA</div>
+          <div className="text-xl md:text-2xl text-gray-400">Tidak ada data untuk ditampilkan</div>
         </div>
       </div>
     )
@@ -225,14 +251,14 @@ function BigScreenPage() {
     : 'LEADERBOARD'
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <div className="min-h-screen bg-rich-black text-off-white overflow-hidden">
       {/* Header - Fixed at top */}
-      <div className="bg-black border-b-4 border-cyan-400 py-6 px-8">
+      <div className="bg-gunmetal border-b border-white/10 py-6 md:py-8 px-4 md:px-8">
         <div className="text-center">
-          <h1 className="text-5xl md:text-6xl font-black text-cyan-400 mb-2 tracking-wider uppercase">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-goldenrod mb-2 tracking-tight uppercase">
             {competition.name || 'COMPETITION'}
           </h1>
-          <div className="text-3xl md:text-4xl font-bold text-white">
+          <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white">
             {roundName}
           </div>
         </div>
@@ -245,37 +271,89 @@ function BigScreenPage() {
         style={{ scrollBehavior: 'smooth' }}
       >
         <div className="scroll-content">
-          <div className="px-8 py-6">
+          <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6">
             {competitionType === 'boulder' ? (
               // Boulder Leaderboard
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {leaderboard.map((entry, index) => (
                   <div
                     key={entry.id}
-                    className="bg-gray-900 border-2 border-cyan-400 rounded-lg p-6 flex items-center gap-8 hover:bg-gray-800 transition-colors"
+                    className="bg-rich-black border-b border-white/10 last:border-b-0 hover:bg-gunmetal/30 transition-all duration-200 flex flex-col sm:flex-row items-start gap-4 sm:gap-6 lg:gap-8 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 rounded-lg"
                   >
-                    {/* Rank - Massive */}
-                    <div className="text-7xl md:text-8xl font-black text-cyan-400 w-32 text-center">
-                      {entry.rank || index + 1}
-                    </div>
-                    
-                    {/* Name - Big */}
-                    <div className="flex-1">
-                      <div className="text-4xl md:text-5xl font-bold text-white mb-2">
-                        {entry.name || '-'}
+                    {/* Left: Rank Box */}
+                    <div className="relative flex-shrink-0">
+                      {/* Small Rank Label Box */}
+                      <div className="absolute -top-1 -right-1 bg-gray-700/90 rounded px-2 py-0.5 z-10 border border-gray-600">
+                        <span className="text-xs font-bold text-white">#{entry.rank || index + 1}</span>
                       </div>
-                      <div className="text-2xl md:text-3xl text-gray-300">
-                        {entry.team || '-'}
+                      {/* Large Rank Box - Yellow Gold */}
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-lg flex items-center justify-center shadow-lg">
+                        <span className="text-4xl sm:text-5xl md:text-6xl font-black text-gray-900">{entry.rank || index + 1}</span>
                       </div>
                     </div>
                     
-                    {/* Score - Huge & Green */}
-                    <div className="text-right">
-                      <div className="text-6xl md:text-7xl font-black text-green-400 mb-2">
+                    {/* Center: Name and Score Grid */}
+                    <div className="flex-1 min-w-0 w-full sm:w-auto">
+                      {/* Name and Team */}
+                      <div className="mb-3 sm:mb-4">
+                        <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-1 uppercase tracking-tight">
+                          {entry.name || '-'}
+                        </div>
+                        <div className="text-base sm:text-lg md:text-xl text-white/80 font-medium">
+                          {entry.team || 'SOLO'}
+                        </div>
+                      </div>
+
+                      {/* Score Grid - Vertical columns */}
+                      <div className="space-y-1.5 flex flex-col items-center">
+                        {/* Grid Container */}
+                        <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-fit mx-auto">
+                          {entry.scores?.map((score, idx) => {
+                            const zoneAttempt = score.zoneAttempts || 0
+                            const topAttempt = score.topAttempts || 0
+                            
+                            return (
+                              <div key={idx} className="flex flex-col gap-1.5 w-12 sm:w-14 md:w-16">
+                                {/* Zone Attempt */}
+                                <div className={`w-full h-20 sm:h-24 md:h-28 rounded-md flex items-center justify-center font-bold text-base sm:text-lg md:text-xl ${
+                                  zoneAttempt > 0
+                                    ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 text-gray-900 shadow-md'
+                                    : 'bg-gray-800 border border-gray-700 text-white/60'
+                                }`}>
+                                  {zoneAttempt > 0 ? zoneAttempt : '-'}
+                                </div>
+                                {/* Top Attempt */}
+                                <div className={`w-full h-20 sm:h-24 md:h-28 rounded-md flex items-center justify-center font-bold text-base sm:text-lg md:text-xl ${
+                                  topAttempt > 0
+                                    ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 text-gray-900 shadow-md'
+                                    : 'bg-gray-800 border border-gray-700 text-white/60'
+                                }`}>
+                                  {topAttempt > 0 ? topAttempt : '-'}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {/* Boulder Number Labels */}
+                        <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-fit mx-auto">
+                          {entry.scores?.map((_, idx) => (
+                            <div key={idx} className="text-center w-12 sm:w-14 md:w-16">
+                              <span className="text-xs sm:text-sm text-gray-500 font-semibold">{idx + 1}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Right: Total Points */}
+                    <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start w-full sm:w-auto flex-shrink-0 sm:min-w-[140px] md:min-w-[160px] mt-2 sm:mt-0">
+                      <div className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-green-400 tabular-nums mb-0 sm:mb-1" style={{
+                        textShadow: '0 0 10px rgba(74, 222, 128, 0.5)'
+                      }}>
                         {entry.totalScore?.toFixed(1) || '0.0'}
                       </div>
-                      <div className="text-xl text-gray-400">
-                        {entry.scores?.filter(s => s.isTop).length || 0} Tops • {entry.scores?.filter(s => s.isZone).length || 0} Zones
+                      <div className="text-xs sm:text-sm text-white/60 font-medium uppercase tracking-wider">
+                        Total Points
                       </div>
                     </div>
                   </div>
@@ -283,53 +361,59 @@ function BigScreenPage() {
               </div>
             ) : (
               // Speed Leaderboard
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {leaderboard.map((entry, index) => {
                   // Handle finals matches differently
                   if (round === 'finals' && entry.stage) {
                     return (
                       <div
                         key={entry.id}
-                        className="bg-gray-900 border-2 border-cyan-400 rounded-lg p-6"
+                        className="bg-rich-black border border-white/10 rounded-lg p-4 sm:p-6 hover:bg-gunmetal/30 transition-all duration-200"
                       >
-                        <div className="text-2xl font-bold text-cyan-400 mb-4 uppercase">
+                        <div className="text-xl sm:text-2xl font-bold text-goldenrod mb-4 uppercase">
                           {entry.stage} - Match {entry.match_order}
                         </div>
-                        <div className="grid grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                           {/* Climber A */}
                           <div className="flex items-center gap-4">
-                            <div className="text-5xl font-black text-cyan-400 w-16 text-center">A</div>
+                            <div className="text-3xl sm:text-4xl md:text-5xl font-black text-goldenrod w-12 sm:w-16 text-center bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-lg py-2 text-gray-900">A</div>
                             <div className="flex-1">
-                              <div className="text-3xl font-bold text-white mb-1">
+                              <div className="text-2xl sm:text-3xl font-bold text-white mb-1">
                                 {entry.climber_a_name || '-'}
                               </div>
-                              <div className="text-xl text-gray-300">
+                              <div className="text-base sm:text-lg md:text-xl text-white/80">
                                 {entry.climber_a_team || '-'} • Bib #{entry.climber_a_bib || '-'}
                               </div>
                             </div>
-                            <div className="text-5xl font-black text-green-400">
+                            <div className="text-3xl sm:text-4xl md:text-5xl font-black text-green-400" style={{
+                              textShadow: '0 0 10px rgba(74, 222, 128, 0.5)'
+                            }}>
                               {entry.time_a ? `${entry.time_a}s` : '-'}
                             </div>
                           </div>
                           {/* Climber B */}
                           <div className="flex items-center gap-4">
-                            <div className="text-5xl font-black text-cyan-400 w-16 text-center">B</div>
+                            <div className="text-3xl sm:text-4xl md:text-5xl font-black text-goldenrod w-12 sm:w-16 text-center bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-lg py-2 text-gray-900">B</div>
                             <div className="flex-1">
-                              <div className="text-3xl font-bold text-white mb-1">
+                              <div className="text-2xl sm:text-3xl font-bold text-white mb-1">
                                 {entry.climber_b_name || '-'}
                               </div>
-                              <div className="text-xl text-gray-300">
+                              <div className="text-base sm:text-lg md:text-xl text-white/80">
                                 {entry.climber_b_team || '-'} • Bib #{entry.climber_b_bib || '-'}
                               </div>
                             </div>
-                            <div className="text-5xl font-black text-green-400">
+                            <div className="text-3xl sm:text-4xl md:text-5xl font-black text-green-400" style={{
+                              textShadow: '0 0 10px rgba(74, 222, 128, 0.5)'
+                            }}>
                               {entry.time_b ? `${entry.time_b}s` : '-'}
                             </div>
                           </div>
                         </div>
                         {entry.winner_id && (
                           <div className="mt-4 text-center">
-                            <div className="text-3xl font-bold text-green-400">
+                            <div className="text-2xl sm:text-3xl font-bold text-green-400" style={{
+                              textShadow: '0 0 10px rgba(74, 222, 128, 0.5)'
+                            }}>
                               Winner: {entry.winner_id === entry.climber_a_id ? entry.climber_a_name : entry.climber_b_name}
                             </div>
                           </div>
@@ -342,29 +426,40 @@ function BigScreenPage() {
                   return (
                     <div
                       key={entry.id || entry.climber_id}
-                      className="bg-gray-900 border-2 border-cyan-400 rounded-lg p-6 flex items-center gap-8 hover:bg-gray-800 transition-colors"
+                      className="bg-rich-black border-b border-white/10 last:border-b-0 hover:bg-gunmetal/30 transition-all duration-200 flex flex-col sm:flex-row items-start gap-4 sm:gap-6 lg:gap-8 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 rounded-lg"
                     >
-                      {/* Rank - Massive */}
-                      <div className="text-7xl md:text-8xl font-black text-cyan-400 w-32 text-center">
-                        {entry.rank || index + 1}
-                      </div>
-                      
-                      {/* Name - Big */}
-                      <div className="flex-1">
-                        <div className="text-4xl md:text-5xl font-bold text-white mb-2">
-                          {entry.name || '-'}
+                      {/* Left: Rank Box */}
+                      <div className="relative flex-shrink-0">
+                        {/* Small Rank Label Box */}
+                        <div className="absolute -top-1 -right-1 bg-gray-700/90 rounded px-2 py-0.5 z-10 border border-gray-600">
+                          <span className="text-xs font-bold text-white">#{entry.rank || index + 1}</span>
                         </div>
-                        <div className="text-2xl md:text-3xl text-gray-300">
-                          {entry.team || '-'} • Bib #{entry.bib_number || '-'}
+                        {/* Large Rank Box - Yellow Gold */}
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-lg flex items-center justify-center shadow-lg">
+                          <span className="text-4xl sm:text-5xl md:text-6xl font-black text-gray-900">{entry.rank || index + 1}</span>
                         </div>
                       </div>
                       
-                      {/* Time - Huge & Green */}
-                      <div className="text-right">
-                        <div className="text-6xl md:text-7xl font-black text-green-400 mb-2">
+                      {/* Center: Name */}
+                      <div className="flex-1 min-w-0">
+                        <div className="mb-3 sm:mb-4">
+                          <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-1 uppercase tracking-tight">
+                            {entry.name || '-'}
+                          </div>
+                          <div className="text-base sm:text-lg md:text-xl text-white/80 font-medium">
+                            {entry.team || '-'} • Bib #{entry.bib_number || '-'}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Right: Time */}
+                      <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start w-full sm:w-auto flex-shrink-0 sm:min-w-[140px] md:min-w-[160px] mt-2 sm:mt-0">
+                        <div className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-green-400 tabular-nums mb-0 sm:mb-1" style={{
+                          textShadow: '0 0 10px rgba(74, 222, 128, 0.5)'
+                        }}>
                           {entry.total_time ? `${entry.total_time}s` : '-'}
                         </div>
-                        <div className="text-xl text-gray-400">
+                        <div className="text-xs sm:text-sm text-white/60 font-medium uppercase tracking-wider">
                           {entry.lane_a_time ? `${entry.lane_a_time}s` : '-'} / {entry.lane_b_time ? `${entry.lane_b_time}s` : '-'}
                         </div>
                       </div>
@@ -378,8 +473,8 @@ function BigScreenPage() {
       </div>
 
       {/* Footer - Fixed at bottom */}
-      <div className="bg-black border-t-4 border-cyan-400 py-4 px-8">
-        <div className="text-center text-xl text-gray-400">
+      <div className="bg-gunmetal border-t border-white/10 py-3 sm:py-4 px-4 sm:px-8">
+        <div className="text-center text-sm sm:text-base md:text-lg lg:text-xl text-gray-400">
           LIVE SCORE • {new Date().toLocaleString('id-ID', { 
             day: 'numeric', 
             month: 'long', 

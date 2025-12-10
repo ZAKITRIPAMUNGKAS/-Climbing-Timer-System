@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Trophy, TrendingUp, Award, Target, Info, Search, FileText, Download, Monitor } from 'lucide-react'
 import LeaderboardCard from '../components/LeaderboardCard'
 import PublicLayout from '../components/PublicLayout'
-import { generateStartListPDF, generateResultListPDF } from '../utils/pdfExport'
+import { generateStartListPDF, generateResultListExcel } from '../utils/pdfExport'
 
 function LiveScorePage() {
   const [competition, setCompetition] = useState(null)
@@ -14,6 +14,8 @@ function LiveScorePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false) // Indicator for real-time updates
+  const [currentClimber, setCurrentClimber] = useState(null) // Current climber data
+  const [currentClimberScore, setCurrentClimberScore] = useState(null) // Latest score for current climber
   const socketRef = useRef(null)
 
   useEffect(() => {
@@ -39,6 +41,10 @@ function LiveScorePage() {
       if (data.competition_id === compId) {
         console.log('[LIVE SCORE] Refreshing leaderboard for competition:', compId)
         fetchLeaderboard(compId)
+        // Update current climber when score is updated
+        if (data.climber_id) {
+          fetchCurrentClimber(compId, data.climber_id, data.boulder_number)
+        }
       }
     })
 
@@ -57,6 +63,8 @@ function LiveScorePage() {
     if (competition) {
       fetchLeaderboard(competition.id)
       fetchClimbers(competition.id)
+      // Fetch initial current climber (first climber or most recent)
+      fetchInitialCurrentClimber(competition.id)
     }
   }, [competition])
 
@@ -74,7 +82,7 @@ function LiveScorePage() {
 
   const handleExportStartList = () => {
     if (climbers.length === 0) {
-      alert('No climbers available for Start List')
+      alert('Tidak ada atlet yang tersedia untuk Start List')
       return
     }
     generateStartListPDF(climbers, competition, 'Qualification')
@@ -82,10 +90,10 @@ function LiveScorePage() {
 
   const handleExportResultList = () => {
     if (leaderboard.length === 0) {
-      alert('No results available for Result List')
+      alert('Tidak ada hasil yang tersedia untuk Result List')
       return
     }
-    generateResultListPDF(leaderboard, competition, 'Qualification')
+    generateResultListExcel(leaderboard, competition, 'Qualification')
   }
 
   useEffect(() => {
@@ -137,6 +145,97 @@ function LiveScorePage() {
       console.error('Error fetching leaderboard:', error)
       setLoading(false)
       setIsUpdating(false)
+    }
+  }
+
+  // Fetch current climber when score is updated
+  const fetchCurrentClimber = async (compId, climberId, boulderNumber) => {
+    try {
+      // Fetch climber data
+      const climberResponse = await fetch(`/api/competitions/${compId}/climbers`)
+      if (climberResponse.ok) {
+        const climbers = await climberResponse.json()
+        const climber = climbers.find(c => c.id === climberId)
+        if (climber) {
+          setCurrentClimber(climber)
+          
+          // Get from leaderboard (which has formatted scores)
+          const leaderboardResponse = await fetch(`/api/competitions/${compId}/leaderboard`)
+          if (leaderboardResponse.ok) {
+            const leaderboardData = await leaderboardResponse.json()
+            const climberData = leaderboardData.find(c => c.id === climberId)
+            if (climberData && climberData.scores) {
+              // Find the specific boulder or get the latest one
+              let targetScore = null
+              if (boulderNumber) {
+                targetScore = climberData.scores.find(s => 
+                  (s.boulder_number === parseInt(boulderNumber) || s.boulder_number === boulderNumber) &&
+                  (s.topAttempts > 0 || s.zoneAttempts > 0)
+                )
+              }
+              
+              // If not found by boulder number, get the latest score
+              if (!targetScore) {
+                const scores = climberData.scores.filter(s => s.topAttempts > 0 || s.zoneAttempts > 0)
+                if (scores.length > 0) {
+                  targetScore = scores[scores.length - 1]
+                }
+              }
+              
+              if (targetScore) {
+                setCurrentClimberScore({
+                  boulder_number: targetScore.boulder_number || 1,
+                  topAttempts: targetScore.topAttempts || 0,
+                  zoneAttempts: targetScore.zoneAttempts || 0,
+                  reached_top: targetScore.isTop || false,
+                  reached_zone: targetScore.isZone || false
+                })
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching current climber:', error)
+    }
+  }
+
+  // Fetch initial current climber (most recent or first)
+  const fetchInitialCurrentClimber = async (compId) => {
+    try {
+      const leaderboardResponse = await fetch(`/api/competitions/${compId}/leaderboard`)
+      if (leaderboardResponse.ok) {
+        const leaderboardData = await leaderboardResponse.json()
+        // Find climber with most recent activity (has scores)
+        const climberWithScores = leaderboardData.find(c => 
+          c.scores && c.scores.some(s => s.topAttempts > 0 || s.zoneAttempts > 0)
+        )
+        
+        if (climberWithScores) {
+          const climberResponse = await fetch(`/api/competitions/${compId}/climbers`)
+          if (climberResponse.ok) {
+            const climbers = await climberResponse.json()
+            const climber = climbers.find(c => c.id === climberWithScores.id)
+            if (climber) {
+              setCurrentClimber(climber)
+              // Get latest score
+              const scores = climberWithScores.scores.filter(s => s.topAttempts > 0 || s.zoneAttempts > 0)
+              if (scores.length > 0) {
+                const latestScore = scores[scores.length - 1]
+                setCurrentClimberScore({
+                  boulder_number: latestScore.boulder_number || scores.length,
+                  topAttempts: latestScore.topAttempts || 0,
+                  zoneAttempts: latestScore.zoneAttempts || 0,
+                  reached_top: latestScore.isTop || false,
+                  reached_zone: latestScore.isZone || false
+                })
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching initial current climber:', error)
     }
   }
 

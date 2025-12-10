@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS athletes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     category VARCHAR(100) NOT NULL,
-    age INT NOT NULL,
+    school VARCHAR(255) NOT NULL,
     achievement TEXT,
     image VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -153,11 +153,11 @@ CREATE TABLE IF NOT EXISTS speed_qualification_scores (
     id INT AUTO_INCREMENT PRIMARY KEY,
     speed_competition_id INT NOT NULL,
     climber_id INT NOT NULL,
-    lane_a_time DECIMAL(5,2) DEFAULT NULL, -- e.g., 6.50
-    lane_b_time DECIMAL(5,2) DEFAULT NULL, -- e.g., 6.30
+    lane_a_time DECIMAL(6,3) DEFAULT NULL, -- e.g., 6.500 (3 decimal precision)
+    lane_b_time DECIMAL(6,3) DEFAULT NULL, -- e.g., 6.300 (3 decimal precision)
     lane_a_status ENUM('VALID', 'FALL', 'FALSE_START', 'DNS') DEFAULT 'VALID',
     lane_b_status ENUM('VALID', 'FALL', 'FALSE_START', 'DNS') DEFAULT 'VALID',
-    total_time DECIMAL(6,2) DEFAULT NULL, -- Calculated: lane_a_time + lane_b_time
+    total_time DECIMAL(7,3) DEFAULT NULL, -- Calculated: lane_a_time + lane_b_time (3 decimal precision)
     status ENUM('VALID', 'INVALID') DEFAULT 'VALID', -- INVALID if any lane has FALL/FS/DNS
     rank INT DEFAULT NULL, -- Calculated rank
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -174,8 +174,8 @@ CREATE TABLE IF NOT EXISTS speed_finals_matches (
     stage ENUM('Round of 16', 'Quarter Final', 'Semi Final', 'Small Final', 'Big Final') NOT NULL,
     climber_a_id INT NOT NULL,
     climber_b_id INT NULL, -- NULL for BYE (Walkover) cases
-    time_a DECIMAL(5,2) DEFAULT NULL,
-    time_b DECIMAL(5,2) DEFAULT NULL,
+    time_a DECIMAL(6,3) DEFAULT NULL, -- 3 decimal precision
+    time_b DECIMAL(6,3) DEFAULT NULL, -- 3 decimal precision
     status_a ENUM('VALID', 'FALL', 'FALSE_START', 'DNS') DEFAULT 'VALID',
     status_b ENUM('VALID', 'FALL', 'FALSE_START', 'DNS') DEFAULT 'VALID',
     winner_id INT DEFAULT NULL, -- Auto-calculated: climber with lower time

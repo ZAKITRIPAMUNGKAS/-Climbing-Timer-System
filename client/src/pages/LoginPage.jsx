@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { LogIn, AlertCircle } from 'lucide-react'
+import { saveSession, isAuthenticated } from '../utils/session'
 
 function LoginPage() {
   const [username, setUsername] = useState('')
@@ -11,6 +12,27 @@ function LoginPage() {
   const location = useLocation()
 
   const from = location.state?.from?.pathname || '/dashboard'
+
+  // Check if user is already logged in (has valid session)
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      if (isAuthenticated()) {
+        // Verify with server
+        try {
+          const response = await fetch('/api/check-auth', {
+            credentials: 'include'
+          })
+          const data = await response.json()
+          if (data.authenticated) {
+            navigate(from, { replace: true })
+          }
+        } catch (error) {
+          console.error('Session check error:', error)
+        }
+      }
+    }
+    checkExistingSession()
+  }, [navigate, from])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -30,6 +52,10 @@ function LoginPage() {
       const data = await response.json()
 
       if (response.ok) {
+        // Save session to localStorage
+        if (data.user) {
+          saveSession(data.user)
+        }
         navigate(from, { replace: true })
       } else {
         setError(data.error || 'Login gagal. Periksa username dan password Anda.')

@@ -22,7 +22,7 @@
             overflow: hidden;
             height: 100vh;
             width: 100vw;
-            background: #f8f9fa;
+            background: #0a0a0a;
         }
 
         .display-container {
@@ -37,15 +37,20 @@
             flex: 1;
             min-width: 0;
             width: 50%;
-            background: linear-gradient(135deg, #E11D23 0%, #c91a20 100%);
+            background: #1a1a1a;
+            border-right: 2px solid rgba(255,255,255,0.1);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
             position: relative;
-            border-right: 4px solid rgba(255,255,255,0.3);
             padding: 0;
-            box-shadow: inset 0 0 50px rgba(0,0,0,0.2), 0 0 0 3px rgba(255,255,255,0.1);
+        }
+
+        .lane-a.winner {
+            background: #1a1a1a;
+            border: 3px solid #FFC107;
+            box-shadow: 0 0 30px rgba(255,193,7,0.3);
         }
 
         /* Lane B (Right - Blue) */
@@ -53,111 +58,100 @@
             flex: 1;
             min-width: 0;
             width: 50%;
-            background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+            background: #1a1a1a;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
             position: relative;
             padding: 0;
-            box-shadow: inset 0 0 50px rgba(0,0,0,0.2), 0 0 0 3px rgba(255,255,255,0.1);
+        }
+
+        .lane-b.winner {
+            background: #1a1a1a;
+            border: 3px solid #FFC107;
+            box-shadow: 0 0 30px rgba(255,193,7,0.3);
         }
 
         /* Header - Lane Label */
         .lane-label {
             width: 100%;
-            padding: 60px 20px 40px 20px;
-            font-size: 5vw;
-            color: white;
-            font-weight: 900;
-            text-shadow: 0 0 30px rgba(0,0,0,0.6);
-            letter-spacing: 0.3em;
+            padding: 30px 20px 20px 20px;
+            font-size: 2.5vw;
+            color: rgba(255,255,255,0.7);
+            font-weight: 700;
+            letter-spacing: 0.2em;
             white-space: nowrap;
             text-align: center;
             flex-shrink: 0;
+            text-transform: uppercase;
         }
 
-        /* Timer Display - Reduced Size */
+        /* Timer Display - Minimalist */
         .timer-display {
-            font-size: 8vw;
+            font-size: 9vw;
             font-weight: 900;
             color: #FFC107;
             font-family: 'Chakra Petch', 'Courier New', monospace;
-            text-shadow: 
-                0 2px 10px rgba(0,0,0,0.3),
-                0 0 30px rgba(255,193,7,0.6),
-                0 0 50px rgba(255,193,7,0.4);
             margin: 0;
             line-height: 1.1;
             text-align: center;
             white-space: nowrap;
-            padding: 0 40px;
+            padding: 0;
             flex-shrink: 0;
-            letter-spacing: 2px;
-            background: rgba(255,255,255,0.15);
-            border-radius: 20px;
-            padding: 20px 40px;
-            border: 2px solid rgba(255,255,255,0.2);
-            box-shadow: 
-                inset 0 0 30px rgba(255,255,255,0.1),
-                0 4px 20px rgba(0,0,0,0.2);
+            letter-spacing: 3px;
         }
 
-        /* Status Indicator - Larger and Closer to Timer */
+        .timer-display.winner {
+            color: #FFC107;
+            text-shadow: 0 0 20px rgba(255,193,7,0.8);
+        }
+
+        /* Status Indicator - Minimalist */
         .status-indicator {
-            width: 16vw;
-            height: 16vw;
-            min-width: 140px;
-            min-height: 140px;
-            max-width: 200px;
-            max-height: 200px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
-            border: 10px solid rgba(255,255,255,0.35);
-            margin: 30px 0 15px 0;
+            border: 3px solid rgba(255,255,255,0.2);
+            margin: 20px 0 10px 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 4.5vw;
+            font-size: 24px;
             font-weight: bold;
             transition: all 0.3s;
             flex-shrink: 0;
         }
 
-        /* Status Colors */
+        /* Status Colors - Minimalist */
         .status-idle {
-            background: rgba(200, 200, 200, 0.6);
-            color: #666;
+            background: rgba(100, 100, 100, 0.3);
+            color: rgba(255,255,255,0.5);
+            border-color: rgba(255,255,255,0.1);
         }
 
         .status-ready {
             background: #4caf50;
             color: white;
-            box-shadow: 0 0 60px #4caf50, 0 0 100px rgba(76,175,80,0.5);
-            animation: pulse 1s infinite;
-            border: 3px solid rgba(255,255,255,0.3);
+            border-color: #4caf50;
         }
 
         .status-running {
             background: #FFC107;
             color: #1a1a1a;
-            box-shadow: 0 0 60px #FFC107, 0 0 100px rgba(255,193,7,0.5);
-            border: 3px solid rgba(255,255,255,0.3);
-            font-weight: 900;
+            border-color: #FFC107;
         }
 
         .status-finished {
             background: #2196f3;
             color: white;
-            box-shadow: 0 0 60px #2196f3, 0 0 100px rgba(33,150,243,0.5);
-            border: 3px solid rgba(255,255,255,0.3);
+            border-color: #2196f3;
         }
 
         .status-false-start {
             background: #E11D23;
             color: white;
-            box-shadow: 0 0 60px #E11D23, 0 0 100px rgba(225,29,35,0.5);
-            animation: shake 0.5s infinite;
-            border: 3px solid rgba(255,255,255,0.3);
+            border-color: #E11D23;
         }
 
         @keyframes pulse {
@@ -171,27 +165,25 @@
             75% { transform: translateX(10px); }
         }
 
-        /* Status Text - Larger and Closer to Indicator */
+        /* Status Text - Minimalist */
         .status-text {
-            font-size: 3vw;
-            color: white;
+            font-size: 1.2vw;
+            color: rgba(255,255,255,0.6);
             text-transform: uppercase;
-            letter-spacing: 0.15em;
-            margin: 0 0 20px 0;
+            letter-spacing: 0.1em;
+            margin: 0 0 30px 0;
             text-align: center;
             white-space: nowrap;
-            font-weight: 700;
-            text-shadow: 0 0 20px rgba(0,0,0,0.5);
+            font-weight: 600;
             flex-shrink: 0;
         }
 
         /* Athlete Name */
         .athlete-name {
-            font-size: 2.8vw;
-            color: white;
+            font-size: 2vw;
+            color: rgba(255,255,255,0.9);
             font-weight: 600;
-            margin: 0 0 40px 0;
-            text-shadow: 0 0 15px rgba(0,0,0,0.6);
+            margin: 0 0 20px 0;
             padding: 0 30px;
             text-align: center;
             white-space: nowrap;
@@ -199,6 +191,23 @@
             overflow: hidden;
             text-overflow: ellipsis;
             flex-shrink: 0;
+        }
+
+        /* Winner Badge */
+        .winner-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #FFC107;
+            color: #1a1a1a;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 1.2vw;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            z-index: 10;
+            animation: pulse 1.5s infinite;
         }
 
         /* Winner Animation */
@@ -214,49 +223,82 @@
         /* Match Status Overlay */
         .match-status {
             position: fixed;
-            top: 50%;
+            bottom: 15%;
             left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 8vw;
+            transform: translateX(-50%);
+            font-size: 2.5vw;
             color: #E11D23;
             text-shadow: 
                 0 2px 10px rgba(0,0,0,0.3),
-                0 0 30px rgba(255,193,7,0.6),
-                0 0 50px rgba(255,193,7,0.4);
-            z-index: 1000;
+                0 0 20px rgba(255,193,7,0.6);
+            z-index: 100;
             pointer-events: none;
             text-transform: uppercase;
-            letter-spacing: 0.3em;
+            letter-spacing: 0.15em;
             font-weight: 900;
             font-family: 'Montserrat', sans-serif;
             background: rgba(255,255,255,0.95);
-            padding: 40px 80px;
-            border-radius: 20px;
-            border: 4px solid #FFC107;
+            padding: 15px 35px;
+            border-radius: 10px;
+            border: 2px solid #FFC107;
             box-shadow: 
-                0 10px 50px rgba(0,0,0,0.3),
-                0 0 0 8px rgba(255,193,7,0.2);
+                0 6px 25px rgba(0,0,0,0.3),
+                0 0 0 3px rgba(255,193,7,0.2);
         }
 
         .match-status.countdown {
             animation: pulse 0.5s infinite;
             box-shadow: 
-                0 10px 50px rgba(0,0,0,0.3),
-                0 0 0 8px rgba(255,193,7,0.2),
-                0 0 60px rgba(255,193,7,0.4);
+                0 8px 30px rgba(0,0,0,0.3),
+                0 0 0 4px rgba(255,193,7,0.2),
+                0 0 40px rgba(255,193,7,0.4);
         }
 
         /* Sensor Status - Footer Style */
         .sensor-status {
             width: 100%;
-            padding: 25px 20px;
-            font-size: 1.1vw;
-            color: rgba(255,255,255,0.65);
+            padding: 15px 20px;
+            font-size: 0.9vw;
+            color: rgba(255,255,255,0.4);
             text-align: center;
             font-weight: 400;
             letter-spacing: 0.05em;
             flex-shrink: 0;
-            border-top: 1px solid rgba(255,255,255,0.1);
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* Winner Display - Center Top */
+        .winner-display {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(26,26,26,0.95);
+            border: 2px solid #FFC107;
+            padding: 15px 40px;
+            border-radius: 8px;
+            z-index: 1000;
+            text-align: center;
+            display: none;
+        }
+
+        .winner-display.show {
+            display: block;
+        }
+
+        .winner-display .winner-label {
+            font-size: 1vw;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            margin-bottom: 5px;
+        }
+
+        .winner-display .winner-name {
+            font-size: 1.8vw;
+            color: #FFC107;
+            font-weight: 900;
+            text-transform: uppercase;
         }
 
         /* Content wrapper untuk menjaga balance */
@@ -345,10 +387,17 @@
             {{ matchStatusText }}
         </div>
 
+        <!-- Winner Display -->
+        <div class="winner-display" :class="{ show: showWinner }">
+            <div class="winner-label">Pemenang</div>
+            <div class="winner-name">{{ winnerName }}</div>
+        </div>
+
         <div class="display-container">
             <!-- Lane A (Left - Red) -->
-            <div class="lane-a" :class="{ 'false-start-bg': laneA.status === 'FALSE_START' }">
+            <div class="lane-a" :class="{ winner: isWinner('A') }">
                 <div class="lane-label">LANE A</div>
+                <div v-if="isWinner('A')" class="winner-badge">Winner</div>
                 <div class="lane-content">
                     <div class="timer-display" :class="{ winner: isWinner('A') }">
                         {{ laneA.finalDuration }}
@@ -366,8 +415,9 @@
             </div>
 
             <!-- Lane B (Right - Blue) -->
-            <div class="lane-b" :class="{ 'false-start-bg': laneB.status === 'FALSE_START' }">
+            <div class="lane-b" :class="{ winner: isWinner('B') }">
                 <div class="lane-label">LANE B</div>
+                <div v-if="isWinner('B')" class="winner-badge">Winner</div>
                 <div class="lane-content">
                     <div class="timer-display" :class="{ winner: isWinner('B') }">
                         {{ laneB.finalDuration }}
@@ -429,6 +479,15 @@
                         'FINISHED': 'FINISH'
                     };
                     return statusMap[this.matchStatus] || '';
+                },
+                showWinner() {
+                    return this.matchStatus === 'FINISHED' && this.winnerName !== '';
+                },
+                winnerName() {
+                    if (this.matchStatus !== 'FINISHED') return '';
+                    if (this.isWinner('A')) return this.laneA.athleteName || 'Lane A';
+                    if (this.isWinner('B')) return this.laneB.athleteName || 'Lane B';
+                    return '';
                 }
             },
             mounted() {

@@ -262,6 +262,13 @@ function CompetitionsManagementPage() {
                       <Upload size={16} />
                       Upload Peserta
                     </button>
+                    <a
+                      href={`/dashboard/competitions/${comp.id}/climbers-photos`}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-purple-50 text-purple-600 rounded hover:bg-purple-100 transition-colors"
+                    >
+                      <Users size={16} />
+                      Upload Foto
+                    </a>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleEdit(comp, 'boulder')}

@@ -36,26 +36,30 @@ function LeaderboardCard({ climber, index }) {
           </div>
         </div>
 
-        {/* Score Grid - 2 rows x 4 columns */}
-        <div className="space-y-1.5">
+        {/* Score Grid - Vertical columns (memanjang ke atas) */}
+        <div className="space-y-1.5 flex flex-col items-center">
           {/* Grid Container */}
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-fit mx-auto">
             {climber.scores.map((score, idx) => {
+              // Display attempts as stored in database
+              // - topAttempts: number of attempts to reach TOP (0 if not reached)
+              // - zoneAttempts: number of attempts to reach ZONE (0 if not reached)
+              // Note: When TOP is reached, zoneAttempts is also set (zone auto-reached)
               const zoneAttempt = score.zoneAttempts || 0
               const topAttempt = score.topAttempts || 0
               
               return (
-                <div key={idx} className="flex flex-col gap-1">
-                  {/* Row 1: Zone Attempt */}
-                  <div className={`w-full h-9 sm:h-11 rounded-md flex items-center justify-center font-bold text-xs sm:text-sm ${
+                <div key={idx} className="flex flex-col gap-1.5 w-12 sm:w-14">
+                  {/* Zone Attempt - Memanjang ke atas (vertikal tinggi, lebar sempit) */}
+                  <div className={`w-full h-20 sm:h-24 rounded-md flex items-center justify-center font-bold text-base sm:text-lg ${
                     zoneAttempt > 0
                       ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 text-gray-900 shadow-md'
                       : 'bg-gray-800 border border-gray-700 text-white/60'
                   }`}>
                     {zoneAttempt > 0 ? zoneAttempt : '-'}
                   </div>
-                  {/* Row 2: Top Attempt */}
-                  <div className={`w-full h-9 sm:h-11 rounded-md flex items-center justify-center font-bold text-xs sm:text-sm ${
+                  {/* Top Attempt - Memanjang ke atas (vertikal tinggi, lebar sempit) */}
+                  <div className={`w-full h-20 sm:h-24 rounded-md flex items-center justify-center font-bold text-base sm:text-lg ${
                     topAttempt > 0
                       ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 text-gray-900 shadow-md'
                       : 'bg-gray-800 border border-gray-700 text-white/60'
@@ -67,9 +71,9 @@ function LeaderboardCard({ climber, index }) {
             })}
           </div>
           {/* Boulder Number Labels */}
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-fit mx-auto">
             {climber.scores.map((_, idx) => (
-              <div key={idx} className="text-center">
+              <div key={idx} className="text-center w-12 sm:w-14">
                 <span className="text-[10px] sm:text-xs text-gray-500 font-semibold">{idx + 1}</span>
               </div>
             ))}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { isAuthenticated as checkLocalSession } from '../utils/session'
 
 function ProtectedRoute({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(null)
@@ -7,17 +8,37 @@ function ProtectedRoute({ children }) {
 
   useEffect(() => {
     const checkAuth = async () => {
-      try {
-        const response = await fetch('/api/check-auth', {
-          credentials: 'include'
-        })
-        const data = await response.json()
-        setIsAuthenticated(data.authenticated)
-      } catch (error) {
-        console.error('Auth check error:', error)
-        setIsAuthenticated(false)
-      } finally {
-        setLoading(false)
+      // First check localStorage session
+      const hasLocalSession = checkLocalSession()
+      
+      if (hasLocalSession) {
+        // If local session exists, verify with server
+        try {
+          const response = await fetch('/api/check-auth', {
+            credentials: 'include'
+          })
+          const data = await response.json()
+          setIsAuthenticated(data.authenticated)
+        } catch (error) {
+          console.error('Auth check error:', error)
+          setIsAuthenticated(false)
+        } finally {
+          setLoading(false)
+        }
+      } else {
+        // No local session, check server anyway (might have server session)
+        try {
+          const response = await fetch('/api/check-auth', {
+            credentials: 'include'
+          })
+          const data = await response.json()
+          setIsAuthenticated(data.authenticated)
+        } catch (error) {
+          console.error('Auth check error:', error)
+          setIsAuthenticated(false)
+        } finally {
+          setLoading(false)
+        }
       }
     }
     checkAuth()
