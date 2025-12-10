@@ -28,7 +28,16 @@ export default defineConfig({
       '/socket.io': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-        ws: true
+        ws: true,
+        // Ignore proxy errors untuk Socket.IO (client akan auto-retry)
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            // Ignore connection errors - Socket.IO client akan handle retry
+            if (err.code !== 'ECONNREFUSED' && err.code !== 'ECONNRESET') {
+              console.error('Socket.IO proxy error:', err.message);
+            }
+          });
+        }
       },
       // Proxy sounds dan static files ke backend
       '/sounds': {

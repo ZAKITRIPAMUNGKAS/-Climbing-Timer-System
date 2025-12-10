@@ -1,45 +1,45 @@
 import React from 'react'
 
 /**
- * LeaderboardCard Component - New Design Style
+ * LeaderboardCard Component - Modern Card Style Design
  * 
- * Layout based on reference image:
- * - Large rank box (yellow-gold)
- * - Name and team/status
- * - 2x4 grid of attempt numbers (zone attempts top row, top attempts bottom row)
- * - Total points (large green)
+ * Modern, clean design with:
+ * - Clean white card with refined shadow
+ * - Large rank number as watermark
+ * - Modern score grid with vibrant gradients
+ * - Rounded pills for score boxes
+ * - Large monospace total score
  */
 function LeaderboardCard({ climber, index }) {
+  // Ensure rank is displayed correctly
+  const displayRank = climber.rank || index + 1
+  
   return (
-    <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 lg:gap-8 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 bg-rich-black border-b border-white/10 last:border-b-0 hover:bg-gunmetal/30 transition-all duration-200 w-full">
-      {/* Left: Rank Box with Label */}
-      <div className="relative flex-shrink-0">
-        {/* Small Rank Label Box - Above Right */}
-        <div className="absolute -top-1 -right-1 bg-gray-700/90 rounded px-1.5 sm:px-2 py-0.5 z-10 border border-gray-600">
-          <span className="text-[9px] sm:text-[10px] font-bold text-white">#{climber.rank}</span>
-        </div>
-        {/* Large Rank Box - Yellow Gold */}
-        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-lg flex items-center justify-center shadow-lg">
-          <span className="text-3xl sm:text-4xl font-black text-gray-900">{climber.rank}</span>
+    <div className="relative flex flex-col sm:flex-row items-center gap-4 sm:gap-6 lg:gap-8 p-6 bg-[#121212] border border-zinc-800 rounded-sm shadow-lg hover:border-[#FFB800]/30 transition-all duration-200 w-full overflow-hidden">
+      
+      {/* Left: Rank Badge */}
+      <div className="flex-shrink-0 w-16 sm:w-20 flex items-center justify-center">
+        <div className="text-4xl sm:text-5xl lg:text-6xl font-black text-zinc-100 tabular-nums">
+          {displayRank}
         </div>
       </div>
 
-      {/* Center: Name and Score Grid */}
-      <div className="flex-1 min-w-0 w-full sm:w-auto">
-        {/* Name and Team */}
-        <div className="mb-3 sm:mb-4">
-          <div className="text-xl sm:text-2xl font-bold text-white mb-1 uppercase tracking-tight truncate">
+      {/* Left: Athlete Info */}
+      <div className="relative z-10 flex-1 min-w-0 w-full sm:w-auto">
+        {/* Name */}
+        <div className="mb-3 sm:mb-4 text-center sm:text-left">
+          <div className="text-xl sm:text-2xl font-bold text-zinc-100 mb-1 truncate">
             {climber.name}
           </div>
-          <div className="text-xs sm:text-sm text-white/80 font-medium">
+          <div className="text-sm text-zinc-500">
             {climber.team || 'SOLO'}
           </div>
         </div>
 
-        {/* Score Grid - Vertical columns (memanjang ke atas) */}
-        <div className="space-y-1.5 flex flex-col items-center">
+        {/* Score Grid - Centered */}
+        <div className="space-y-2 flex flex-col items-center sm:items-start">
           {/* Grid Container */}
-          <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-fit mx-auto">
+          <div className="grid grid-cols-4 gap-2 sm:gap-3 mx-auto sm:mx-0">
             {climber.scores.map((score, idx) => {
               // Display attempts as stored in database
               // - topAttempts: number of attempts to reach TOP (0 if not reached)
@@ -49,20 +49,20 @@ function LeaderboardCard({ climber, index }) {
               const topAttempt = score.topAttempts || 0
               
               return (
-                <div key={idx} className="flex flex-col gap-1.5 w-12 sm:w-14">
-                  {/* Zone Attempt - Memanjang ke atas (vertikal tinggi, lebar sempit) */}
-                  <div className={`w-full h-20 sm:h-24 rounded-md flex items-center justify-center font-bold text-base sm:text-lg ${
+                <div key={idx} className="flex flex-col gap-1.5 w-14 sm:w-16">
+                  {/* Zone Attempt - Yellow/Orange Gradient */}
+                  <div className={`w-full h-16 sm:h-20 rounded-md flex items-center justify-center font-bold text-base sm:text-lg ${
                     zoneAttempt > 0
-                      ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 text-gray-900 shadow-md'
-                      : 'bg-gray-800 border border-gray-700 text-white/60'
+                      ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-md'
+                      : 'bg-zinc-800 border border-zinc-700 text-zinc-500'
                   }`}>
                     {zoneAttempt > 0 ? zoneAttempt : '-'}
                   </div>
-                  {/* Top Attempt - Memanjang ke atas (vertikal tinggi, lebar sempit) */}
-                  <div className={`w-full h-20 sm:h-24 rounded-md flex items-center justify-center font-bold text-base sm:text-lg ${
+                  {/* Top Attempt - Green Gradient */}
+                  <div className={`w-full h-16 sm:h-20 rounded-md flex items-center justify-center font-bold text-base sm:text-lg ${
                     topAttempt > 0
-                      ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 text-gray-900 shadow-md'
-                      : 'bg-gray-800 border border-gray-700 text-white/60'
+                      ? 'bg-gradient-to-br from-green-400 to-green-600 text-white shadow-md'
+                      : 'bg-zinc-800 border border-zinc-700 text-zinc-500'
                   }`}>
                     {topAttempt > 0 ? topAttempt : '-'}
                   </div>
@@ -71,25 +71,20 @@ function LeaderboardCard({ climber, index }) {
             })}
           </div>
           {/* Boulder Number Labels */}
-          <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-fit mx-auto">
+          <div className="grid grid-cols-4 gap-2 sm:gap-3 mx-auto sm:mx-0">
             {climber.scores.map((_, idx) => (
-              <div key={idx} className="text-center w-12 sm:w-14">
-                <span className="text-[10px] sm:text-xs text-gray-500 font-semibold">{idx + 1}</span>
+              <div key={idx} className="text-center w-14 sm:w-16">
+                <span className="text-xs text-zinc-500 font-semibold">{idx + 1}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Right: Total Points */}
-      <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start w-full sm:w-auto flex-shrink-0 sm:min-w-[120px] lg:min-w-[140px] mt-2 sm:mt-0">
-        <div className="text-3xl sm:text-4xl font-black text-green-400 tabular-nums mb-0 sm:mb-1" style={{
-          textShadow: '0 0 10px rgba(74, 222, 128, 0.5)'
-        }}>
+      {/* Right: Total Score - Large Monospace */}
+      <div className="relative z-10 flex flex-row sm:flex-col items-center sm:items-end justify-center sm:justify-end w-full sm:w-auto flex-shrink-0 sm:min-w-[120px] lg:min-w-[140px] mt-2 sm:mt-0">
+        <div className="text-4xl sm:text-5xl lg:text-6xl font-bold text-zinc-100 tabular-nums font-mono">
           {climber.totalScore.toFixed(1)}
-        </div>
-        <div className="text-[10px] sm:text-xs text-white/60 font-medium uppercase tracking-wider">
-          Total Points
         </div>
       </div>
     </div>

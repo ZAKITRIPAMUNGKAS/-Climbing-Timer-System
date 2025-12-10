@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { ArrowLeft, Calendar, Tag, Share2, Facebook, Twitter, MessageCircle, Copy, Check } from 'lucide-react'
+import { ArrowLeft, Calendar, Tag, Share2, Facebook, Twitter, MessageCircle, Copy, Check, Clock, ChevronRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 import PublicLayout from '../components/PublicLayout'
 import './LandingPage.css'
@@ -115,13 +115,16 @@ function NewsDetailPage() {
     }
   }
 
+  // --- RENDER HELPERS ---
+
   if (loading) {
     return (
       <PublicLayout>
-        <div className="bg-rich-black min-h-screen text-off-white font-body flex items-center justify-center">
+        <div className="bg-[#0a0a0a] min-h-screen text-zinc-200 flex items-center justify-center">
           <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-goldenrod mb-4"></div>
-            <div className="text-xl font-semibold text-goldenrod">Memuat berita...</div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#FFB800] mb-4"></div>
+            <div className="text-xl font-bold mb-2 text-[#FFB800] tracking-wider">LOADING ARTICLE</div>
+            <p className="text-zinc-500 text-sm tracking-widest uppercase">Please wait</p>
           </div>
         </div>
       </PublicLayout>
@@ -131,16 +134,16 @@ function NewsDetailPage() {
   if (error || !article) {
     return (
       <PublicLayout>
-        <div className="bg-rich-black min-h-screen text-off-white font-body">
-          <div className="container mx-auto px-6 py-20">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-white mb-4">{error || 'Berita tidak ditemukan'}</h2>
+        <div className="bg-[#0a0a0a] min-h-screen text-zinc-200 flex items-center justify-center">
+          <div className="text-center max-w-md mx-auto px-6">
+            <div className="bg-[#111111] border border-zinc-800 p-10 shadow-2xl rounded-sm">
+              <h2 className="text-2xl font-black text-white mb-4 uppercase">{error || 'Article Not Found'}</h2>
               <Link
                 to="/berita"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-goldenrod text-black rounded-lg font-semibold hover:bg-yellow-500 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#FFB800] text-black font-bold uppercase tracking-wider hover:bg-[#e6a600] transition-colors rounded-sm"
               >
                 <ArrowLeft size={18} />
-                Kembali ke Berita
+                Back to News
               </Link>
             </div>
           </div>
@@ -156,6 +159,8 @@ function NewsDetailPage() {
   const description = article
     ? (article.description ? article.description.replace(/<[^>]*>/g, '').substring(0, 200) + '...' : 'Berita dari FPTI Karanganyar')
     : 'Berita dari FPTI Karanganyar'
+
+  // --- MAIN RENDER ---
 
   return (
     <PublicLayout>
@@ -186,109 +191,87 @@ function NewsDetailPage() {
           <meta name="article:published_time" content={article.date || new Date().toISOString()} />
         </Helmet>
       )}
-      <div className="bg-rich-black min-h-screen text-off-white font-body">
-        {/* Back Button */}
-        <div className="container mx-auto px-6 pt-32 pb-8">
-          <Link
-            to="/berita"
-            className="inline-flex items-center gap-2 text-gray-400 hover:text-goldenrod transition-colors mb-6"
-          >
-            <ArrowLeft size={18} />
-            <span>Kembali ke Berita</span>
-          </Link>
+      <div className="bg-[#0a0a0a] min-h-screen text-zinc-200 font-sans selection:bg-[#FFB800] selection:text-black pt-24">
+        
+        {/* Navigation Bar Area (Sticky Back Button) */}
+        <div className="sticky top-16 z-30 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-zinc-800 py-4 mb-8">
+           <div className="container mx-auto px-6">
+              <Link
+                to="/berita"
+                className="inline-flex items-center gap-2 text-zinc-400 hover:text-[#FFB800] transition-colors text-sm font-bold uppercase tracking-wider group"
+              >
+                <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                <span>Back to News</span>
+              </Link>
+           </div>
         </div>
 
-        {/* Article Content */}
-        <article className="container mx-auto px-6 pb-20">
+        {/* Article Container */}
+        <article className="container mx-auto px-6 pb-12">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             className="max-w-4xl mx-auto"
           >
-            {/* Header - Left Aligned */}
-            <div className="mb-12">
-              <div className="flex items-center gap-4 mb-6 flex-wrap">
-                <span className={`inline-block px-4 py-2 ${
-                  article.color === 'crimson' 
-                    ? 'bg-crimson/20 text-crimson' 
-                    : 'bg-goldenrod/20 text-goldenrod'
-                } text-sm rounded-full font-bold`}>
-                  {article.category}
+            {/* Header Section */}
+            <header className="mb-10">
+              <div className="flex flex-wrap items-center gap-4 mb-6 text-sm">
+                <span className={`inline-block px-3 py-1 bg-[#FFB800] text-black font-black uppercase tracking-widest text-xs`}>
+                  {article.category || 'News'}
                 </span>
-                <span className="text-sm text-gray-400 flex items-center gap-2">
-                  <Calendar size={16} />
+                <span className="text-zinc-500 font-medium flex items-center gap-2">
+                  <Calendar size={14} />
                   {article.date}
                 </span>
               </div>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold mb-6 text-white leading-tight text-left">
+              
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-8">
                 {article.title}
               </h1>
               
-              {/* Share Buttons */}
-              <div className="flex items-center justify-center gap-3 mb-8">
-                <span className="text-sm text-gray-400 mr-2">Bagikan:</span>
-                <button
-                  onClick={() => handleShare('facebook')}
-                  className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  title="Share ke Facebook"
-                >
-                  <Facebook size={18} />
-                </button>
-                <button
-                  onClick={() => handleShare('twitter')}
-                  className="p-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors"
-                  title="Share ke Twitter"
-                >
-                  <Twitter size={18} />
-                </button>
-                <button
-                  onClick={() => handleShare('whatsapp')}
-                  className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                  title="Share ke WhatsApp"
-                >
-                  <MessageCircle size={18} />
-                </button>
-                <button
-                  onClick={() => handleShare('copy')}
-                  className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
-                  title="Copy link"
-                >
-                  {copied ? <Check size={18} /> : <Copy size={18} />}
-                </button>
-                {navigator.share && (
-                  <button
-                    onClick={() => handleShare('native')}
-                    className="p-2 bg-goldenrod text-black rounded-lg hover:bg-yellow-500 transition-colors"
-                    title="Share"
-                  >
-                    <Share2 size={18} />
-                  </button>
-                )}
+              {/* Share Bar */}
+              <div className="flex items-center gap-4 py-4 border-y border-zinc-800">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest mr-2">Share:</span>
+                <div className="flex gap-2">
+                    <button onClick={() => handleShare('facebook')} className="p-2 rounded-full bg-zinc-900 text-zinc-400 hover:text-white hover:bg-[#1877F2] transition-all" title="Facebook">
+                        <Facebook size={18} />
+                    </button>
+                    <button onClick={() => handleShare('twitter')} className="p-2 rounded-full bg-zinc-900 text-zinc-400 hover:text-white hover:bg-[#1DA1F2] transition-all" title="Twitter">
+                        <Twitter size={18} />
+                    </button>
+                    <button onClick={() => handleShare('whatsapp')} className="p-2 rounded-full bg-zinc-900 text-zinc-400 hover:text-white hover:bg-[#25D366] transition-all" title="WhatsApp">
+                        <MessageCircle size={18} />
+                    </button>
+                    <button onClick={() => handleShare('copy')} className="p-2 rounded-full bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-all relative" title="Copy Link">
+                        {copied ? <Check size={18} className="text-green-500" /> : <Copy size={18} />}
+                    </button>
+                </div>
               </div>
-            </div>
+            </header>
 
-            {/* Featured Image - Centered */}
+            {/* Featured Image */}
             {article.image && (
-              <div className="mb-12 rounded-xl overflow-hidden shadow-2xl">
+              <div className="mb-12 relative group overflow-hidden bg-[#111111] border border-zinc-800">
                 <img 
                   src={article.image.startsWith('http') ? article.image : `${window.location.origin}${article.image}`}
                   alt={article.title}
-                  className="w-full h-auto object-cover"
+                  className="w-full h-auto object-cover max-h-[600px]"
                   loading="lazy"
                   onError={(e) => {
-                    e.target.src = `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23E11D23" width="800" height="600"/%3E%3Ctext fill="%23FFFFFF" font-family="Arial" font-size="24" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3E${encodeURIComponent(article.category || 'News')}%3C/text%3E%3C/svg%3E`
+                    e.target.src = `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23111111" width="800" height="600"/%3E%3Ctext fill="%23333333" font-family="Arial" font-size="24" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3EIMAGE NOT AVAILABLE%3C/text%3E%3C/svg%3E`
                   }}
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent opacity-20"></div>
               </div>
             )}
 
-            {/* Content - Justified with paragraph spacing and indentation */}
-            <div className="text-left">
+            {/* Content Body */}
+            <div className="prose prose-invert prose-lg max-w-none text-zinc-300">
               <div 
-                className="news-content text-gray-300 leading-relaxed text-lg md:text-xl max-w-4xl"
+                className="leading-relaxed font-light [&>p]:mb-6 [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:text-white [&>h2]:mt-10 [&>h2]:mb-4 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:mb-6 [&>li]:mb-2"
                 dangerouslySetInnerHTML={{ 
-                  __html: (article.description || 'Tidak ada konten')
+                  __html: (article.description || 'Tidak ada konten yang tersedia.')
                 }}
               />
             </div>
@@ -297,72 +280,66 @@ function NewsDetailPage() {
 
         {/* Recommended News Section */}
         {allNews.length > 0 && (
-          <section className="container mx-auto px-6 pb-20">
-            <div className="max-w-6xl mx-auto">
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6 }}
-              >
-                <h2 className="text-3xl md:text-4xl font-heading font-bold text-white mb-8 text-center">
-                  Berita Lainnya
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {allNews.map((newsItem, index) => (
-                    <motion.div
-                      key={newsItem.id}
-                      initial={{ opacity: 0, y: 30 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: index * 0.1, duration: 0.6 }}
-                      onClick={() => navigate(`/berita/${newsItem.id}`)}
-                      className="bg-gunmetal rounded-xl overflow-hidden hover:scale-105 transition-transform duration-300 cursor-pointer group"
-                    >
-                      <div className="h-48 overflow-hidden">
-                        <img 
-                          src={newsItem.image && newsItem.image.startsWith('http') ? newsItem.image : (newsItem.image ? newsItem.image : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23E11D23" width="800" height="600"/%3E%3Ctext fill="%23FFFFFF" font-family="Arial" font-size="24" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E')}
-                          alt={newsItem.title}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                          loading="lazy"
-                          onError={(e) => {
-                            e.target.src = `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23E11D23" width="800" height="600"/%3E%3Ctext fill="%23FFFFFF" font-family="Arial" font-size="20" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3E${encodeURIComponent(newsItem.category || 'News')}%3C/text%3E%3C/svg%3E`
-                          }}
-                        />
-                      </div>
-                      <div className="p-6">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className={`inline-block px-3 py-1 ${
-                            newsItem.color === 'crimson' 
-                              ? 'bg-crimson/20 text-crimson' 
-                              : 'bg-goldenrod/20 text-goldenrod'
-                          } text-xs rounded-full font-bold`}>
+          <section className="bg-[#111111] border-t border-zinc-800 py-16">
+            <div className="container mx-auto px-6 max-w-6xl">
+              <div className="flex items-center gap-3 mb-8">
+                 <div className="w-1 h-8 bg-[#FFB800]"></div>
+                 <h2 className="text-2xl font-black text-white uppercase tracking-tight">Berita Lainnya</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {allNews.map((newsItem, index) => (
+                  <motion.div
+                    key={newsItem.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.1, duration: 0.5 }}
+                    onClick={() => navigate(`/berita/${newsItem.id}`)}
+                    className="group bg-[#0a0a0a] border border-zinc-800 hover:border-[#FFB800]/50 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col h-full"
+                  >
+                    <div className="h-48 overflow-hidden relative">
+                      <img 
+                        src={newsItem.image && newsItem.image.startsWith('http') ? newsItem.image : (newsItem.image ? newsItem.image : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23111111" width="800" height="600"/%3E%3Ctext fill="%23333333" font-family="Arial" font-size="24" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E')}
+                        alt={newsItem.title}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.target.src = `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23111111" width="800" height="600"/%3E%3Ctext fill="%23333333" font-family="Arial" font-size="20" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3E${encodeURIComponent(newsItem.category || 'News')}%3C/text%3E%3C/svg%3E`
+                        }}
+                      />
+                      <div className="absolute top-3 left-3">
+                         <span className="bg-[#0a0a0a]/80 backdrop-blur text-white text-[10px] font-bold px-2 py-1 uppercase tracking-wider border border-zinc-700">
                             {newsItem.category}
-                          </span>
-                          <span className="text-xs text-gray-500 flex items-center gap-1">
-                            <Calendar size={12} />
-                            {newsItem.date}
-                          </span>
-                        </div>
-                        <h3 className="text-lg font-heading font-bold mb-2 text-white group-hover:text-goldenrod transition-colors line-clamp-2">
-                          {newsItem.title}
-                        </h3>
-                        <div className="text-gray-400 text-sm leading-relaxed line-clamp-3" dangerouslySetInnerHTML={{ 
-                          __html: newsItem.description ? newsItem.description.substring(0, 120) + '...' : 'Tidak ada deskripsi'
-                        }}></div>
+                         </span>
                       </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
+                    </div>
+                    
+                    <div className="p-5 flex flex-col flex-1">
+                      <div className="flex items-center gap-2 text-zinc-500 text-xs mb-2">
+                        <Clock size={12} />
+                        <span>{newsItem.date}</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-white mb-3 leading-tight group-hover:text-[#FFB800] transition-colors line-clamp-2">
+                        {newsItem.title}
+                      </h3>
+                      <div className="mt-auto pt-4 border-t border-zinc-900 flex items-center text-[#FFB800] text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-300 -translate-x-2 group-hover:translate-x-0 transform">
+                        Read Article <ChevronRight size={14} className="ml-1" />
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </section>
         )}
 
         {/* Footer */}
-        <footer className="py-10 border-t border-white/10 text-center text-gray-500 text-sm bg-rich-black">
+        <footer className="py-12 bg-[#0a0a0a] text-center border-t border-zinc-900">
           <div className="container mx-auto px-6">
-            <p>&copy; 2024 FPTI Karanganyar. All rights reserved.</p>
+            <p className="text-zinc-600 text-sm">
+              &copy; {new Date().getFullYear()} FPTI Karanganyar. All rights reserved.
+            </p>
           </div>
         </footer>
       </div>
@@ -371,4 +348,3 @@ function NewsDetailPage() {
 }
 
 export default NewsDetailPage
-

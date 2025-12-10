@@ -109,16 +109,27 @@ function BoulderLeaderboardOverlay() {
           {/* Yellow Header Bar */}
           <div className="bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-400 px-6 py-3 rounded-t-2xl">
             <div className="text-center">
-              <h1 className="text-2xl font-bold text-gray-900">SPT</h1>
+              <h1 className="text-xl font-bold text-gray-900">Federasi Panjat Tebing Indonesia Karanganyar</h1>
             </div>
           </div>
 
           {/* White Sub-Header */}
           <div className="bg-white px-6 py-4 rounded-t-2xl">
             <div className="flex items-center gap-3">
-              {/* Logo */}
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-pink-500 to-blue-600 rounded-full flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-xs">FPTI</span>
+              {/* Logo FPTI */}
+              <div className="w-16 h-16 rounded-full flex items-center justify-center shadow-md overflow-hidden border-2 border-gray-200">
+                <img 
+                  src="/logo.jpeg" 
+                  alt="FPTI Karanganyar" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none'
+                    e.target.nextElementSibling.style.display = 'flex'
+                  }}
+                />
+                <div className="w-full h-full bg-gradient-to-br from-blue-500 via-pink-500 to-blue-600 rounded-full flex items-center justify-center hidden">
+                  <span className="text-white font-bold text-xs">FPTI</span>
+                </div>
               </div>
               <h2 className="text-xl font-bold text-gray-900 uppercase tracking-wider">
                 BOULDER FINAL

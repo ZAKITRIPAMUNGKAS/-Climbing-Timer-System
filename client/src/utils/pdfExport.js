@@ -176,19 +176,25 @@ export function generateResultListPDF(leaderboard, competition, round = 'Qualifi
  * @param {Object} competition - Competition object
  * @param {String} round - Round name (e.g., "Qualification", "Final")
  */
-export function generateResultListExcel(leaderboard, competition, round = 'Qualification') {
+export function generateResultListExcel(leaderboard, competition, round = 'Qualification', finalsMatches = null) {
   // Create a new workbook
   const wb = XLSX.utils.book_new()
   
   // Determine table columns based on competition type
   const isSpeed = competition.type === 'speed' || competition.type === 'speed_climbing'
+  const isFinals = round === 'Finals' || round === 'finals'
   
   let headers = []
   let data = []
   
   if (isSpeed) {
     // Speed Climbing Result List
-    headers = ['Rank', 'Bib', 'Name', 'Team', 'Lane A', 'Lane B', 'Total Time', 'Status']
+    if (isFinals) {
+      // For finals, add bracket history columns
+      headers = ['Rank', 'Bib', 'Name', 'Team', 'Lane A', 'Lane B', 'Total Time', 'Status', 'Bracket Progression', 'Match History']
+    } else {
+      headers = ['Rank', 'Bib', 'Name', 'Team', 'Lane A', 'Lane B', 'Total Time', 'Status']
+    }
     
     data = leaderboard
       .sort((a, b) => {
@@ -225,7 +231,7 @@ export function generateResultListExcel(leaderboard, competition, round = 'Quali
           return '-'
         }
         
-        return [
+        const row = [
           entry.rank || '-',
           entry.bib_number || '-',
           entry.name || '-',
@@ -235,6 +241,14 @@ export function generateResultListExcel(leaderboard, competition, round = 'Quali
           formatTime(entry.total_time),
           entry.status || 'VALID'
         ]
+        
+        // Add bracket history columns for finals
+        if (isFinals) {
+          row.push(entry.progression || '-') // Bracket Progression
+          row.push(entry.bracket_history || '-') // Match History
+        }
+        
+        return row
       })
   } else {
     // Boulder Result List
@@ -295,11 +309,30 @@ export function generateResultListExcel(leaderboard, competition, round = 'Quali
     if (index === 1) return { wch: 8 } // Bib
     if (index === 2) return { wch: 30 } // Name
     if (index === 3) return { wch: 20 } // Team
-    if (index === 4) return { wch: 8 } // Tops
-    if (index === 5) return { wch: 8 } // Zones
-    if (index === 6) return { wch: 12 } // TOP Attempts
-    if (index === 7) return { wch: 12 } // ZONE Attempts
-    return { wch: 15 } // Other columns
+    if (isSpeed && isFinals) {
+      // Speed Finals columns
+      if (index === 4) return { wch: 12 } // Lane A
+      if (index === 5) return { wch: 12 } // Lane B
+      if (index === 6) return { wch: 12 } // Total Time
+      if (index === 7) return { wch: 10 } // Status
+      if (index === 8) return { wch: 30 } // Bracket Progression
+      if (index === 9) return { wch: 60 } // Match History
+      return { wch: 15 }
+    } else if (isSpeed) {
+      // Speed Qualification columns
+      if (index === 4) return { wch: 12 } // Lane A
+      if (index === 5) return { wch: 12 } // Lane B
+      if (index === 6) return { wch: 12 } // Total Time
+      if (index === 7) return { wch: 10 } // Status
+      return { wch: 15 }
+    } else {
+      // Boulder columns
+      if (index === 4) return { wch: 8 } // Tops
+      if (index === 5) return { wch: 8 } // Zones
+      if (index === 6) return { wch: 12 } // TOP Attempts
+      if (index === 7) return { wch: 12 } // ZONE Attempts
+      return { wch: 15 } // Other columns
+    }
   })
   ws['!cols'] = colWidths
   
@@ -317,6 +350,219 @@ export function generateResultListExcel(leaderboard, competition, round = 'Quali
   
   // Add worksheet to workbook
   XLSX.utils.book_append_sheet(wb, ws, 'Results')
+  
+  // Add bracket detail sheet for finals with professional format
+  if (isFinals && finalsMatches && finalsMatches.length > 0) {
+    // Group matches by stage
+    const matchesByStage = {}
+    finalsMatches.forEach(match => {
+      if (!matchesByStage[match.stage]) {
+        matchesByStage[match.stage] = []
+      }
+      matchesByStage[match.stage].push(match)
+    })
+    
+    // Define stage order
+    const stageOrder = ['Round of 16', 'Quarter Final', 'Semi Final', 'Small Final', 'Big Final']
+    const orderedStages = stageOrder.filter(stage => matchesByStage[stage])
+    
+    // Prepare bracket data with headers and spacing
+    const bracketData = []
+    let currentRow = 0
+    
+    // Helper function to format time
+    const formatTime = (time) => {
+      if (!time || time === 0) return '-'
+      if (typeof time === 'number') return `${time.toFixed(2)}s`
+      if (typeof time === 'string') {
+        return time.includes('s') ? time : `${time}s`
+      }
+      return '-'
+    }
+    
+    // Add main header (merged cells will be handled separately)
+    const competitionName = competition.name || 'Competition'
+    const year = new Date().getFullYear()
+    bracketData.push([`${competitionName.toUpperCase()} – FINAL BRACKET RESULT`])
+    bracketData.push([`Kategori Speed – Tahun ${year}`])
+    bracketData.push([]) // Empty row
+    currentRow = 3
+    
+    // Process each stage
+    orderedStages.forEach((stage, stageIndex) => {
+      const stageMatches = matchesByStage[stage]
+        .sort((a, b) => (a.match_order || 0) - (b.match_order || 0))
+      
+      // Add stage header
+      bracketData.push([`${stage.toUpperCase()}`])
+      currentRow++
+      
+      // Add table headers
+      const headers = ['Match', 'Climber A', 'Sekolah A', 'Waktu A', 'VS', 'Climber B', 'Sekolah B', 'Waktu B', 'Winner']
+      bracketData.push(headers)
+      currentRow++
+      
+      // Add match data
+      stageMatches.forEach(match => {
+        // Calculate total time for Climber A
+        let aTotal = match.climber_a_total_time ? parseFloat(match.climber_a_total_time) : null
+        if (!aTotal && match.climber_a_run1_time && match.climber_a_run2_time &&
+            match.climber_a_run1_status === 'VALID' && match.climber_a_run2_status === 'VALID') {
+          aTotal = parseFloat(match.climber_a_run1_time) + parseFloat(match.climber_a_run2_time)
+        }
+        
+        // Calculate total time for Climber B
+        let bTotal = match.climber_b_total_time ? parseFloat(match.climber_b_total_time) : null
+        if (!bTotal && match.climber_b_run1_time && match.climber_b_run2_time &&
+            match.climber_b_run1_status === 'VALID' && match.climber_b_run2_status === 'VALID') {
+          bTotal = parseFloat(match.climber_b_run1_time) + parseFloat(match.climber_b_run2_time)
+        }
+        
+        const winner = match.winner_id === match.climber_a_id ? match.climber_a_name : 
+                      match.winner_id === match.climber_b_id ? match.climber_b_name : '-'
+        
+        bracketData.push([
+          `Match ${match.match_order || '-'}`,
+          match.climber_a_name || '-',
+          match.climber_a_team || '-',
+          formatTime(aTotal),
+          'VS',
+          match.climber_b_name || 'BYE',
+          match.climber_b_team || '-',
+          formatTime(bTotal),
+          winner
+        ])
+        currentRow++
+      })
+      
+      // Add 2 empty rows between stages (except last stage)
+      if (stageIndex < orderedStages.length - 1) {
+        bracketData.push([])
+        bracketData.push([])
+        currentRow += 2
+      }
+    })
+    
+    // Create worksheet
+    const bracketWs = XLSX.utils.aoa_to_sheet(bracketData)
+    
+    // Set column widths
+    bracketWs['!cols'] = [
+      { wch: 12 }, // Match
+      { wch: 25 }, // Climber A
+      { wch: 25 }, // Sekolah A
+      { wch: 12 }, // Waktu A
+      { wch: 5 },  // VS
+      { wch: 25 }, // Climber B
+      { wch: 25 }, // Sekolah B
+      { wch: 12 }, // Waktu B
+      { wch: 25 }  // Winner
+    ]
+    
+    // Style cells
+    const range = XLSX.utils.decode_range(bracketWs['!ref'])
+    
+    // Style main header (row 0)
+    for (let col = 0; col <= 8; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col })
+      if (!bracketWs[cellAddress]) {
+        bracketWs[cellAddress] = { t: 's', v: '' }
+      }
+      bracketWs[cellAddress].s = {
+        font: { bold: true, sz: 16 },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      }
+    }
+    // Merge header cells
+    bracketWs['!merges'] = bracketWs['!merges'] || []
+    bracketWs['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } })
+    
+    // Style sub-header (row 1)
+    for (let col = 0; col <= 8; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: 1, c: col })
+      if (!bracketWs[cellAddress]) {
+        bracketWs[cellAddress] = { t: 's', v: '' }
+      }
+      bracketWs[cellAddress].s = {
+        font: { bold: true, sz: 14 },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      }
+    }
+    bracketWs['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 8 } })
+    
+    // Find and style stage headers and table headers
+    let rowIndex = 3
+    orderedStages.forEach((stage) => {
+      const stageMatches = matchesByStage[stage]
+        .sort((a, b) => (a.match_order || 0) - (b.match_order || 0))
+      
+      // Style stage header
+      for (let col = 0; col <= 8; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: col })
+        if (!bracketWs[cellAddress]) {
+          bracketWs[cellAddress] = { t: 's', v: '' }
+        }
+        bracketWs[cellAddress].s = {
+          font: { bold: true, sz: 12 },
+          fill: { fgColor: { rgb: 'E0E0E0' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: {
+            top: { style: 'thin' },
+            bottom: { style: 'thin' },
+            left: { style: 'thin' },
+            right: { style: 'thin' }
+          }
+        }
+      }
+      bracketWs['!merges'].push({ s: { r: rowIndex, c: 0 }, e: { r: rowIndex, c: 8 } })
+      rowIndex++
+      
+      // Style table headers
+      for (let col = 0; col <= 8; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: col })
+        if (!bracketWs[cellAddress]) continue
+        bracketWs[cellAddress].s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '228B22' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: {
+            top: { style: 'thin' },
+            bottom: { style: 'thin' },
+            left: { style: 'thin' },
+            right: { style: 'thin' }
+          }
+        }
+      }
+      rowIndex++
+      
+      // Style match rows
+      stageMatches.forEach(() => {
+        for (let col = 0; col <= 8; col++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: col })
+          if (!bracketWs[cellAddress]) continue
+          
+          const isWinnerCol = col === 8
+          bracketWs[cellAddress].s = {
+            font: { bold: isWinnerCol },
+            fill: isWinnerCol ? { fgColor: { rgb: 'D4EDDA' } } : undefined,
+            alignment: { horizontal: col === 4 ? 'center' : 'left', vertical: 'center' },
+            border: {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            }
+          }
+        }
+        rowIndex++
+      })
+      
+      // Skip 2 empty rows
+      rowIndex += 2
+    })
+    
+    XLSX.utils.book_append_sheet(wb, bracketWs, 'Bracket')
+  }
   
   // Add metadata sheet
   const metadataData = [

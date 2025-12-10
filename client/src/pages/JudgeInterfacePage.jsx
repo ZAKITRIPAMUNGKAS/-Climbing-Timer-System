@@ -6,6 +6,7 @@ import Swal from 'sweetalert2'
 import ScoreInputModal from '../components/ScoreInputModal'
 import FinalsMatchInputModal from '../components/FinalsMatchInputModal'
 import QualificationCard from '../components/QualificationCard'
+import SpeedBracketView from '../components/SpeedBracketView'
 
 function JudgeInterfacePage() {
   const navigate = useNavigate()
@@ -92,11 +93,19 @@ function JudgeInterfacePage() {
       }
     }
     
+    const handleFinalsUpdate = (data) => {
+      if (selectedCompetition && selectedCompetition.type === 'speed' && selectedCompetition.id === data.competition_id) {
+        fetchFinalsMatches(selectedCompetition.id)
+      }
+    }
+    
     socketRef.current.on('speed-qualification-updated', handleQualificationUpdate)
+    socketRef.current.on('speed-finals-updated', handleFinalsUpdate)
     
     return () => {
       if (socketRef.current) {
         socketRef.current.off('speed-qualification-updated', handleQualificationUpdate)
+        socketRef.current.off('speed-finals-updated', handleFinalsUpdate)
       }
     }
   }, [selectedCompetition])
@@ -345,9 +354,15 @@ function JudgeInterfacePage() {
           Select Competition
         </label>
         <select
-          value={selectedCompetition?.id || ''}
+          value={selectedCompetition ? `${selectedCompetition.type}-${selectedCompetition.id}` : ''}
           onChange={(e) => {
-            const comp = competitions.find(c => c.id === parseInt(e.target.value))
+            const value = e.target.value
+            if (!value) {
+              setSelectedCompetition(null)
+              return
+            }
+            const [type, id] = value.split('-')
+            const comp = competitions.find(c => c.type === type && c.id === parseInt(id))
             setSelectedCompetition(comp || null)
             // Reset to qualification tab for speed competitions
             if (comp && comp.type === 'speed') {
@@ -358,7 +373,7 @@ function JudgeInterfacePage() {
         >
           <option value="">-- Select Competition --</option>
           {competitions.map((comp) => (
-            <option key={comp.id} value={comp.id}>
+            <option key={`${comp.type}-${comp.id}`} value={`${comp.type}-${comp.id}`}>
               {comp.name} ({comp.type === 'boulder' ? 'Boulder' : 'Speed'})
             </option>
           ))}
@@ -515,80 +530,68 @@ function JudgeInterfacePage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {finalsMatches
-                    .filter(match => {
-                      if (!searchQuery) return true
-                      const query = searchQuery.toLowerCase()
-                      return (
-                        match.climber_a_name?.toLowerCase().includes(query) ||
-                        match.climber_b_name?.toLowerCase().includes(query) ||
-                        match.stage?.toLowerCase().includes(query)
-                      )
-                    })
-                    .map((match) => (
-                      <div key={match.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                        <div className="flex-1 w-full">
-                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                            <span className="px-2 sm:px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
-                              {match.stage}
-                            </span>
-                            <span className="text-xs text-gray-500">Match {match.match_order}</span>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                            <div>
-                              <div className="text-sm text-gray-600">Lane A</div>
-                              <div className="font-semibold text-gray-900">
-                                {match.climber_a_name} (#{match.climber_a_bib})
-                              </div>
-                              {match.time_a && (
-                                <div className="text-sm text-green-600 font-semibold">
-                                  {match.time_a}s ({match.status_a})
-                                </div>
-                              )}
-                            </div>
-                            <div>
-                              <div className="text-sm text-gray-600">
-                                {match.climber_b_id ? 'Lane B' : 'BYE'}
-                              </div>
-                              {match.climber_b_id ? (
-                                <>
-                                  <div className="font-semibold text-gray-900">
-                                    {match.climber_b_name} (#{match.climber_b_bib})
-                                  </div>
-                                  {match.time_b && (
-                                    <div className="text-sm text-green-600 font-semibold">
-                                      {match.time_b}s ({match.status_b})
-                                    </div>
-                                  )}
-                                </>
-                              ) : (
-                                <div className="text-sm text-yellow-600 font-semibold">Walkover</div>
-                              )}
-                            </div>
-                          </div>
-                          {match.winner_id && (
-                            <div className="mt-2 text-sm">
-                              <span className="text-green-600 font-semibold">
-                                Winner: {match.winner_id === match.climber_a_id ? match.climber_a_name : match.climber_b_name}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-4 mt-3 sm:mt-0">
-                          <button
-                            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
-                            onClick={() => {
-                              setSelectedMatch(match)
-                              setShowFinalsModal(true)
-                            }}
-                          >
-                            Input Score
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
+                <>
+                  <div className="mb-4 flex justify-end">
+                    <button
+                      onClick={async () => {
+                        if (!selectedCompetition) return
+                        try {
+                          const response = await fetch(
+                            `/api/speed-competitions/${selectedCompetition.id}/finals/recalculate-winners`,
+                            {
+                              method: 'POST',
+                              credentials: 'include'
+                            }
+                          )
+                          const data = await response.json()
+                          if (response.ok) {
+                            Swal.fire({
+                              icon: 'success',
+                              title: 'Winners Recalculated',
+                              text: `Updated ${data.updated_count} match${data.updated_count !== 1 ? 'es' : ''}`,
+                              timer: 2000,
+                              showConfirmButton: false
+                            })
+                            // Refresh finals matches
+                            fetchFinalsMatches(selectedCompetition.id)
+                          } else {
+                            Swal.fire({
+                              icon: 'error',
+                              title: 'Error',
+                              text: data.error || 'Failed to recalculate winners'
+                            })
+                          }
+                        } catch (error) {
+                          console.error('Error recalculating winners:', error)
+                          Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Failed to recalculate winners'
+                          })
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+                    >
+                      <Trophy size={16} />
+                      Recalculate Winners
+                    </button>
+                  </div>
+                  <SpeedBracketView 
+                  matches={finalsMatches.filter(match => {
+                    if (!searchQuery) return true
+                    const query = searchQuery.toLowerCase()
+                    return (
+                      match.climber_a_name?.toLowerCase().includes(query) ||
+                      match.climber_b_name?.toLowerCase().includes(query) ||
+                      match.stage?.toLowerCase().includes(query)
+                    )
+                  })}
+                  onMatchClick={(match) => {
+                    setSelectedMatch(match)
+                    setShowFinalsModal(true)
+                  }}
+                />
+                </>
               )}
             </div>
           ) : (

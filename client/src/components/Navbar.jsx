@@ -21,6 +21,7 @@ function Navbar() {
 
   const navLinks = [
     { name: 'Beranda', href: '/' },
+    { name: 'Tentang', href: '/tentang' },
     { name: 'Tentang Atlet', href: '/atlet' },
     { name: 'Jadwal', href: '/jadwal' },
     { name: 'Live Score', href: '/live-score-selector' },

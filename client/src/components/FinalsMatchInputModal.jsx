@@ -7,10 +7,16 @@ import { formatTimeMMSSmmm, parseTimeMMSSmmm } from '../utils/timeFormat'
 function FinalsMatchInputModal({ isOpen, onClose, match, competition, onSuccess }) {
   const { isAdmin } = useAuth()
   const [matchScore, setMatchScore] = useState({
-    time_a: '',
-    time_b: '',
-    status_a: 'VALID',
-    status_b: 'VALID'
+    // Climber A runs
+    climber_a_run1_time: '',
+    climber_a_run2_time: '',
+    climber_a_run1_status: 'VALID',
+    climber_a_run2_status: 'VALID',
+    // Climber B runs
+    climber_b_run1_time: '',
+    climber_b_run2_time: '',
+    climber_b_run1_status: 'VALID',
+    climber_b_run2_status: 'VALID'
   })
   const [loading, setLoading] = useState(false)
   const [unlocking, setUnlocking] = useState(false)
@@ -18,10 +24,16 @@ function FinalsMatchInputModal({ isOpen, onClose, match, competition, onSuccess 
   useEffect(() => {
     if (isOpen && match) {
       setMatchScore({
-        time_a: match.time_a ? formatTimeMMSSmmm(match.time_a) : '',
-        time_b: match.time_b ? formatTimeMMSSmmm(match.time_b) : '',
-        status_a: match.status_a || 'VALID',
-        status_b: match.status_b || 'VALID'
+        // Climber A runs
+        climber_a_run1_time: match.climber_a_run1_time ? formatTimeMMSSmmm(match.climber_a_run1_time) : '',
+        climber_a_run2_time: match.climber_a_run2_time ? formatTimeMMSSmmm(match.climber_a_run2_time) : '',
+        climber_a_run1_status: match.climber_a_run1_status || 'VALID',
+        climber_a_run2_status: match.climber_a_run2_status || 'VALID',
+        // Climber B runs
+        climber_b_run1_time: match.climber_b_run1_time ? formatTimeMMSSmmm(match.climber_b_run1_time) : '',
+        climber_b_run2_time: match.climber_b_run2_time ? formatTimeMMSSmmm(match.climber_b_run2_time) : '',
+        climber_b_run1_status: match.climber_b_run1_status || 'VALID',
+        climber_b_run2_status: match.climber_b_run2_status || 'VALID'
       })
     }
   }, [isOpen, match])
@@ -43,8 +55,10 @@ function FinalsMatchInputModal({ isOpen, onClose, match, competition, onSuccess 
     try {
       setLoading(true)
       // Convert MM:SS.mmm format to seconds before sending
-      const timeASeconds = matchScore.time_a ? parseTimeMMSSmmm(matchScore.time_a) : null
-      const timeBSeconds = matchScore.time_b ? parseTimeMMSSmmm(matchScore.time_b) : null
+      const aRun1Seconds = matchScore.climber_a_run1_time ? parseTimeMMSSmmm(matchScore.climber_a_run1_time) : null
+      const aRun2Seconds = matchScore.climber_a_run2_time ? parseTimeMMSSmmm(matchScore.climber_a_run2_time) : null
+      const bRun1Seconds = matchScore.climber_b_run1_time ? parseTimeMMSSmmm(matchScore.climber_b_run1_time) : null
+      const bRun2Seconds = matchScore.climber_b_run2_time ? parseTimeMMSSmmm(matchScore.climber_b_run2_time) : null
       
       const response = await fetch(
         `/api/speed-competitions/${competition.id}/finals/${match.id}`,
@@ -53,10 +67,14 @@ function FinalsMatchInputModal({ isOpen, onClose, match, competition, onSuccess 
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            time_a: timeASeconds,
-            time_b: timeBSeconds,
-            status_a: matchScore.status_a,
-            status_b: matchScore.status_b
+            climber_a_run1_time: aRun1Seconds,
+            climber_a_run2_time: aRun2Seconds,
+            climber_a_run1_status: matchScore.climber_a_run1_status,
+            climber_a_run2_status: matchScore.climber_a_run2_status,
+            climber_b_run1_time: bRun1Seconds,
+            climber_b_run2_time: bRun2Seconds,
+            climber_b_run1_status: matchScore.climber_b_run1_status,
+            climber_b_run2_status: matchScore.climber_b_run2_status
           })
         }
       )
@@ -248,62 +266,180 @@ function FinalsMatchInputModal({ isOpen, onClose, match, competition, onSuccess 
               </div>
             </div>
 
-            {/* Score Inputs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Lane A */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Lane A Time (MM:SS.mmm)
-                </label>
-                <input
-                  type="text"
-                  value={matchScore.time_a}
-                  onChange={(e) => setMatchScore({ ...matchScore, time_a: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
-                  placeholder="00:06.500"
-                  disabled={match.is_finalized}
-                  pattern="\d{1,2}:\d{2}\.\d{1,3}"
-                />
-                <p className="text-xs text-gray-500 mt-1">Format: MM:SS.mmm (contoh: 00:06.500 untuk 6.5 detik)</p>
-                <select
-                  value={matchScore.status_a}
-                  onChange={(e) => setMatchScore({ ...matchScore, status_a: e.target.value })}
-                  className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  disabled={match.is_finalized}
-                >
-                  <option value="VALID">VALID</option>
-                  <option value="FALL">FALL</option>
-                  <option value="FALSE_START">FALSE_START</option>
-                  <option value="DNS">DNS</option>
-                </select>
+            {/* Score Inputs - Speed Classic: Two runs per climber */}
+            <div className="space-y-6">
+              {/* Climber A Section */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-4">
+                  {match.climber_a_name} (#{match.climber_a_bib}) - Lane A
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Run 1 (Lane A) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Run 1 - Lane A (MM:SS.mmm)
+                    </label>
+                    <input
+                      type="text"
+                      value={matchScore.climber_a_run1_time}
+                      onChange={(e) => setMatchScore({ ...matchScore, climber_a_run1_time: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
+                      placeholder="00:06.500"
+                      disabled={match.is_finalized}
+                      pattern="\d{1,2}:\d{2}\.\d{1,3}"
+                    />
+                    <select
+                      value={matchScore.climber_a_run1_status}
+                      onChange={(e) => setMatchScore({ ...matchScore, climber_a_run1_status: e.target.value })}
+                      className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      disabled={match.is_finalized}
+                    >
+                      <option value="VALID">VALID</option>
+                      <option value="FALL">FALL</option>
+                      <option value="FALSE_START">FALSE_START</option>
+                      <option value="DNS">DNS</option>
+                    </select>
+                  </div>
+                  {/* Run 2 (Lane B) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Run 2 - Lane B (MM:SS.mmm)
+                    </label>
+                    <input
+                      type="text"
+                      value={matchScore.climber_a_run2_time}
+                      onChange={(e) => setMatchScore({ ...matchScore, climber_a_run2_time: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
+                      placeholder="00:06.300"
+                      disabled={match.is_finalized}
+                      pattern="\d{1,2}:\d{2}\.\d{1,3}"
+                    />
+                    <select
+                      value={matchScore.climber_a_run2_status}
+                      onChange={(e) => setMatchScore({ ...matchScore, climber_a_run2_status: e.target.value })}
+                      className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      disabled={match.is_finalized}
+                    >
+                      <option value="VALID">VALID</option>
+                      <option value="FALL">FALL</option>
+                      <option value="FALSE_START">FALSE_START</option>
+                      <option value="DNS">DNS</option>
+                    </select>
+                  </div>
+                </div>
+                {/* Calculate and display total time */}
+                {(() => {
+                  const run1Seconds = matchScore.climber_a_run1_time ? parseTimeMMSSmmm(matchScore.climber_a_run1_time) : null
+                  const run2Seconds = matchScore.climber_a_run2_time ? parseTimeMMSSmmm(matchScore.climber_a_run2_time) : null
+                  
+                  // Calculate total: use database value if available, otherwise calculate from runs
+                  let totalTime = null
+                  if (match.climber_a_total_time !== null && match.climber_a_total_time !== undefined) {
+                    totalTime = match.climber_a_total_time
+                  } else if (run1Seconds !== null && run2Seconds !== null && 
+                             matchScore.climber_a_run1_status === 'VALID' && 
+                             matchScore.climber_a_run2_status === 'VALID') {
+                    // Calculate total from run1 + run2
+                    totalTime = run1Seconds + run2Seconds
+                  }
+                  
+                  if (totalTime !== null && totalTime > 0) {
+                    return (
+                      <div className="mt-3 text-sm text-gray-600">
+                        <span className="font-semibold">Total: </span>
+                        {formatTimeMMSSmmm(totalTime)}
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
               </div>
 
-              {/* Lane B */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Lane B Time (MM:SS.mmm)
-                </label>
-                <input
-                  type="text"
-                  value={matchScore.time_b}
-                  onChange={(e) => setMatchScore({ ...matchScore, time_b: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
-                  placeholder="00:06.300"
-                  disabled={match.is_finalized}
-                  pattern="\d{1,2}:\d{2}\.\d{1,3}"
-                />
-                <p className="text-xs text-gray-500 mt-1">Format: MM:SS.mmm (contoh: 00:06.300 untuk 6.3 detik)</p>
-                <select
-                  value={matchScore.status_b}
-                  onChange={(e) => setMatchScore({ ...matchScore, status_b: e.target.value })}
-                  className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  disabled={match.is_finalized}
-                >
-                  <option value="VALID">VALID</option>
-                  <option value="FALL">FALL</option>
-                  <option value="FALSE_START">FALSE_START</option>
-                  <option value="DNS">DNS</option>
-                </select>
+              {/* Climber B Section */}
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-4">
+                  {match.climber_b_name} (#{match.climber_b_bib}) - Lane B
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Run 1 (Lane B) - Speed Classic: Climber B Run 1 is in Lane B */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Run 1 - Lane B (MM:SS.mmm)
+                    </label>
+                    <input
+                      type="text"
+                      value={matchScore.climber_b_run1_time}
+                      onChange={(e) => setMatchScore({ ...matchScore, climber_b_run1_time: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
+                      placeholder="00:06.500"
+                      disabled={match.is_finalized}
+                      pattern="\d{1,2}:\d{2}\.\d{1,3}"
+                    />
+                    <select
+                      value={matchScore.climber_b_run1_status}
+                      onChange={(e) => setMatchScore({ ...matchScore, climber_b_run1_status: e.target.value })}
+                      className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      disabled={match.is_finalized}
+                    >
+                      <option value="VALID">VALID</option>
+                      <option value="FALL">FALL</option>
+                      <option value="FALSE_START">FALSE_START</option>
+                      <option value="DNS">DNS</option>
+                    </select>
+                  </div>
+                  {/* Run 2 (Lane A) - Speed Classic: Climber B Run 2 is in Lane A */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Run 2 - Lane A (MM:SS.mmm)
+                    </label>
+                    <input
+                      type="text"
+                      value={matchScore.climber_b_run2_time}
+                      onChange={(e) => setMatchScore({ ...matchScore, climber_b_run2_time: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed font-mono"
+                      placeholder="00:06.300"
+                      disabled={match.is_finalized}
+                      pattern="\d{1,2}:\d{2}\.\d{1,3}"
+                    />
+                    <select
+                      value={matchScore.climber_b_run2_status}
+                      onChange={(e) => setMatchScore({ ...matchScore, climber_b_run2_status: e.target.value })}
+                      className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      disabled={match.is_finalized}
+                    >
+                      <option value="VALID">VALID</option>
+                      <option value="FALL">FALL</option>
+                      <option value="FALSE_START">FALSE_START</option>
+                      <option value="DNS">DNS</option>
+                    </select>
+                  </div>
+                </div>
+                {/* Calculate and display total time */}
+                {(() => {
+                  const run1Seconds = matchScore.climber_b_run1_time ? parseTimeMMSSmmm(matchScore.climber_b_run1_time) : null
+                  const run2Seconds = matchScore.climber_b_run2_time ? parseTimeMMSSmmm(matchScore.climber_b_run2_time) : null
+                  
+                  // Calculate total: use database value if available, otherwise calculate from runs
+                  let totalTime = null
+                  if (match.climber_b_total_time !== null && match.climber_b_total_time !== undefined) {
+                    totalTime = match.climber_b_total_time
+                  } else if (run1Seconds !== null && run2Seconds !== null && 
+                             matchScore.climber_b_run1_status === 'VALID' && 
+                             matchScore.climber_b_run2_status === 'VALID') {
+                    // Calculate total from run1 + run2
+                    totalTime = run1Seconds + run2Seconds
+                  }
+                  
+                  if (totalTime !== null && totalTime > 0) {
+                    return (
+                      <div className="mt-3 text-sm text-gray-600">
+                        <span className="font-semibold">Total: </span>
+                        {formatTimeMMSSmmm(totalTime)}
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
               </div>
             </div>
 

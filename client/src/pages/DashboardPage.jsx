@@ -175,6 +175,38 @@ function DashboardPage() {
             </div>
           </div>
 
+          {/* Speed Leaderboard */}
+          <div className="p-4 border border-gray-200 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold text-gray-900">Speed Leaderboard</div>
+              <ExternalLink className="text-gray-400" size={16} />
+            </div>
+            <div className="text-xs text-gray-600 mb-3">Full leaderboard display for Speed competitions (Qualification/Finals)</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={`${window.location.origin}/overlay/speed-leaderboard?competition=ID&round=qualification`}
+                className="flex-1 px-3 py-2 text-xs bg-white border border-gray-300 rounded-md font-mono"
+                onClick={(e) => e.target.select()}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/overlay/speed-leaderboard?competition=ID&round=qualification`)
+                  alert('Link copied! Replace ID with competition ID. Use round=qualification or round=finals')
+                }}
+                className="px-3 py-2 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700 transition-colors"
+              >
+                Copy
+              </button>
+            </div>
+            <div className="text-xs text-purple-700 mt-2 space-y-1">
+              <div>⚠️ Replace "ID" with competition ID</div>
+              <div>⚠️ Use round=qualification or round=finals</div>
+              <div className="text-gray-600 mt-1">Example: ?competition=3&round=qualification</div>
+            </div>
+          </div>
+
           {/* Boulder Current Climber */}
           <div className="p-4 border border-gray-200 rounded-lg bg-gradient-to-br from-amber-50 to-yellow-50">
             <div className="flex items-center justify-between mb-2">

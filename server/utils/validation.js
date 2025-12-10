@@ -39,12 +39,26 @@ const speedQualificationScoreSchema = z.object({
     lane_b_status: speedStatusSchema
 });
 
-// Speed Finals Score Schema
+// Speed Finals Score Schema (Legacy - single run)
 const speedFinalsScoreSchema = z.object({
     time_a: timeSchema.nullable().optional(),
     time_b: timeSchema.nullable().optional(),
     status_a: speedStatusSchema,
     status_b: speedStatusSchema
+});
+
+// Speed Classic Finals Score Schema (Two runs per climber)
+const speedClassicFinalsScoreSchema = z.object({
+    // Climber A runs
+    climber_a_run1_time: timeSchema.nullable().optional(),
+    climber_a_run2_time: timeSchema.nullable().optional(),
+    climber_a_run1_status: speedStatusSchema.optional().default('VALID'),
+    climber_a_run2_status: speedStatusSchema.optional().default('VALID'),
+    // Climber B runs
+    climber_b_run1_time: timeSchema.nullable().optional(),
+    climber_b_run2_time: timeSchema.nullable().optional(),
+    climber_b_run1_status: speedStatusSchema.optional().default('VALID'),
+    climber_b_run2_status: speedStatusSchema.optional().default('VALID')
 });
 
 // Boulder Score Action Schema
@@ -109,6 +123,7 @@ module.exports = {
     teamSchema,
     speedQualificationScoreSchema,
     speedFinalsScoreSchema,
+    speedClassicFinalsScoreSchema,
     boulderScoreActionSchema,
     generateBracketSchema,
     unlockScoreSchema,

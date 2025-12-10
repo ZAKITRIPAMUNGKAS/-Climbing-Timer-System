@@ -48,11 +48,11 @@ function LiveScoreSelectorPage() {
   if (loading) {
     return (
       <PublicLayout>
-        <div className="min-h-screen bg-rich-black text-off-white flex items-center justify-center">
+        <div className="min-h-screen bg-[#050505] text-zinc-200 flex items-center justify-center">
           <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-goldenrod mb-4"></div>
-            <div className="text-xl font-semibold mb-2 text-goldenrod">Memuat data...</div>
-            <p className="text-gray-400">Mohon tunggu sebentar</p>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#FFB800] mb-4"></div>
+            <div className="text-xl font-bold mb-2 text-[#FFB800] tracking-wider">LOADING DATA</div>
+            <p className="text-zinc-500 text-sm tracking-widest uppercase">Please wait</p>
           </div>
         </div>
       </PublicLayout>
@@ -66,57 +66,61 @@ function LiveScoreSelectorPage() {
 
   return (
     <PublicLayout>
-      <div className="min-h-screen bg-rich-black text-off-white font-body pt-24 md:pt-20">
-        {/* Header */}
-        <div className="bg-gunmetal border-b border-white/10 py-12">
-          <div className="container mx-auto px-6">
-            <div className="flex items-center gap-4 mb-2">
-              <TrendingUp className="text-goldenrod" size={40} />
-              <h1 className="text-4xl md:text-5xl font-bold text-goldenrod tracking-tight">
-                Live Score
-              </h1>
+      <div className="min-h-screen bg-[#050505] text-zinc-200 font-sans pt-20 sm:pt-24 md:pt-20 pb-12 overflow-x-hidden selection:bg-[#FFB800] selection:text-black">
+        {/* Header Section */}
+        <div className="bg-[#121212] border-b border-zinc-800 py-8">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+              <span className="text-xs font-bold tracking-[0.2em] text-zinc-500 uppercase">
+                Live Scoring
+              </span>
             </div>
-            <p className="text-gray-400 text-lg">Pilih kompetisi untuk melihat skor langsung</p>
+            <h1 className="text-3xl md:text-5xl font-black text-zinc-100 tracking-tighter uppercase leading-none">
+              Live Score
+              <span className="text-[#FFB800]">.</span>
+            </h1>
+            <p className="text-zinc-400 font-mono text-sm mt-2 uppercase tracking-wider">Select Competition</p>
           </div>
         </div>
 
         {/* Competitions Grid */}
-        <main className="container mx-auto px-6 py-12">
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 mt-8 pb-12">
           {allCompetitions.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="bg-gunmetal rounded-2xl p-12 border border-white/10 max-w-md mx-auto">
-                <Trophy className="mx-auto mb-4 text-gray-500" size={64} />
-                <h3 className="text-2xl font-bold text-white mb-2">Tidak ada kompetisi aktif</h3>
-                <p className="text-gray-400">Belum ada kompetisi yang sedang berlangsung</p>
+            <div className="text-center py-24">
+              <div className="bg-[#121212] rounded-sm p-10 border border-zinc-800 max-w-md mx-auto">
+                <Trophy className="mx-auto mb-6 text-zinc-600" size={64} />
+                <h3 className="text-2xl font-bold text-zinc-100 mb-2 uppercase tracking-wider">No Active Competition</h3>
+                <p className="text-zinc-500">No competitions are currently running</p>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {/* Boulder Competitions */}
               {boulderCompetitions.map((comp) => (
                 <div
                   key={`boulder-${comp.id}`}
                   onClick={() => handleBoulderClick(comp.id)}
-                  className="group bg-gunmetal rounded-2xl p-6 border border-white/10 hover:border-goldenrod/50 transition-all duration-300 cursor-pointer hover:shadow-[0_0_30px_rgba(255,193,7,0.2)] hover:scale-[1.02]"
+                  className="group bg-[#121212] rounded-sm p-6 border border-zinc-800 hover:border-[#FFB800]/50 transition-all duration-300 cursor-pointer hover:shadow-lg hover:scale-[1.01]"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="p-3 bg-goldenrod/20 rounded-xl group-hover:bg-goldenrod/30 transition-colors">
-                      <Trophy className="text-goldenrod" size={32} />
+                    <div className="p-3 bg-[#FFB800]/10 rounded-sm group-hover:bg-[#FFB800]/20 transition-colors">
+                      <Trophy className="text-[#FFB800]" size={32} />
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    <div className={`px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-wider ${
                       comp.status === 'active' 
-                        ? 'bg-green-500/20 text-green-400' 
-                        : 'bg-gray-500/20 text-gray-400'
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                        : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
                     }`}>
-                      {comp.status === 'active' ? 'Aktif' : 'Selesai'}
+                      {comp.status === 'active' ? 'Active' : 'Finished'}
                     </div>
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-goldenrod transition-colors">
+                  <h3 className="text-xl font-bold text-zinc-100 mb-2 group-hover:text-[#FFB800] transition-colors">
                     {comp.name}
                   </h3>
-                  <p className="text-gray-400 text-sm mb-4">Boulder Competition</p>
-                  <div className="flex items-center gap-2 text-goldenrod font-semibold">
-                    <span>Lihat Score</span>
+                  <p className="text-zinc-500 text-sm mb-4 uppercase tracking-wider">Boulder Competition</p>
+                  <div className="flex items-center gap-2 text-[#FFB800] font-bold text-sm uppercase tracking-wider">
+                    <span>View Score</span>
                     <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -134,30 +138,30 @@ function LiveScoreSelectorPage() {
                   <div
                     key={`speed-${comp.id}-${comp.status}`}
                     onClick={() => handleSpeedClick(comp.id, comp.status)}
-                    className="group bg-gunmetal rounded-2xl p-6 border border-white/10 hover:border-goldenrod/50 transition-all duration-300 cursor-pointer hover:shadow-[0_0_30px_rgba(255,193,7,0.2)] hover:scale-[1.02]"
+                    className="group bg-[#121212] rounded-sm p-6 border border-zinc-800 hover:border-[#FFB800]/50 transition-all duration-300 cursor-pointer hover:shadow-lg hover:scale-[1.01]"
                   >
                     <div className="flex items-start justify-between mb-4">
-                      <div className="p-3 bg-goldenrod/20 rounded-xl group-hover:bg-goldenrod/30 transition-colors">
-                        <Timer className="text-goldenrod" size={32} />
+                      <div className="p-3 bg-[#FFB800]/10 rounded-sm group-hover:bg-[#FFB800]/20 transition-colors">
+                        <Timer className="text-[#FFB800]" size={32} />
                       </div>
-                      <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      <div className={`px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-wider ${
                         isQualification 
-                          ? 'bg-green-500/20 text-green-400'
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                           : isFinals
-                          ? 'bg-crimson/20 text-crimson'
-                          : 'bg-gray-500/20 text-gray-400'
+                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
                       }`}>
-                        {isQualification ? 'Kualifikasi' : isFinals ? 'Final' : 'Selesai'}
+                        {isQualification ? 'Qualification' : isFinals ? 'Finals' : 'Finished'}
                       </div>
                     </div>
-                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-goldenrod transition-colors">
+                    <h3 className="text-xl font-bold text-zinc-100 mb-2 group-hover:text-[#FFB800] transition-colors">
                       {comp.name}
                     </h3>
-                    <p className="text-gray-400 text-sm mb-4">
-                      Speed Climbing - {isQualification ? 'Kualifikasi' : isFinals ? 'Final' : 'Selesai'}
+                    <p className="text-zinc-500 text-sm mb-4 uppercase tracking-wider">
+                      Speed Climbing - {isQualification ? 'Qualification' : isFinals ? 'Finals' : 'Finished'}
                     </p>
-                    <div className="flex items-center gap-2 text-goldenrod font-semibold">
-                      <span>Lihat Score</span>
+                    <div className="flex items-center gap-2 text-[#FFB800] font-bold text-sm uppercase tracking-wider">
+                      <span>View Score</span>
                       <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>

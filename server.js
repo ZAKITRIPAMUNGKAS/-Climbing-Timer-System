@@ -1190,6 +1190,9 @@
             );
 
             const [competitions] = await pool.execute('SELECT * FROM competitions WHERE id = ?', [result.insertId]);
+            if (competitions.length === 0) {
+                return res.status(500).json({ error: 'Failed to retrieve created competition' });
+            }
             res.status(201).json(competitions[0]);
         } catch (error) {
             console.error('[API] Error creating competition:', error);
@@ -1212,6 +1215,9 @@
             }
 
             const [competitions] = await pool.execute('SELECT * FROM competitions WHERE id = ?', [req.params.id]);
+            if (competitions.length === 0) {
+                return res.status(404).json({ error: 'Competition not found' });
+            }
             res.json(competitions[0]);
         } catch (error) {
             console.error('[API] Error updating competition:', error);
@@ -1555,7 +1561,9 @@
     const { calculateBoulderScore } = require('./server/utils/scoreCalculator');
     const { 
         calculateQualificationScore, 
-        calculateFinalsWinner, 
+        calculateFinalsWinner,
+        calculateClassicFinalsTotal,
+        calculateClassicFinalsWinner,
         rankQualificationScores 
     } = require('./server/utils/speedCalculator');
 
@@ -1563,7 +1571,8 @@
     const { 
         validate, 
         speedQualificationScoreSchema, 
-        speedFinalsScoreSchema, 
+        speedFinalsScoreSchema,
+        speedClassicFinalsScoreSchema,
         boulderScoreActionSchema,
         generateBracketSchema,
         unlockScoreSchema,
@@ -1805,6 +1814,9 @@
                         [competitionId, climberId, boulderNumber, attempts, reached_zone, reached_top, zone_attempt, top_attempt, is_finalized, is_disqualified]
                     );
                     const [newScores] = await connection.execute('SELECT * FROM scores WHERE id = ?', [result.insertId]);
+                    if (newScores.length === 0) {
+                        throw new Error('Failed to retrieve created score');
+                    }
                     score = newScores[0];
                 }
             });
@@ -1946,6 +1958,9 @@
             }
 
             const [competitions] = await pool.execute('SELECT * FROM speed_competitions WHERE id = ?', [req.params.id]);
+            if (competitions.length === 0) {
+                return res.status(404).json({ error: 'Speed competition not found' });
+            }
             res.json(competitions[0]);
         } catch (error) {
             console.error('[API] Error updating speed competition:', error);
@@ -1964,6 +1979,97 @@
         } catch (error) {
             console.error('[API] Error fetching speed climbers:', error);
             res.status(500).json({ error: 'Failed to fetch speed climbers' });
+        }
+    });
+
+    // Get active (non-eliminated) speed climbers for a competition
+    // This excludes climbers who have lost in finals matches
+    app.get('/api/speed-competitions/:id/climbers/active', async (req, res) => {
+        try {
+            // Get competition status
+            const [competitions] = await pool.execute(
+                'SELECT status FROM speed_competitions WHERE id = ?',
+                [req.params.id]
+            );
+            
+            if (competitions.length === 0) {
+                return res.status(404).json({ error: 'Competition not found' });
+            }
+            
+            const competitionStatus = competitions[0].status;
+            
+            // If still in qualification, return all climbers
+            if (competitionStatus === 'qualification') {
+                const [climbers] = await pool.execute(
+                    'SELECT * FROM speed_climbers WHERE speed_competition_id = ? ORDER BY bib_number ASC',
+                    [req.params.id]
+                );
+                return res.json(climbers);
+            }
+            
+            // If in finals or finished, filter out eliminated climbers
+            // Get all finals matches with winners
+            const [matches] = await pool.execute(
+                `SELECT climber_a_id, climber_b_id, winner_id 
+                FROM speed_finals_matches 
+                WHERE speed_competition_id = ? AND winner_id IS NOT NULL`,
+                [req.params.id]
+            );
+            
+            // Collect all climber IDs that have lost (are not winners in any match)
+            const winnerIds = new Set();
+            const allMatchClimberIds = new Set();
+            
+            matches.forEach(match => {
+                if (match.winner_id) {
+                    winnerIds.add(match.winner_id);
+                }
+                if (match.climber_a_id) {
+                    allMatchClimberIds.add(match.climber_a_id);
+                }
+                if (match.climber_b_id) {
+                    allMatchClimberIds.add(match.climber_b_id);
+                }
+            });
+            
+            // Get all climbers
+            const [allClimbers] = await pool.execute(
+                'SELECT * FROM speed_climbers WHERE speed_competition_id = ? ORDER BY bib_number ASC',
+                [req.params.id]
+            );
+            
+            // Filter: keep climbers who:
+            // 1. Are winners in at least one match, OR
+            // 2. Are in a match but haven't lost yet (match doesn't have winner yet), OR
+            // 3. Are not in any finals match yet (still in qualification)
+            const activeClimbers = allClimbers.filter(climber => {
+                // If climber is a winner, they're active
+                if (winnerIds.has(climber.id)) {
+                    return true;
+                }
+                
+                // If climber is in a match that doesn't have a winner yet, they're active
+                const hasUnfinishedMatch = matches.some(match => 
+                    (match.climber_a_id === climber.id || match.climber_b_id === climber.id) && 
+                    !match.winner_id
+                );
+                if (hasUnfinishedMatch) {
+                    return true;
+                }
+                
+                // If climber is not in any finals match, they're still active (qualification phase)
+                if (!allMatchClimberIds.has(climber.id)) {
+                    return true;
+                }
+                
+                // Otherwise, they've been eliminated
+                return false;
+            });
+            
+            res.json(activeClimbers);
+        } catch (error) {
+            console.error('[API] Error fetching active speed climbers:', error);
+            res.status(500).json({ error: 'Failed to fetch active speed climbers' });
         }
     });
 
@@ -2193,13 +2299,42 @@
                     lane_a_status: score.lane_a_status,
                     lane_b_status: score.lane_b_status,
                     total_time: score.total_time ? parseFloat(score.total_time) : null,
+                    totalTime: score.total_time ? parseFloat(score.total_time) : null, // Alias for rankQualificationScores
                     status: score.status,
                     rank: score.rank
                 };
             });
             
-            // Rank the scores
+            // Rank the scores (waktu terendah = rank 1)
             const rankedLeaderboard = rankQualificationScores(leaderboard);
+            
+            // Update ranks in database to keep it consistent
+            for (const score of rankedLeaderboard) {
+                if (score.id) { // Only update if score exists in database
+                    await pool.execute(
+                        'UPDATE speed_qualification_scores SET rank = ? WHERE id = ?',
+                        [score.rank, score.id]
+                    );
+                }
+            }
+            
+            // Sort by rank (rank 1 first, then 2, 3, etc.), then by total_time for unranked
+            rankedLeaderboard.sort((a, b) => {
+                // Ranked climbers first (rank 1, 2, 3...)
+                if (a.rank !== null && b.rank !== null) {
+                    return a.rank - b.rank; // ASCENDING: rank 1 < rank 2 < rank 3...
+                }
+                // If only one has rank, ranked one comes first
+                if (a.rank !== null) return -1;
+                if (b.rank !== null) return 1;
+                // Both unranked: sort by total_time (if available)
+                if (a.total_time !== null && b.total_time !== null) {
+                    return a.total_time - b.total_time; // Lower time first
+                }
+                if (a.total_time !== null) return -1;
+                if (b.total_time !== null) return 1;
+                return 0;
+            });
             
             res.json(rankedLeaderboard);
         } catch (error) {
@@ -2208,7 +2343,122 @@
         }
     });
 
-    // Update qualification score (Admin only)
+    // Update qualification score from timer system (no auth required)
+    // IMPORTANT: This route must be defined BEFORE the more general route below
+    app.put('/api/speed-competitions/:id/qualification/:climberId/timer', validate(speedQualificationScoreSchema), async (req, res) => {
+        try {
+            console.log('[TIMER API] Route hit:', req.method, req.path);
+            console.log('[TIMER API] Received timer save request:', {
+                competitionId: req.params.id,
+                climberId: req.params.climberId,
+                body: req.body
+            });
+            
+            const { lane_a_time, lane_b_time, lane_a_status, lane_b_status } = req.body; // Validated by schema
+            
+            // Calculate total time and status
+            const calculated = calculateQualificationScore(
+                lane_a_time, 
+                lane_b_time, 
+                lane_a_status || 'VALID', 
+                lane_b_status || 'VALID'
+            );
+            
+            // Check if score exists
+            const [existing] = await pool.execute(
+                'SELECT * FROM speed_qualification_scores WHERE speed_competition_id = ? AND climber_id = ?',
+                [req.params.id, req.params.climberId]
+            );
+            
+            if (existing.length > 0) {
+                // Update existing
+                await pool.execute(
+                    `UPDATE speed_qualification_scores 
+                    SET lane_a_time = ?, lane_b_time = ?, lane_a_status = ?, lane_b_status = ?, 
+                        total_time = ?, status = ?, rank = NULL
+                    WHERE id = ?`,
+                    [
+                        lane_a_time || null,
+                        lane_b_time || null,
+                        lane_a_status || 'VALID',
+                        lane_b_status || 'VALID',
+                        calculated.totalTime,
+                        calculated.status,
+                        existing[0].id
+                    ]
+                );
+            } else {
+                // Insert new
+                await pool.execute(
+                    `INSERT INTO speed_qualification_scores 
+                    (speed_competition_id, climber_id, lane_a_time, lane_b_time, lane_a_status, lane_b_status, total_time, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        req.params.id,
+                        req.params.climberId,
+                        lane_a_time || null,
+                        lane_b_time || null,
+                        lane_a_status || 'VALID',
+                        lane_b_status || 'VALID',
+                        calculated.totalTime,
+                        calculated.status
+                    ]
+                );
+            }
+            
+            // Recalculate all ranks
+            const [allScores] = await pool.execute(
+                'SELECT * FROM speed_qualification_scores WHERE speed_competition_id = ?',
+                [req.params.id]
+            );
+            
+            const scoresForRanking = allScores.map(s => ({
+                id: s.id,
+                climber_id: s.climber_id,
+                total_time: s.total_time ? parseFloat(s.total_time) : null,
+                status: s.status
+            }));
+            
+            const ranked = rankQualificationScores(scoresForRanking);
+            
+            // Update ranks in database
+            for (const score of ranked) {
+                await pool.execute(
+                    'UPDATE speed_qualification_scores SET rank = ? WHERE id = ?',
+                    [score.rank, score.id]
+                );
+            }
+            
+            // Emit WebSocket event
+            io.emit('speed-qualification-updated', {
+                speed_competition_id: parseInt(req.params.id),
+                climber_id: parseInt(req.params.climberId)
+            });
+            
+            // Get updated score
+            const [updated] = await pool.execute(
+                `SELECT sqs.*, sc.name, sc.bib_number, sc.team 
+                FROM speed_qualification_scores sqs
+                JOIN speed_climbers sc ON sqs.climber_id = sc.id
+                WHERE sqs.speed_competition_id = ? AND sqs.climber_id = ?`,
+                [req.params.id, req.params.climberId]
+            );
+            
+            if (updated.length === 0) {
+                console.error('[TIMER API] No score found after update');
+                return res.status(404).json({ error: 'Score not found after update' });
+            }
+            
+            console.log('[TIMER API] Successfully saved score:', updated[0]);
+            res.json(updated[0]);
+        } catch (error) {
+            console.error('[TIMER API] Error updating qualification score from timer:', error);
+            console.error('[TIMER API] Error stack:', error.stack);
+            res.status(500).json({ error: 'Failed to update qualification score', details: error.message });
+        }
+    });
+
+    // Update qualification score (Admin only - requires auth)
     app.put('/api/speed-competitions/:id/qualification/:climberId', requireAuth, validate(speedQualificationScoreSchema), async (req, res) => {
         try {
             const { lane_a_time, lane_b_time, lane_a_status, lane_b_status } = req.body; // Validated by schema
@@ -2358,12 +2608,171 @@
                 [req.params.id]
             );
             
-            // Add qualification rank to each match
-            const matchesWithRanks = matches.map(match => ({
-                ...match,
-                climber_a_rank: rankMap[match.climber_a_id] || null,
-                climber_b_rank: rankMap[match.climber_b_id] || null
-            }));
+            // Add qualification rank and recalculate total times if needed
+            const matchesWithRanks = matches.map(match => {
+                // Recalculate total times if run1 and run2 exist but total is null/0
+                let climber_a_total_time = match.climber_a_total_time;
+                let climber_b_total_time = match.climber_b_total_time;
+                
+                if (match.climber_a_run1_time && match.climber_a_run2_time && 
+                    match.climber_a_run1_status === 'VALID' && match.climber_a_run2_status === 'VALID' &&
+                    (!climber_a_total_time || climber_a_total_time === 0)) {
+                    climber_a_total_time = parseFloat(match.climber_a_run1_time) + parseFloat(match.climber_a_run2_time);
+                    console.log('[API] Recalculated climber_a_total_time:', climber_a_total_time, 'from', match.climber_a_run1_time, '+', match.climber_a_run2_time);
+                }
+                
+                if (match.climber_b_run1_time && match.climber_b_run2_time && 
+                    match.climber_b_run1_status === 'VALID' && match.climber_b_run2_status === 'VALID' &&
+                    (!climber_b_total_time || climber_b_total_time === 0)) {
+                    climber_b_total_time = parseFloat(match.climber_b_run1_time) + parseFloat(match.climber_b_run2_time);
+                    console.log('[API] Recalculated climber_b_total_time:', climber_b_total_time, 'from', match.climber_b_run1_time, '+', match.climber_b_run2_time);
+                }
+                
+                // Recalculate winner - BYE matches can win immediately, regular matches need both runs
+                let winner_id = match.winner_id;
+                
+                // For BYE matches, climber_a wins automatically (no need to wait for runs)
+                if (!match.climber_b_id) {
+                    // BYE: climber_a wins automatically
+                    if (winner_id !== match.climber_a_id) {
+                        console.log('[API] BYE match - setting winner to climber_a:', {
+                            match_id: match.id,
+                            stored_winner_id: winner_id,
+                            new_winner_id: match.climber_a_id
+                        });
+                        
+                        // Update winner in database
+                        pool.execute(
+                            'UPDATE speed_finals_matches SET winner_id = ? WHERE id = ?',
+                            [match.climber_a_id, match.id]
+                        ).catch(err => {
+                            console.error('[API] Error updating winner_id for BYE:', err);
+                        });
+                        
+                        winner_id = match.climber_a_id;
+                    }
+                } else {
+                    // Regular match: Only calculate winner if BOTH climbers have completed BOTH runs
+                    const aHasBothRuns = match.climber_a_run1_time !== null && match.climber_a_run2_time !== null && 
+                                         match.climber_a_run1_status === 'VALID' && match.climber_a_run2_status === 'VALID';
+                    const bHasBothRuns = match.climber_b_run1_time !== null && match.climber_b_run2_time !== null && 
+                                         match.climber_b_run1_status === 'VALID' && match.climber_b_run2_status === 'VALID';
+                    
+                    if (aHasBothRuns && bHasBothRuns) {
+                        // Parse times to ensure they are numbers (database might return strings)
+                        const run1TimeA = parseFloat(match.climber_a_run1_time);
+                        const run2TimeA = parseFloat(match.climber_a_run2_time);
+                        const run1TimeB = parseFloat(match.climber_b_run1_time);
+                        const run2TimeB = parseFloat(match.climber_b_run2_time);
+                        
+                        const aTotal = calculateClassicFinalsTotal(
+                            run1TimeA,
+                            run2TimeA,
+                            match.climber_a_run1_status,
+                            match.climber_a_run2_status
+                        );
+                        const bTotal = calculateClassicFinalsTotal(
+                            run1TimeB,
+                            run2TimeB,
+                            match.climber_b_run1_status,
+                            match.climber_b_run2_status
+                        );
+                        
+                        console.log('[API GET] Calling calculateClassicFinalsWinner with:', {
+                            climberA: {
+                                id: match.climber_a_id,
+                                run1Time: run1TimeA,
+                                run2Time: run2TimeA,
+                                run1Status: match.climber_a_run1_status,
+                                run2Status: match.climber_a_run2_status,
+                                rank: rankMap[match.climber_a_id] || null,
+                                calculatedTotal: aTotal.totalTime
+                            },
+                            climberB: {
+                                id: match.climber_b_id,
+                                run1Time: run1TimeB,
+                                run2Time: run2TimeB,
+                                run1Status: match.climber_b_run1_status,
+                                run2Status: match.climber_b_run2_status,
+                                rank: rankMap[match.climber_b_id] || null,
+                                calculatedTotal: bTotal.totalTime
+                            }
+                        });
+                        
+                        const calculatedWinner = calculateClassicFinalsWinner(
+                            {
+                                id: match.climber_a_id,
+                                run1Time: run1TimeA,
+                                run2Time: run2TimeA,
+                                run1Status: match.climber_a_run1_status,
+                                run2Status: match.climber_a_run2_status,
+                                rank: rankMap[match.climber_a_id] || null
+                            },
+                            {
+                                id: match.climber_b_id,
+                                run1Time: run1TimeB,
+                                run2Time: run2TimeB,
+                                run1Status: match.climber_b_run1_status,
+                                run2Status: match.climber_b_run2_status,
+                                rank: rankMap[match.climber_b_id] || null
+                            }
+                        );
+                        
+                        console.log('[API GET] calculateClassicFinalsWinner returned:', calculatedWinner);
+                        
+                        // If calculated winner differs from stored winner, update it
+                        if (calculatedWinner !== winner_id) {
+                            console.log('[API] Winner mismatch detected! Recalculating and updating:', {
+                                match_id: match.id,
+                                stored_winner_id: winner_id,
+                                calculated_winner_id: calculatedWinner,
+                                climber_a_total: aTotal.totalTime,
+                                climber_b_total: bTotal.totalTime,
+                                climber_a_id: match.climber_a_id,
+                                climber_b_id: match.climber_b_id
+                            });
+                            
+                            // Update winner in database
+                            pool.execute(
+                                'UPDATE speed_finals_matches SET winner_id = ? WHERE id = ?',
+                                [calculatedWinner, match.id]
+                            ).catch(err => {
+                                console.error('[API] Error updating winner_id:', err);
+                            });
+                            
+                            winner_id = calculatedWinner;
+                        }
+                    } else {
+                        // Not all runs completed yet - clear winner_id if it exists
+                        if (winner_id !== null) {
+                            console.log('[API] Clearing winner_id - not all runs completed:', {
+                                match_id: match.id,
+                                aHasBothRuns: aHasBothRuns,
+                                bHasBothRuns: bHasBothRuns
+                            });
+                            
+                            // Clear winner in database
+                            pool.execute(
+                                'UPDATE speed_finals_matches SET winner_id = NULL WHERE id = ?',
+                                [match.id]
+                            ).catch(err => {
+                                console.error('[API] Error clearing winner_id:', err);
+                            });
+                            
+                            winner_id = null;
+                        }
+                    }
+                }
+                
+                return {
+                    ...match,
+                    climber_a_rank: rankMap[match.climber_a_id] || null,
+                    climber_b_rank: rankMap[match.climber_b_id] || null,
+                    climber_a_total_time: climber_a_total_time,
+                    climber_b_total_time: climber_b_total_time,
+                    winner_id: winner_id
+                };
+            });
             
             // Sort: Small Final before Big Final (for display order)
             matchesWithRanks.sort((a, b) => {
@@ -2393,10 +2802,317 @@
         }
     });
 
-    // Update finals match (Admin only)
-    app.put('/api/speed-competitions/:id/finals/:matchId', requireAuth, validate(speedFinalsScoreSchema), async (req, res) => {
+    // Timer endpoint for finals match (No auth required) - Speed Classic (Two runs per climber)
+    // This endpoint allows timer system to save single run data (run1 or run2) for a specific climber
+    app.put('/api/speed-competitions/:id/finals/:matchId/timer', async (req, res) => {
         try {
-            const { time_a, time_b, status_a, status_b } = req.body; // Validated by schema
+            console.log('[TIMER API] Finals timer route hit:', req.method, req.path);
+            console.log('[TIMER API] Received finals timer save request:', {
+                competitionId: req.params.id,
+                matchId: req.params.matchId,
+                body: req.body
+            });
+            
+            const { climber_id, lane, time, status, run_number } = req.body;
+            
+            if (!climber_id || !lane || !time || !run_number) {
+                return res.status(400).json({ error: 'Missing required fields: climber_id, lane, time, run_number' });
+            }
+            
+            // Get match data
+            const [matches] = await pool.execute(
+                'SELECT * FROM speed_finals_matches WHERE id = ? AND speed_competition_id = ?',
+                [req.params.matchId, req.params.id]
+            );
+            
+            if (matches.length === 0) {
+                return res.status(404).json({ error: 'Match not found' });
+            }
+            
+            const match = matches[0];
+            
+            // Check for BYE match (climber_b_id is null)
+            if (!match.climber_b_id) {
+                // BYE match: only climber_a can save data
+                if (match.climber_a_id != climber_id) {
+                    return res.status(400).json({ error: 'This is a BYE match. Only climber A can save data.' });
+                }
+                // For BYE matches, climber_a automatically wins, but we still allow saving their times
+                // Note: winner_id should already be set to climber_a_id during bracket generation
+            }
+            
+            // Verify climber_id matches either climber_a_id or climber_b_id
+            const isClimberA = match.climber_a_id == climber_id;
+            const isClimberB = match.climber_b_id == climber_id;
+            
+            if (!isClimberA && !isClimberB) {
+                console.error('[TIMER API] Climber ID mismatch:', {
+                    climber_id,
+                    match_climber_a_id: match.climber_a_id,
+                    match_climber_b_id: match.climber_b_id,
+                    match_id: match.id,
+                    stage: match.stage
+                });
+                return res.status(400).json({ error: 'Climber ID does not match this match' });
+            }
+            
+            console.log('[TIMER API] Climber verification:', {
+                climber_id,
+                isClimberA,
+                isClimberB,
+                lane,
+                run_number,
+                match_id: match.id,
+                stage: match.stage
+            });
+            
+            // Speed Classic Rules:
+            // - Run 1: Climber A in Lane A, Climber B in Lane B
+            // - Run 2: Climber A in Lane B, Climber B in Lane A
+            // So we DON'T validate lane against climber position because in Run 2 they swap lanes
+            // The run_number from frontend already determines the correct mapping
+            
+            // Get current match data to preserve other runs
+            const currentMatch = match;
+            
+            // Determine which fields to update based on run_number and climber
+            let updateFields = {};
+            if (isClimberA) {
+                if (run_number === 1) {
+                    updateFields.climber_a_run1_time = time;
+                    updateFields.climber_a_run1_status = status || 'VALID';
+                } else if (run_number === 2) {
+                    updateFields.climber_a_run2_time = time;
+                    updateFields.climber_a_run2_status = status || 'VALID';
+                } else {
+                    return res.status(400).json({ error: 'run_number must be 1 or 2' });
+                }
+            } else {
+                if (run_number === 1) {
+                    updateFields.climber_b_run1_time = time;
+                    updateFields.climber_b_run1_status = status || 'VALID';
+                } else if (run_number === 2) {
+                    updateFields.climber_b_run2_time = time;
+                    updateFields.climber_b_run2_status = status || 'VALID';
+                } else {
+                    return res.status(400).json({ error: 'run_number must be 1 or 2' });
+                }
+            }
+            
+            // Prepare update query - preserve existing values for other runs
+            const run1TimeA = updateFields.climber_a_run1_time !== undefined ? updateFields.climber_a_run1_time : (currentMatch.climber_a_run1_time || null);
+            const run2TimeA = updateFields.climber_a_run2_time !== undefined ? updateFields.climber_a_run2_time : (currentMatch.climber_a_run2_time || null);
+            const run1StatusA = updateFields.climber_a_run1_status !== undefined ? updateFields.climber_a_run1_status : (currentMatch.climber_a_run1_status || 'VALID');
+            const run2StatusA = updateFields.climber_a_run2_status !== undefined ? updateFields.climber_a_run2_status : (currentMatch.climber_a_run2_status || 'VALID');
+            
+            const run1TimeB = updateFields.climber_b_run1_time !== undefined ? updateFields.climber_b_run1_time : (currentMatch.climber_b_run1_time || null);
+            const run2TimeB = updateFields.climber_b_run2_time !== undefined ? updateFields.climber_b_run2_time : (currentMatch.climber_b_run2_time || null);
+            const run1StatusB = updateFields.climber_b_run1_status !== undefined ? updateFields.climber_b_run1_status : (currentMatch.climber_b_run1_status || 'VALID');
+            const run2StatusB = updateFields.climber_b_run2_status !== undefined ? updateFields.climber_b_run2_status : (currentMatch.climber_b_run2_status || 'VALID');
+            
+            // Calculate total times
+            const aTotal = calculateClassicFinalsTotal(run1TimeA, run2TimeA, run1StatusA, run2StatusA);
+            // For BYE matches, climber_b times are always null/DNS
+            const bTotal = match.climber_b_id 
+                ? calculateClassicFinalsTotal(run1TimeB, run2TimeB, run1StatusB, run2StatusB)
+                : { totalTime: null, status: 'DNS', isValid: false };
+            
+            console.log('[TIMER API] Calculating totals:', {
+                climberA: {
+                    run1Time: run1TimeA,
+                    run2Time: run2TimeA,
+                    run1Status: run1StatusA,
+                    run2Status: run2StatusA,
+                    totalTime: aTotal.totalTime,
+                    isValid: aTotal.isValid,
+                    calculation: run1TimeA && run2TimeA ? `${run1TimeA} + ${run2TimeA} = ${run1TimeA + run2TimeA}` : 'N/A'
+                },
+                climberB: {
+                    run1Time: run1TimeB,
+                    run2Time: run2TimeB,
+                    run1Status: run1StatusB,
+                    run2Status: run2StatusB,
+                    totalTime: bTotal.totalTime,
+                    isValid: bTotal.isValid,
+                    calculation: run1TimeB && run2TimeB ? `${run1TimeB} + ${run2TimeB} = ${run1TimeB + run2TimeB}` : 'N/A'
+                }
+            });
+            
+            // Get qualification ranks for tiebreaker
+            const [ranks] = await pool.execute(
+                `SELECT climber_id, rank 
+                FROM speed_qualification_scores 
+                WHERE speed_competition_id = ? AND climber_id IN (?, ?)`,
+                [req.params.id, match.climber_a_id, match.climber_b_id || -1]
+            );
+            
+            const rankMap = {};
+            ranks.forEach(r => {
+                rankMap[r.climber_id] = r.rank;
+            });
+            
+            // Calculate winner
+            // Prepare climber data (always define for logging)
+            const climberAData = {
+                id: match.climber_a_id,
+                run1Time: run1TimeA,
+                run2Time: run2TimeA,
+                run1Status: run1StatusA,
+                run2Status: run2StatusA,
+                rank: rankMap[match.climber_a_id] || null
+            };
+            
+            const climberBData = match.climber_b_id ? {
+                id: match.climber_b_id,
+                run1Time: run1TimeB,
+                run2Time: run2TimeB,
+                run1Status: run1StatusB,
+                run2Status: run2StatusB,
+                rank: rankMap[match.climber_b_id] || null
+            } : null;
+            
+            // For BYE matches, climber_a automatically wins
+            let winnerId = match.winner_id; // Preserve existing winner_id
+            
+            // Only calculate winner if BOTH climbers have completed BOTH runs
+            if (!match.climber_b_id) {
+                // BYE: climber_a wins automatically (can set immediately)
+                winnerId = match.climber_a_id;
+            } else {
+                // Check if both climbers have completed both runs
+                const aHasBothRuns = run1TimeA !== null && run2TimeA !== null && 
+                                     run1StatusA === 'VALID' && run2StatusA === 'VALID';
+                const bHasBothRuns = run1TimeB !== null && run2TimeB !== null && 
+                                     run1StatusB === 'VALID' && run2StatusB === 'VALID';
+                
+                if (aHasBothRuns && bHasBothRuns) {
+                    // Both climbers have completed both runs - calculate winner
+                    console.log('[TIMER API] Calling calculateClassicFinalsWinner with:', {
+                        climberA: {
+                            id: climberAData.id,
+                            run1Time: climberAData.run1Time,
+                            run2Time: climberAData.run2Time,
+                            run1Status: climberAData.run1Status,
+                            run2Status: climberAData.run2Status,
+                            rank: climberAData.rank,
+                            calculatedTotal: aTotal.totalTime
+                        },
+                        climberB: {
+                            id: climberBData.id,
+                            run1Time: climberBData.run1Time,
+                            run2Time: climberBData.run2Time,
+                            run1Status: climberBData.run1Status,
+                            run2Status: climberBData.run2Status,
+                            rank: climberBData.rank,
+                            calculatedTotal: bTotal.totalTime
+                        }
+                    });
+                    winnerId = calculateClassicFinalsWinner(climberAData, climberBData);
+                    console.log('[TIMER API] calculateClassicFinalsWinner returned winnerId:', winnerId);
+                } else {
+                    // Not all runs completed yet - keep existing winner_id or set to null
+                    // Don't set winner until both climbers complete both runs
+                    winnerId = null;
+                }
+            }
+            
+            console.log('[TIMER API] Winner calculation:', {
+                climberA: {
+                    id: climberAData.id,
+                    totalTime: aTotal.totalTime,
+                    isValid: aTotal.isValid,
+                    rank: climberAData.rank
+                },
+                climberB: climberBData ? {
+                    id: climberBData.id,
+                    totalTime: bTotal.totalTime,
+                    isValid: bTotal.isValid,
+                    rank: climberBData.rank
+                } : { id: null, totalTime: null, isValid: false, rank: null, note: 'BYE match' },
+                winnerId: winnerId,
+                winnerIsA: winnerId === match.climber_a_id,
+                winnerIsB: winnerId === match.climber_b_id,
+                isBYE: !match.climber_b_id,
+                comparison: aTotal.totalTime && bTotal && bTotal.totalTime 
+                    ? `${aTotal.totalTime} vs ${bTotal.totalTime} = ${aTotal.totalTime < bTotal.totalTime ? 'A wins' : 'B wins'}`
+                    : match.climber_b_id ? 'N/A (incomplete data)' : 'BYE - A wins automatically'
+            });
+            
+            // Update match
+            await pool.execute(
+                `UPDATE speed_finals_matches 
+                SET 
+                    climber_a_run1_time = ?, 
+                    climber_a_run2_time = ?, 
+                    climber_a_total_time = ?,
+                    climber_a_run1_status = ?,
+                    climber_a_run2_status = ?,
+                    climber_b_run1_time = ?, 
+                    climber_b_run2_time = ?, 
+                    climber_b_total_time = ?,
+                    climber_b_run1_status = ?,
+                    climber_b_run2_status = ?,
+                    winner_id = ?
+                WHERE id = ?`,
+                [
+                    run1TimeA || null,
+                    run2TimeA || null,
+                    aTotal.totalTime,
+                    run1StatusA,
+                    run2StatusA,
+                    run1TimeB || null,
+                    run2TimeB || null,
+                    bTotal.totalTime,
+                    run1StatusB,
+                    run2StatusB,
+                    winnerId,
+                    req.params.matchId
+                ]
+            );
+            
+            // Emit WebSocket event
+            io.emit('speed-finals-updated', {
+                speed_competition_id: parseInt(req.params.id),
+                match_id: parseInt(req.params.matchId)
+            });
+            
+            // Get updated match
+            const [updated] = await pool.execute(
+                `SELECT 
+                    m.*,
+                    ca.name as climber_a_name,
+                    ca.bib_number as climber_a_bib,
+                    cb.name as climber_b_name,
+                    cb.bib_number as climber_b_bib
+                FROM speed_finals_matches m
+                LEFT JOIN speed_climbers ca ON m.climber_a_id = ca.id
+                LEFT JOIN speed_climbers cb ON m.climber_b_id = cb.id
+                WHERE m.id = ?`,
+                [req.params.matchId]
+            );
+            
+            console.log('[TIMER API] Successfully saved finals match score');
+            res.json(updated[0]);
+        } catch (error) {
+            console.error('[TIMER API] Error updating finals match score from timer:', error);
+            console.error('[TIMER API] Error stack:', error.stack);
+            res.status(500).json({ error: 'Failed to update finals match score', details: error.message });
+        }
+    });
+
+    // Update finals match (Admin only) - Speed Classic (Two runs per climber)
+    app.put('/api/speed-competitions/:id/finals/:matchId', requireAuth, validate(speedClassicFinalsScoreSchema), async (req, res) => {
+        try {
+            const { 
+                climber_a_run1_time, 
+                climber_a_run2_time, 
+                climber_a_run1_status, 
+                climber_a_run2_status,
+                climber_b_run1_time, 
+                climber_b_run2_time, 
+                climber_b_run1_status, 
+                climber_b_run2_status
+            } = req.body;
             
             // Get match data
             const [matches] = await pool.execute(
@@ -2417,12 +3133,27 @@
                 });
             }
             
+            // Calculate total times for both climbers
+            const aTotal = calculateClassicFinalsTotal(
+                climber_a_run1_time,
+                climber_a_run2_time,
+                climber_a_run1_status || 'VALID',
+                climber_a_run2_status || 'VALID'
+            );
+            
+            const bTotal = calculateClassicFinalsTotal(
+                climber_b_run1_time,
+                climber_b_run2_time,
+                climber_b_run1_status || 'VALID',
+                climber_b_run2_status || 'VALID'
+            );
+            
             // Get qualification ranks for tiebreaker
             const [ranks] = await pool.execute(
                 `SELECT climber_id, rank 
                 FROM speed_qualification_scores 
                 WHERE speed_competition_id = ? AND climber_id IN (?, ?)`,
-                [req.params.id, match.climber_a_id, match.climber_b_id]
+                [req.params.id, match.climber_a_id, match.climber_b_id || -1]
             );
             
             const rankMap = {};
@@ -2430,28 +3161,98 @@
                 rankMap[r.climber_id] = r.rank;
             });
             
-            // Calculate winner with ranking tiebreaker
-            const winnerId = calculateFinalsWinner(
-                time_a,
-                time_b,
-                status_a || 'VALID',
-                status_b || 'VALID',
-                match.climber_a_id,
-                match.climber_b_id,
-                rankMap[match.climber_a_id] || null,
-                rankMap[match.climber_b_id] || null
-            );
+            // Calculate winner using classic finals logic
+            const climberAData = {
+                id: match.climber_a_id,
+                run1Time: climber_a_run1_time,
+                run2Time: climber_a_run2_time,
+                run1Status: climber_a_run1_status || 'VALID',
+                run2Status: climber_a_run2_status || 'VALID',
+                rank: rankMap[match.climber_a_id] || null
+            };
+            const climberBData = {
+                id: match.climber_b_id,
+                run1Time: climber_b_run1_time,
+                run2Time: climber_b_run2_time,
+                run1Status: climber_b_run1_status || 'VALID',
+                run2Status: climber_b_run2_status || 'VALID',
+                rank: rankMap[match.climber_b_id] || null
+            };
             
-            // Update match
+            // Only calculate winner if BOTH climbers have completed BOTH runs
+            let winnerId = match.winner_id; // Preserve existing winner_id initially
+            
+            if (!match.climber_b_id) {
+                // BYE: climber_a wins automatically
+                winnerId = match.climber_a_id;
+            } else {
+                // Check if both climbers have completed both runs
+                const aHasBothRuns = climber_a_run1_time !== null && climber_a_run2_time !== null && 
+                                     climber_a_run1_status === 'VALID' && climber_a_run2_status === 'VALID';
+                const bHasBothRuns = climber_b_run1_time !== null && climber_b_run2_time !== null && 
+                                     climber_b_run1_status === 'VALID' && climber_b_run2_status === 'VALID';
+                
+                if (aHasBothRuns && bHasBothRuns) {
+                    // Both climbers have completed both runs - calculate winner based on total time
+                    winnerId = calculateClassicFinalsWinner(climberAData, climberBData);
+                } else {
+                    // Not all runs completed yet - don't set winner until both climbers complete both runs
+                    winnerId = null;
+                }
+            }
+            
+            console.log('[API] Winner calculation (Admin):', {
+                climberA: {
+                    id: climberAData.id,
+                    totalTime: aTotal.totalTime,
+                    isValid: aTotal.isValid,
+                    rank: climberAData.rank,
+                    hasBothRuns: climber_a_run1_time !== null && climber_a_run2_time !== null && 
+                                climber_a_run1_status === 'VALID' && climber_a_run2_status === 'VALID'
+                },
+                climberB: {
+                    id: climberBData.id,
+                    totalTime: bTotal.totalTime,
+                    isValid: bTotal.isValid,
+                    rank: climberBData.rank,
+                    hasBothRuns: climber_b_run1_time !== null && climber_b_run2_time !== null && 
+                                climber_b_run1_status === 'VALID' && climber_b_run2_status === 'VALID'
+                },
+                winnerId: winnerId,
+                winnerIsA: winnerId === match.climber_a_id,
+                winnerIsB: winnerId === match.climber_b_id,
+                comparison: aTotal.totalTime && bTotal.totalTime 
+                    ? `${aTotal.totalTime} vs ${bTotal.totalTime} = ${aTotal.totalTime < bTotal.totalTime ? 'A wins' : 'B wins'}`
+                    : 'Waiting for both runs to complete'
+            });
+            
+            // Update match with two-run data
             await pool.execute(
                 `UPDATE speed_finals_matches 
-                SET time_a = ?, time_b = ?, status_a = ?, status_b = ?, winner_id = ?
+                SET 
+                    climber_a_run1_time = ?, 
+                    climber_a_run2_time = ?, 
+                    climber_a_total_time = ?,
+                    climber_a_run1_status = ?,
+                    climber_a_run2_status = ?,
+                    climber_b_run1_time = ?, 
+                    climber_b_run2_time = ?, 
+                    climber_b_total_time = ?,
+                    climber_b_run1_status = ?,
+                    climber_b_run2_status = ?,
+                    winner_id = ?
                 WHERE id = ?`,
                 [
-                    time_a || null,
-                    time_b || null,
-                    status_a || 'VALID',
-                    status_b || 'VALID',
+                    climber_a_run1_time || null,
+                    climber_a_run2_time || null,
+                    aTotal.totalTime,
+                    climber_a_run1_status || 'VALID',
+                    climber_a_run2_status || 'VALID',
+                    climber_b_run1_time || null,
+                    climber_b_run2_time || null,
+                    bTotal.totalTime,
+                    climber_b_run1_status || 'VALID',
+                    climber_b_run2_status || 'VALID',
                     winnerId,
                     req.params.matchId
                 ]
@@ -2463,7 +3264,7 @@
                 match_id: parseInt(req.params.matchId)
             });
             
-            // Get updated match
+            // Get updated match with all details
             const [updated] = await pool.execute(
                 `SELECT 
                     m.*,
@@ -2480,6 +3281,9 @@
                 [req.params.matchId]
             );
             
+            if (updated.length === 0) {
+                return res.status(404).json({ error: 'Match not found' });
+            }
             res.json(updated[0]);
         } catch (error) {
             console.error('[API] Error updating finals match:', error);
@@ -2607,6 +3411,210 @@
     });
 
     // Create finals match (Admin only)
+    // Recalculate all winners for finals matches (Admin only)
+    // MUST be placed BEFORE the more general POST /api/speed-competitions/:id/finals route
+    app.post('/api/speed-competitions/:id/finals/recalculate-winners', requireAuth, async (req, res) => {
+        try {
+            console.log('[API] Recalculating all winners for competition:', req.params.id);
+            
+            // Get all finals matches
+            const [matches] = await pool.execute(
+                `SELECT m.*, 
+                    qa.rank as climber_a_rank, qb.rank as climber_b_rank
+                FROM speed_finals_matches m
+                LEFT JOIN speed_qualification_scores qa ON m.climber_a_id = qa.climber_id AND qa.speed_competition_id = ?
+                LEFT JOIN speed_qualification_scores qb ON m.climber_b_id = qb.climber_id AND qb.speed_competition_id = ?
+                WHERE m.speed_competition_id = ?
+                ORDER BY m.stage, m.match_order`,
+                [req.params.id, req.params.id, req.params.id]
+            );
+            
+            console.log('[API] Found matches:', matches.length);
+            
+            if (matches.length === 0) {
+                console.log('[API] No finals matches found for competition:', req.params.id);
+                return res.status(404).json({ error: 'No finals matches found' });
+            }
+            
+            console.log('[API] Processing', matches.length, 'matches for recalculation');
+            
+            const rankMap = {};
+            matches.forEach(match => {
+                if (match.climber_a_rank) rankMap[match.climber_a_id] = match.climber_a_rank;
+                if (match.climber_b_rank) rankMap[match.climber_b_id] = match.climber_b_rank;
+            });
+            
+            let updatedCount = 0;
+            const updates = [];
+            
+            for (const match of matches) {
+                // Handle BYE matches - climber_a wins automatically
+                if (!match.climber_b_id) {
+                    // BYE: climber_a wins automatically (set immediately)
+                    if (match.winner_id !== match.climber_a_id) {
+                        await pool.execute(
+                            'UPDATE speed_finals_matches SET winner_id = ? WHERE id = ?',
+                            [match.climber_a_id, match.id]
+                        );
+                        updatedCount++;
+                        console.log('[API] BYE match - set winner to climber_a:', match.id);
+                    }
+                    continue;
+                }
+                
+                // Parse times to ensure they are numbers (database might return strings)
+                const run1TimeA = parseFloat(match.climber_a_run1_time);
+                const run2TimeA = parseFloat(match.climber_a_run2_time);
+                const run1TimeB = parseFloat(match.climber_b_run1_time);
+                const run2TimeB = parseFloat(match.climber_b_run2_time);
+                
+                // Calculate totals
+                const aTotal = calculateClassicFinalsTotal(
+                    run1TimeA,
+                    run2TimeA,
+                    match.climber_a_run1_status || 'VALID',
+                    match.climber_a_run2_status || 'VALID'
+                );
+                
+                const bTotal = calculateClassicFinalsTotal(
+                    run1TimeB,
+                    run2TimeB,
+                    match.climber_b_run1_status || 'VALID',
+                    match.climber_b_run2_status || 'VALID'
+                );
+                
+                console.log('[API] Processing match:', {
+                    match_id: match.id,
+                    stage: match.stage,
+                    match_order: match.match_order,
+                    climber_a_id: match.climber_a_id,
+                    climber_b_id: match.climber_b_id,
+                    a_run1: match.climber_a_run1_time,
+                    a_run2: match.climber_a_run2_time,
+                    a_status1: match.climber_a_run1_status,
+                    a_status2: match.climber_a_run2_status,
+                    a_total: aTotal.totalTime,
+                    a_isValid: aTotal.isValid,
+                    b_run1: match.climber_b_run1_time,
+                    b_run2: match.climber_b_run2_time,
+                    b_status1: match.climber_b_run1_status,
+                    b_status2: match.climber_b_run2_status,
+                    b_total: bTotal.totalTime,
+                    b_isValid: bTotal.isValid,
+                    current_winner_id: match.winner_id
+                });
+                
+                // Only calculate winner if BOTH climbers have completed BOTH runs
+                let calculatedWinner = match.winner_id; // Preserve existing winner_id initially
+                
+                // Check if both climbers have completed both runs
+                const aHasBothRuns = match.climber_a_run1_time !== null && match.climber_a_run2_time !== null && 
+                                     match.climber_a_run1_status === 'VALID' && match.climber_a_run2_status === 'VALID';
+                const bHasBothRuns = match.climber_b_run1_time !== null && match.climber_b_run2_time !== null && 
+                                     match.climber_b_run1_status === 'VALID' && match.climber_b_run2_status === 'VALID';
+                
+                if (aHasBothRuns && bHasBothRuns) {
+                    // Parse times to ensure they are numbers (database might return strings)
+                    const run1TimeA = parseFloat(match.climber_a_run1_time);
+                    const run2TimeA = parseFloat(match.climber_a_run2_time);
+                    const run1TimeB = parseFloat(match.climber_b_run1_time);
+                    const run2TimeB = parseFloat(match.climber_b_run2_time);
+                    
+                    // Both climbers have completed both runs - calculate winner based on total time
+                    calculatedWinner = calculateClassicFinalsWinner(
+                        {
+                            id: match.climber_a_id,
+                            run1Time: run1TimeA,
+                            run2Time: run2TimeA,
+                            run1Status: match.climber_a_run1_status || 'VALID',
+                            run2Status: match.climber_a_run2_status || 'VALID',
+                            rank: rankMap[match.climber_a_id] || null
+                        },
+                        {
+                            id: match.climber_b_id,
+                            run1Time: run1TimeB,
+                            run2Time: run2TimeB,
+                            run1Status: match.climber_b_run1_status || 'VALID',
+                            run2Status: match.climber_b_run2_status || 'VALID',
+                            rank: rankMap[match.climber_b_id] || null
+                        }
+                    );
+                } else {
+                    // Not all runs completed yet - don't set winner until both climbers complete both runs
+                    calculatedWinner = null;
+                }
+                
+                console.log('[API] Calculated winner:', {
+                    match_id: match.id,
+                    calculated_winner_id: calculatedWinner,
+                    current_winner_id: match.winner_id,
+                    aHasBothRuns: aHasBothRuns,
+                    bHasBothRuns: bHasBothRuns,
+                    will_update: calculatedWinner !== match.winner_id && (calculatedWinner !== null || match.winner_id !== null)
+                });
+                
+                // Update if different (only update if both runs are completed, or clear winner if runs not complete)
+                if (calculatedWinner !== match.winner_id && (calculatedWinner !== null || match.winner_id !== null)) {
+                    await pool.execute(
+                        'UPDATE speed_finals_matches SET winner_id = ? WHERE id = ?',
+                        [calculatedWinner, match.id]
+                    );
+                    
+                    updatedCount++;
+                    updates.push({
+                        match_id: match.id,
+                        stage: match.stage,
+                        match_order: match.match_order,
+                        old_winner_id: match.winner_id,
+                        new_winner_id: calculatedWinner,
+                        climber_a_total: aTotal.totalTime,
+                        climber_b_total: bTotal.totalTime
+                    });
+                    
+                    console.log('[API] ✅ Updated winner for match:', {
+                        match_id: match.id,
+                        stage: match.stage,
+                        old_winner: match.winner_id,
+                        new_winner: calculatedWinner,
+                        a_total: aTotal.totalTime,
+                        b_total: bTotal.totalTime
+                    });
+                } else {
+                    console.log('[API] ⏭️ No update needed for match:', {
+                        match_id: match.id,
+                        stage: match.stage,
+                        winner_id: match.winner_id,
+                        calculated_winner: calculatedWinner
+                    });
+                }
+            }
+            
+            console.log('[API] Recalculation complete:', {
+                total_matches: matches.length,
+                updated_count: updatedCount,
+                updates: updates.length > 0 ? updates : 'No updates needed'
+            });
+            
+            // Emit socket event to notify clients
+            io.emit('speed-finals-updated', {
+                competition_id: parseInt(req.params.id),
+                recalculated: true
+            });
+            
+            res.json({
+                success: true,
+                message: `Recalculated winners for ${matches.length} matches`,
+                updated_count: updatedCount,
+                total_matches: matches.length,
+                updates: updates
+            });
+        } catch (error) {
+            console.error('[API] Error recalculating winners:', error);
+            console.error('[API] Error stack:', error.stack);
+            res.status(500).json({ error: 'Failed to recalculate winners: ' + error.message });
+        }
+    });
+
     app.post('/api/speed-competitions/:id/finals', requireAuth, async (req, res) => {
         try {
             const { stage, climber_a_id, climber_b_id, match_order } = req.body;
@@ -2700,9 +3708,9 @@
                 const matches = [];
                 
                 // Generate bracket based on topCount
-                // IFSC/FPTI Standard Seeding: Higher seed (lower rank number) always in Lane A
+                // Speed Classic Seeding: Top vs Bottom (1 vs 8, 2 vs 7, 3 vs 6, 4 vs 5)
                 if (topCount === 8) {
-                    // Quarter Finals (4 matches) - Fixed Seeding Order
+                    // Quarter Finals (4 matches) - Top vs Bottom Seeding
                     // Match 1: Rank 1 (Lane A) vs Rank 8 (Lane B)
                     if (qualification.length >= 8) {
                         matches.push({ stage: 'Quarter Final', climber_a: qualification[0], climber_b: qualification[7], order: 1 });
@@ -2711,12 +3719,12 @@
                         matches.push({ stage: 'Quarter Final', climber_a: qualification[0], climber_b: null, order: 1, is_bye: true });
                     }
                     
-                    // Match 2: Rank 4 (Lane A) vs Rank 5 (Lane B)
-                    if (qualification.length >= 5) {
-                        matches.push({ stage: 'Quarter Final', climber_a: qualification[3], climber_b: qualification[4], order: 2 });
-                    } else if (qualification.length >= 4) {
-                        // BYE: Rank 4 advances automatically
-                        matches.push({ stage: 'Quarter Final', climber_a: qualification[3], climber_b: null, order: 2, is_bye: true });
+                    // Match 2: Rank 2 (Lane A) vs Rank 7 (Lane B)
+                    if (qualification.length >= 7) {
+                        matches.push({ stage: 'Quarter Final', climber_a: qualification[1], climber_b: qualification[6], order: 2 });
+                    } else if (qualification.length >= 2) {
+                        // BYE: Rank 2 advances automatically
+                        matches.push({ stage: 'Quarter Final', climber_a: qualification[1], climber_b: null, order: 2, is_bye: true });
                     }
                     
                     // Match 3: Rank 3 (Lane A) vs Rank 6 (Lane B)
@@ -2727,12 +3735,12 @@
                         matches.push({ stage: 'Quarter Final', climber_a: qualification[2], climber_b: null, order: 3, is_bye: true });
                     }
                     
-                    // Match 4: Rank 2 (Lane A) vs Rank 7 (Lane B)
-                    if (qualification.length >= 7) {
-                        matches.push({ stage: 'Quarter Final', climber_a: qualification[1], climber_b: qualification[6], order: 4 });
-                    } else if (qualification.length >= 2) {
-                        // BYE: Rank 2 advances automatically
-                        matches.push({ stage: 'Quarter Final', climber_a: qualification[1], climber_b: null, order: 4, is_bye: true });
+                    // Match 4: Rank 4 (Lane A) vs Rank 5 (Lane B)
+                    if (qualification.length >= 5) {
+                        matches.push({ stage: 'Quarter Final', climber_a: qualification[3], climber_b: qualification[4], order: 4 });
+                    } else if (qualification.length >= 4) {
+                        // BYE: Rank 4 advances automatically
+                        matches.push({ stage: 'Quarter Final', climber_a: qualification[3], climber_b: null, order: 4, is_bye: true });
                     }
                 } else if (topCount === 16) {
                     // Round of 16 (8 matches)
@@ -2788,6 +3796,9 @@
                         [result.insertId]
                     );
                     
+                    if (newMatch.length === 0) {
+                        throw new Error('Failed to retrieve created match');
+                    }
                     insertedMatches.push(newMatch[0]);
                 }
                 
@@ -3022,6 +4033,9 @@
                         [result.insertId]
                     );
                     
+                    if (newMatch.length === 0) {
+                        throw new Error('Failed to retrieve created match');
+                    }
                     insertedMatches.push(newMatch[0]);
                 }
                 
@@ -3074,6 +4088,9 @@
             }
 
             const [climbers] = await pool.execute('SELECT * FROM speed_climbers WHERE id = ?', [req.params.id]);
+            if (climbers.length === 0) {
+                return res.status(404).json({ error: 'Speed climber not found' });
+            }
             res.json(climbers[0]);
         } catch (error) {
             console.error('[API] Error updating speed climber:', error);
@@ -3288,12 +4305,43 @@
         res.send(robotsTxt);
     });
 
-    // Middleware untuk skip API routes, sitemap.xml dan robots.txt dari static serving
+    // Favicon route - Ensure favicon is accessible
+    app.get('/favicon.ico', (req, res) => {
+        const faviconPath = path.join(__dirname, 'public', 'favicon.ico');
+        if (fs.existsSync(faviconPath)) {
+            res.type('image/x-icon');
+            res.sendFile(faviconPath);
+        } else {
+            // Fallback to logo.jpeg if favicon.ico doesn't exist
+            const logoPath = path.join(__dirname, 'public', 'logo.jpeg');
+            if (fs.existsSync(logoPath)) {
+                res.type('image/jpeg');
+                res.sendFile(logoPath);
+            } else {
+                res.status(404).send('Favicon not found');
+            }
+        }
+    });
+
+    // Site manifest route
+    app.get('/site.webmanifest', (req, res) => {
+        const manifestPath = path.join(__dirname, 'public', 'site.webmanifest');
+        if (fs.existsSync(manifestPath)) {
+            res.type('application/manifest+json');
+            res.sendFile(manifestPath);
+        } else {
+            res.status(404).send('Manifest not found');
+        }
+    });
+
+    // Middleware untuk skip API routes, sitemap.xml, robots.txt, favicon, dan manifest dari static serving
     // HARUS SEBELUM semua static middleware
     app.use((req, res, next) => {
         if (req.path.startsWith('/api/') || 
             req.path === '/sitemap.xml' || 
-            req.path === '/robots.txt') {
+            req.path === '/robots.txt' ||
+            req.path === '/favicon.ico' ||
+            req.path === '/site.webmanifest') {
             console.log(`[STATIC] Skipping static serve for ${req.path}`);
             return next(); // Skip static serving, biarkan route handler yang handle
         }
@@ -3551,6 +4599,7 @@ app.get('/berita/:id', async (req, res, next) => {
             finishTime: 0,
             finalDuration: "00:00.000",
             athleteName: "",        // Nama atlet
+            athleteId: null,       // ID atlet
             readyStartTime: null    // Timestamp saat sensorBottom mulai true
         },
         
@@ -3563,6 +4612,7 @@ app.get('/berita/:id', async (req, res, next) => {
             finishTime: 0,
             finalDuration: "00:00.000",
             athleteName: "",        // Nama atlet
+            athleteId: null,       // ID atlet
             readyStartTime: null
         }
     };
@@ -3684,12 +4734,19 @@ app.get('/berita/:id', async (req, res, next) => {
         broadcastState();
         console.log('[COUNTDOWN] Starting countdown, timer reset to 00:00.000');
 
-        // Play beepstartspeed.MP3 (3 detik countdown audio)
-        io.emit('play-sound', { type: 'countdown-start' });
-        console.log('[COUNTDOWN] Playing beepstartspeed.MP3 (3 seconds)');
+        // Play beepstartspeed.MP3 (countdown audio)
+        // Kirim timestamp untuk sinkronisasi yang lebih akurat
+        const countdownStartTime = Date.now();
+        io.emit('play-sound', { 
+            type: 'countdown-start',
+            startTime: countdownStartTime,
+            audioDuration: 3000 // Durasi audio dalam ms (3 detik)
+        });
+        console.log('[COUNTDOWN] Playing beepstartspeed.MP3, startTime:', countdownStartTime);
         
-        // Set global start time setelah 3 detik (durasi audio countdown)
+        // Set global start time setelah audio selesai (3000ms = 3 detik)
         // Timer TIDAK mulai sebelum countdown audio selesai
+        // Gunakan waktu yang lebih akurat dengan mempertimbangkan network delay
         setTimeout(() => {
             raceState.globalStartTime = Date.now();
             raceState.matchStatus = 'RUNNING';
@@ -3705,34 +4762,49 @@ app.get('/berita/:id', async (req, res, next) => {
             console.log('[GO] Lane B startTime:', raceState.laneB.startTime, 'status:', raceState.laneB.status);
             
             // Immediately update timer to start counting (setelah countdown selesai)
-            const now = Date.now();
-            const elapsedA = now - raceState.laneA.startTime;
-            const elapsedB = now - raceState.laneB.startTime;
-            raceState.laneA.finalDuration = formatDuration(elapsedA);
-            raceState.laneB.finalDuration = formatDuration(elapsedB);
+            // Set initial duration to 00:00.000 immediately
+            raceState.laneA.finalDuration = '00:00.000';
+            raceState.laneB.finalDuration = '00:00.000';
             
-            console.log('[TIMER] Lane A initial duration:', raceState.laneA.finalDuration, 'elapsed:', elapsedA, 'ms');
-            console.log('[TIMER] Lane B initial duration:', raceState.laneB.finalDuration, 'elapsed:', elapsedB, 'ms');
+            console.log('[TIMER] Race started - Timer reset to 00:00.000');
+            console.log('[TIMER] Lane A - startTime:', raceState.laneA.startTime, 'status:', raceState.laneA.status);
+            console.log('[TIMER] Lane B - startTime:', raceState.laneB.startTime, 'status:', raceState.laneB.status);
             
             broadcastState();
             console.log('[BROADCAST] State broadcasted after race start - Timer mulai menghitung');
             console.log('[TIMER LOOP] Timer loop akan mulai update setiap 16ms');
-            console.log('[TIMER CHECK] Lane A - startTime:', raceState.laneA.startTime, 'status:', raceState.laneA.status, 'finalDuration:', raceState.laneA.finalDuration);
-            console.log('[TIMER CHECK] Lane B - startTime:', raceState.laneB.startTime, 'status:', raceState.laneB.status, 'finalDuration:', raceState.laneB.finalDuration);
             
-            // Force timer update sekali lagi setelah 100ms untuk memastikan timer berjalan
-            setTimeout(() => {
+            // Force timer update immediately and then every 16ms for first second
+            // This ensures timer starts counting immediately without delay
+            const updateTimer = () => {
                 if (raceState.matchStatus === 'RUNNING') {
-                    const now2 = Date.now();
-                    const elapsedA2 = now2 - raceState.laneA.startTime;
-                    const elapsedB2 = now2 - raceState.laneB.startTime;
-                    raceState.laneA.finalDuration = formatDuration(elapsedA2);
-                    raceState.laneB.finalDuration = formatDuration(elapsedB2);
+                    const now = Date.now();
+                    if (raceState.laneA.status === 'RUNNING' && raceState.laneA.startTime > 0) {
+                        const elapsedA = now - raceState.laneA.startTime;
+                        raceState.laneA.finalDuration = formatDuration(elapsedA);
+                    }
+                    if (raceState.laneB.status === 'RUNNING' && raceState.laneB.startTime > 0) {
+                        const elapsedB = now - raceState.laneB.startTime;
+                        raceState.laneB.finalDuration = formatDuration(elapsedB);
+                    }
                     broadcastState();
-                    console.log('[TIMER] Force update after 100ms - Lane A:', raceState.laneA.finalDuration, 'Lane B:', raceState.laneB.finalDuration);
                 }
-            }, 100);
-        }, 3000); // 3000ms = 3 detik (durasi beepstartspeed.MP3) - Timer TIDAK mulai sebelum ini
+            };
+            
+            // Update immediately
+            updateTimer();
+            
+            // Then update every 16ms for first 100ms to ensure smooth start
+            let updateCount = 0;
+            const quickUpdateInterval = setInterval(() => {
+                updateTimer();
+                updateCount++;
+                if (updateCount >= 6) { // 6 * 16ms = ~100ms
+                    clearInterval(quickUpdateInterval);
+                }
+            }, 16);
+        }, 2900); // 2900ms = 2.9 detik (durasi beepstartspeed.MP3 - 100ms compensation untuk network/audio delay)
+        // Timer mulai sedikit lebih cepat untuk sinkronisasi yang lebih baik dengan audio "tut" terakhir
     }
 
     function resetMatch() {
@@ -3830,8 +4902,8 @@ app.get('/berita/:id', async (req, res, next) => {
                 }
             }
             
-            // Broadcast setiap 50ms (20fps) untuk smooth timer update - SELALU broadcast saat RUNNING
-            if (raceState.matchStatus === 'RUNNING' && (now - lastBroadcastTime) >= 50) {
+            // Broadcast setiap 16ms (60fps) untuk smooth timer update tanpa delay - SELALU broadcast saat RUNNING
+            if (raceState.matchStatus === 'RUNNING' && (now - lastBroadcastTime) >= 16) {
                 broadcastState();
                 lastBroadcastTime = now;
                 // Log setiap detik untuk debugging
@@ -3984,10 +5056,13 @@ app.get('/berita/:id', async (req, res, next) => {
 
         // Update athlete name
         socket.on('update-athlete-name', (data) => {
-            const { lane, name } = data;
+            const { lane, name, athleteId } = data;
             const laneKey = lane === 'A' ? 'laneA' : 'laneB';
             raceState[laneKey].athleteName = name || '';
-            console.log(`[ATHLETE] Lane ${lane} name set to: ${name}`);
+            if (athleteId) {
+                raceState[laneKey].athleteId = athleteId;
+            }
+            console.log(`[ATHLETE] Lane ${lane} name set to: ${name}, athleteId: ${athleteId}`);
             broadcastState();
         });
 

@@ -24,6 +24,7 @@ import NewsManagementPage from './pages/NewsManagementPage'
 import SettingsPage from './pages/SettingsPage'
 import ClimbersPhotoManagementPage from './pages/ClimbersPhotoManagementPage'
 import SpeedOverlay from './pages/SpeedOverlay'
+import SpeedLeaderboardOverlay from './pages/SpeedLeaderboardOverlay'
 import BoulderCurrentOverlay from './pages/BoulderCurrentOverlay'
 import BoulderTimerOverlay from './pages/BoulderTimerOverlay'
 import BoulderLeaderboardOverlay from './pages/BoulderLeaderboardOverlay'
@@ -53,6 +54,7 @@ function App() {
         
         {/* OBS Overlay Routes */}
         <Route path="/overlay/speed-lower-third" element={<SpeedOverlay />} />
+        <Route path="/overlay/speed-leaderboard" element={<SpeedLeaderboardOverlay />} />
         <Route path="/overlay/boulder-current" element={<BoulderCurrentOverlay />} />
         <Route path="/overlay/boulder-timer" element={<BoulderTimerOverlay />} />
         <Route path="/overlay/boulder-leaderboard" element={<BoulderLeaderboardOverlay />} />

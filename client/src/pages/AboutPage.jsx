@@ -1,142 +1,209 @@
 import { motion } from 'framer-motion'
-import { Trophy, Users, Calendar, Target } from 'lucide-react'
+import { Trophy, Users, Calendar, Target, Medal, CheckCircle2 } from 'lucide-react'
 import PublicLayout from '../components/PublicLayout'
 import './LandingPage.css'
 
 function AboutPage() {
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.2
+      }
+    }
+  }
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
+  }
+
   return (
     <PublicLayout>
-      <div className="bg-rich-black min-h-screen text-off-white font-body">
+      <div className="bg-[#0a0a0a] min-h-screen text-zinc-200 font-sans selection:bg-[#FFB800] selection:text-black">
+        
         {/* Hero Section */}
-        <section className="pt-32 pb-20 bg-gradient-to-b from-gunmetal to-rich-black">
-        <div className="container mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="max-w-4xl mx-auto text-center"
-          >
-            <div className="flex justify-center mb-8">
-              <img 
-                src="/logo.jpeg" 
-                alt="FPTI Karanganyar" 
-                className="w-40 h-40 rounded-full object-cover border-4 border-goldenrod/50 shadow-[0_0_40px_rgba(255,193,7,0.3)]"
-              />
-            </div>
-            <h3 className="text-crimson font-bold uppercase tracking-widest text-sm mb-4">Tentang Kami</h3>
-            <h1 className="text-5xl md:text-6xl font-heading font-bold mb-6">FPTI Karanganyar</h1>
-            <p className="text-gray-400 text-xl leading-relaxed mb-12">
-              Wadah resmi pengembangan atlet panjat tebing di Kabupaten Karanganyar. 
-              Membentuk karakter tangguh, disiplin, dan berprestasi.
-            </p>
-          </motion.div>
-        </div>
-      </section>
+        <section className="pt-32 pb-20 bg-[#111111] border-b border-zinc-800 relative overflow-hidden">
+          {/* Background decoration */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-full opacity-5 pointer-events-none">
+             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#FFB800] rounded-full blur-[120px]"></div>
+          </div>
 
-      {/* Content Section */}
-      <section className="py-20 bg-gunmetal">
-        <div className="container mx-auto px-6">
-          <div className="max-w-4xl mx-auto">
+          <div className="container mx-auto px-6 relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="mb-12"
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="max-w-4xl mx-auto text-center"
             >
-              <h2 className="text-3xl font-heading font-bold mb-6 text-goldenrod">Visi & Misi</h2>
-              <div className="space-y-6 text-gray-300 leading-relaxed">
-                <div>
-                  <h3 className="text-xl font-bold text-white mb-3">Visi</h3>
-                  <p>
+              <div className="flex justify-center mb-8 relative">
+                <div className="relative group">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-[#FFB800] to-yellow-600 rounded-full opacity-20 group-hover:opacity-40 blur transition duration-500"></div>
+                  <img 
+                    src="/logo.jpeg" 
+                    alt="FPTI Karanganyar" 
+                    className="relative w-40 h-40 rounded-full object-cover border-2 border-[#FFB800]/50 shadow-2xl"
+                  />
+                </div>
+              </div>
+              
+              <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full bg-[#FFB800]/10 border border-[#FFB800]/20 text-[#FFB800] text-xs font-bold tracking-widest uppercase">
+                <Medal size={14} />
+                <span>Est. 2014</span>
+              </div>
+
+              <h1 className="text-5xl md:text-7xl font-black mb-6 text-white uppercase tracking-tight leading-none">
+                FPTI <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFB800] to-yellow-600">Karanganyar</span>
+              </h1>
+              <p className="text-zinc-400 text-lg md:text-xl leading-relaxed max-w-2xl mx-auto font-light">
+                Wadah resmi pengembangan atlet panjat tebing di Kabupaten Karanganyar. 
+                Membentuk karakter <span className="text-white font-semibold">tangguh</span>, <span className="text-white font-semibold">disiplin</span>, dan <span className="text-[#FFB800] font-semibold">berprestasi</span>.
+              </p>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Stats Grid */}
+        <section className="py-12 -mt-10 relative z-20">
+          <div className="container mx-auto px-6">
+            <motion.div 
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto"
+            >
+              {[
+                { icon: Users, count: "50+", label: "Atlet Aktif" },
+                { icon: Trophy, count: "20+", label: "Kejuaraan" },
+                { icon: Calendar, count: "10+", label: "Tahun Pengalaman" },
+                { icon: Target, count: "100+", label: "Total Medali" }
+              ].map((stat, idx) => (
+                <motion.div 
+                  key={idx}
+                  variants={itemVariants}
+                  className="bg-[#111111] p-6 rounded-sm border border-zinc-800 text-center hover:border-[#FFB800]/50 transition-colors duration-300 group"
+                >
+                  <stat.icon className="mx-auto mb-3 text-zinc-600 group-hover:text-[#FFB800] transition-colors" size={28} />
+                  <div className="text-3xl font-black text-white mb-1">{stat.count}</div>
+                  <div className="text-zinc-500 text-xs uppercase tracking-wider font-bold">{stat.label}</div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Visi Misi Section */}
+        <section className="py-20">
+          <div className="container mx-auto px-6">
+            <div className="max-w-5xl mx-auto">
+              <div className="grid md:grid-cols-2 gap-12 items-start">
+                
+                {/* Visi */}
+                <motion.div 
+                  initial={{ opacity: 0, x: -30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6 }}
+                  className="bg-[#111111] p-8 rounded-sm border border-zinc-800 relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-[#FFB800] opacity-5 rounded-bl-full -mr-4 -mt-4"></div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <Target className="text-[#FFB800]" size={28} />
+                    <h2 className="text-2xl font-black text-white uppercase tracking-wide">Visi Kami</h2>
+                  </div>
+                  <p className="text-zinc-400 leading-relaxed text-lg">
                     Menjadi pusat pengembangan olahraga panjat tebing terdepan di Jawa Tengah, 
                     menghasilkan atlet-atlet berprestasi nasional dan internasional, serta 
                     membangun karakter sportivitas dan disiplin tinggi.
                   </p>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white mb-3">Misi</h3>
-                  <ul className="list-disc list-inside space-y-2 ml-4">
-                    <li>Mengembangkan bakat dan potensi atlet panjat tebing di Karanganyar</li>
-                    <li>Menyediakan fasilitas dan pelatihan profesional untuk atlet</li>
-                    <li>Mengadakan kompetisi berkualitas untuk meningkatkan prestasi</li>
-                    <li>Membangun jaringan dengan komunitas panjat tebing nasional</li>
-                    <li>Mempromosikan olahraga panjat tebing di masyarakat</li>
+                </motion.div>
+
+                {/* Misi */}
+                <motion.div 
+                  initial={{ opacity: 0, x: 30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6 }}
+                >
+                  <div className="flex items-center gap-3 mb-6">
+                    <Trophy className="text-[#FFB800]" size={28} />
+                    <h2 className="text-2xl font-black text-white uppercase tracking-wide">Misi Kami</h2>
+                  </div>
+                  <ul className="space-y-4">
+                    {[
+                      "Mengembangkan bakat dan potensi atlet panjat tebing di Karanganyar",
+                      "Menyediakan fasilitas dan pelatihan profesional untuk atlet",
+                      "Mengadakan kompetisi berkualitas untuk meningkatkan prestasi",
+                      "Membangun jaringan dengan komunitas panjat tebing nasional",
+                      "Mempromosikan olahraga panjat tebing di masyarakat"
+                    ].map((misi, idx) => (
+                      <li key={idx} className="flex gap-4 items-start group">
+                        <CheckCircle2 className="text-zinc-700 group-hover:text-[#FFB800] transition-colors mt-1 flex-shrink-0" size={18} />
+                        <span className="text-zinc-400 group-hover:text-zinc-200 transition-colors">{misi}</span>
+                      </li>
+                    ))}
                   </ul>
-                </div>
-              </div>
-            </motion.div>
+                </motion.div>
 
-            {/* Stats */}
-            <motion.div
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* History Section */}
+        <section className="py-20 bg-[#111111] border-y border-zinc-800">
+          <div className="container mx-auto px-6">
+            <motion.div 
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: 0.2, duration: 0.6 }}
-              className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12"
+              transition={{ duration: 0.6 }}
+              className="max-w-3xl mx-auto text-center"
             >
-              <div className="text-center p-6 bg-rich-black rounded-xl border border-white/10">
-                <Users className="mx-auto mb-3 text-goldenrod" size={32} />
-                <div className="text-3xl font-bold text-crimson mb-1">50+</div>
-                <div className="text-gray-400 text-sm">Atlet Aktif</div>
-              </div>
-              <div className="text-center p-6 bg-rich-black rounded-xl border border-white/10">
-                <Trophy className="mx-auto mb-3 text-goldenrod" size={32} />
-                <div className="text-3xl font-bold text-crimson mb-1">20+</div>
-                <div className="text-gray-400 text-sm">Kejuaraan</div>
-              </div>
-              <div className="text-center p-6 bg-rich-black rounded-xl border border-white/10">
-                <Calendar className="mx-auto mb-3 text-goldenrod" size={32} />
-                <div className="text-3xl font-bold text-crimson mb-1">10+</div>
-                <div className="text-gray-400 text-sm">Tahun Pengalaman</div>
-              </div>
-              <div className="text-center p-6 bg-rich-black rounded-xl border border-white/10">
-                <Target className="mx-auto mb-3 text-goldenrod" size={32} />
-                <div className="text-3xl font-bold text-crimson mb-1">100+</div>
-                <div className="text-gray-400 text-sm">Medali</div>
-              </div>
-            </motion.div>
-
-            {/* History */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.4, duration: 0.6 }}
-            >
-              <h2 className="text-3xl font-heading font-bold mb-6 text-goldenrod">Sejarah</h2>
-              <div className="space-y-4 text-gray-300 leading-relaxed">
+              <h2 className="text-3xl font-black text-white mb-8 uppercase tracking-wide">
+                Jejak <span className="text-[#FFB800]">Sejarah</span>
+              </h2>
+              <div className="space-y-6 text-zinc-400 leading-relaxed text-lg font-light">
                 <p>
-                  FPTI Karanganyar didirikan dengan semangat untuk mengembangkan olahraga panjat tebing 
+                  <strong className="text-white font-bold">FPTI Karanganyar</strong> didirikan dengan semangat untuk mengembangkan olahraga panjat tebing 
                   di wilayah Karanganyar. Sejak awal, kami berkomitmen untuk memberikan pelatihan berkualitas 
                   dan menyediakan fasilitas yang memadai bagi para atlet.
                 </p>
+                <div className="w-16 h-1 bg-[#FFB800] mx-auto opacity-30"></div>
                 <p>
                   Melalui berbagai program dan kompetisi yang kami selenggarakan, kami telah berhasil 
                   mencetak banyak atlet berprestasi yang mengharumkan nama Karanganyar di tingkat 
                   provinsi, nasional, bahkan internasional.
                 </p>
                 <p>
-                  Hingga saat ini, FPTI Karanganyar terus berkembang dan menjadi salah satu komunitas 
+                  Hingga saat ini, kami terus berkembang dan menjadi salah satu komunitas 
                   panjat tebing terdepan di Jawa Tengah, dengan fokus pada pengembangan atlet muda dan 
                   peningkatan prestasi di berbagai kompetisi.
                 </p>
               </div>
             </motion.div>
           </div>
-        </div>
-      </section>
+        </section>
 
         {/* Footer */}
-        <footer className="py-10 border-t border-white/10 text-center text-gray-500 text-sm bg-rich-black">
+        <footer className="py-12 bg-[#0a0a0a] text-center">
           <div className="container mx-auto px-6">
-            <p>&copy; 2024 FPTI Karanganyar. All rights reserved.</p>
+            <div className="flex items-center justify-center gap-2 mb-4 opacity-50 hover:opacity-100 transition-opacity duration-300">
+              <Medal className="text-[#FFB800]" size={24} />
+              <span className="text-xl font-bold text-white tracking-widest">FPTI KARANGANYAR</span>
+            </div>
+            <p className="text-zinc-600 text-sm">
+              &copy; {new Date().getFullYear()} Official Organization Profile. All rights reserved.
+            </p>
           </div>
         </footer>
+
       </div>
     </PublicLayout>
   )
 }
 
 export default AboutPage
-

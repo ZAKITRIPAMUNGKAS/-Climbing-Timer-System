@@ -1,0 +1,23 @@
+{
+  "name": "FPTI Karanganyar - Komunitas Panjat Tebing",
+  "short_name": "FPTI Karanganyar",
+  "description": "FPTI Karanganyar - Komunitas Panjat Tebing Indonesia",
+  "icons": [
+    {
+      "src": "/logo.jpeg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/logo.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ],
+  "theme_color": "#FFC107",
+  "background_color": "#0a0a0a",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/"
+}
+

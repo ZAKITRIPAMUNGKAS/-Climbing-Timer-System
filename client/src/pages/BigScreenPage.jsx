@@ -273,60 +273,55 @@ function BigScreenPage() {
         <div className="scroll-content">
           <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6">
             {competitionType === 'boulder' ? (
-              // Boulder Leaderboard
-              <div className="space-y-3 sm:space-y-4">
+              // Boulder Leaderboard - Modern Card Style
+              <div className="space-y-4 sm:space-y-5">
                 {leaderboard.map((entry, index) => (
                   <div
                     key={entry.id}
-                    className="bg-rich-black border-b border-white/10 last:border-b-0 hover:bg-gunmetal/30 transition-all duration-200 flex flex-col sm:flex-row items-start gap-4 sm:gap-6 lg:gap-8 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 rounded-lg"
+                    className="relative flex flex-col sm:flex-row items-start gap-4 sm:gap-6 lg:gap-8 p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 w-full overflow-hidden"
                   >
-                    {/* Left: Rank Box */}
-                    <div className="relative flex-shrink-0">
-                      {/* Small Rank Label Box */}
-                      <div className="absolute -top-1 -right-1 bg-gray-700/90 rounded px-2 py-0.5 z-10 border border-gray-600">
-                        <span className="text-xs font-bold text-white">#{entry.rank || index + 1}</span>
-                      </div>
-                      {/* Large Rank Box - Yellow Gold */}
-                      <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 rounded-lg flex items-center justify-center shadow-lg">
-                        <span className="text-4xl sm:text-5xl md:text-6xl font-black text-gray-900">{entry.rank || index + 1}</span>
-                      </div>
+                    {/* Large Rank Watermark - Background */}
+                    <div className="absolute left-0 top-0 bottom-0 flex items-center justify-center pointer-events-none">
+                      <span className="text-6xl sm:text-7xl lg:text-8xl font-bold text-gray-200 select-none">
+                        {entry.rank || index + 1}
+                      </span>
                     </div>
-                    
-                    {/* Center: Name and Score Grid */}
-                    <div className="flex-1 min-w-0 w-full sm:w-auto">
-                      {/* Name and Team */}
-                      <div className="mb-3 sm:mb-4">
-                        <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-1 uppercase tracking-tight">
+
+                    {/* Left: Athlete Info */}
+                    <div className="relative z-10 flex-1 min-w-0 w-full sm:w-auto pl-8 sm:pl-0">
+                      {/* Name */}
+                      <div className="mb-2">
+                        <div className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 mb-1 truncate">
                           {entry.name || '-'}
                         </div>
-                        <div className="text-base sm:text-lg md:text-xl text-white/80 font-medium">
+                        <div className="text-sm sm:text-base text-slate-500">
                           {entry.team || 'SOLO'}
                         </div>
                       </div>
 
-                      {/* Score Grid - Vertical columns */}
-                      <div className="space-y-1.5 flex flex-col items-center">
+                      {/* Score Grid - Modern Pills with Gradients */}
+                      <div className="space-y-2 flex flex-col items-start">
                         {/* Grid Container */}
-                        <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-fit mx-auto">
+                        <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-fit">
                           {entry.scores?.map((score, idx) => {
                             const zoneAttempt = score.zoneAttempts || 0
                             const topAttempt = score.topAttempts || 0
                             
                             return (
-                              <div key={idx} className="flex flex-col gap-1.5 w-12 sm:w-14 md:w-16">
-                                {/* Zone Attempt */}
-                                <div className={`w-full h-20 sm:h-24 md:h-28 rounded-md flex items-center justify-center font-bold text-base sm:text-lg md:text-xl ${
+                              <div key={idx} className="flex flex-col gap-1.5 w-14 sm:w-16 md:w-18">
+                                {/* Zone Attempt - Yellow/Orange Gradient */}
+                                <div className={`w-full h-16 sm:h-20 md:h-24 rounded-md flex items-center justify-center font-bold text-base sm:text-lg md:text-xl ${
                                   zoneAttempt > 0
-                                    ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 text-gray-900 shadow-md'
-                                    : 'bg-gray-800 border border-gray-700 text-white/60'
+                                    ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-md'
+                                    : 'bg-gray-100 border border-gray-200 text-gray-400'
                                 }`}>
                                   {zoneAttempt > 0 ? zoneAttempt : '-'}
                                 </div>
-                                {/* Top Attempt */}
-                                <div className={`w-full h-20 sm:h-24 md:h-28 rounded-md flex items-center justify-center font-bold text-base sm:text-lg md:text-xl ${
+                                {/* Top Attempt - Green Gradient */}
+                                <div className={`w-full h-16 sm:h-20 md:h-24 rounded-md flex items-center justify-center font-bold text-base sm:text-lg md:text-xl ${
                                   topAttempt > 0
-                                    ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 text-gray-900 shadow-md'
-                                    : 'bg-gray-800 border border-gray-700 text-white/60'
+                                    ? 'bg-gradient-to-br from-green-400 to-green-600 text-white shadow-md'
+                                    : 'bg-gray-100 border border-gray-200 text-gray-400'
                                 }`}>
                                   {topAttempt > 0 ? topAttempt : '-'}
                                 </div>
@@ -335,25 +330,20 @@ function BigScreenPage() {
                           })}
                         </div>
                         {/* Boulder Number Labels */}
-                        <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-fit mx-auto">
+                        <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-fit">
                           {entry.scores?.map((_, idx) => (
-                            <div key={idx} className="text-center w-12 sm:w-14 md:w-16">
-                              <span className="text-xs sm:text-sm text-gray-500 font-semibold">{idx + 1}</span>
+                            <div key={idx} className="text-center w-14 sm:w-16 md:w-18">
+                              <span className="text-xs sm:text-sm text-slate-400 font-semibold">{idx + 1}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     </div>
                     
-                    {/* Right: Total Points */}
-                    <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start w-full sm:w-auto flex-shrink-0 sm:min-w-[140px] md:min-w-[160px] mt-2 sm:mt-0">
-                      <div className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-green-400 tabular-nums mb-0 sm:mb-1" style={{
-                        textShadow: '0 0 10px rgba(74, 222, 128, 0.5)'
-                      }}>
+                    {/* Right: Total Score - Large Monospace */}
+                    <div className="relative z-10 flex flex-row sm:flex-col items-center sm:items-end justify-end w-full sm:w-auto flex-shrink-0 sm:min-w-[140px] md:min-w-[160px] mt-2 sm:mt-0">
+                      <div className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-slate-900 tabular-nums font-mono">
                         {entry.totalScore?.toFixed(1) || '0.0'}
-                      </div>
-                      <div className="text-xs sm:text-sm text-white/60 font-medium uppercase tracking-wider">
-                        Total Points
                       </div>
                     </div>
                   </div>
