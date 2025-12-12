@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Save, Mountain, Lock, Unlock, ChevronLeft, ChevronRight } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { useAuth } from '../hooks/useAuth'
 import { formatTimeMMSSmmm, parseTimeMMSSmmm } from '../utils/timeFormat'
+import { queueBoulderScoreUpdate } from '../utils/requestQueue'
 
 function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, boulderRoute, allClimbers = [], climberScores = {}, onNavigateClimber }) {
   const { isAdmin } = useAuth()
@@ -16,6 +17,7 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
   })
   const [loading, setLoading] = useState(false)
   const [unlocking, setUnlocking] = useState(false)
+  const debounceTimerRef = useRef(null)
 
   useEffect(() => {
     if (isOpen && climber && competition) {
@@ -36,7 +38,15 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
         )
         if (scoreRes.ok) {
           const score = await scoreRes.json()
-          setBoulderScores({ [boulderRoute]: score || {
+          // Normalize MySQL boolean values (0/1) to JavaScript booleans
+          const normalizedScore = score ? {
+            ...score,
+            is_finalized: score.is_finalized === 1 || score.is_finalized === true,
+            is_locked: score.is_locked === 1 || score.is_locked === true,
+            reached_zone: score.reached_zone === 1 || score.reached_zone === true,
+            reached_top: score.reached_top === 1 || score.reached_top === true,
+            is_disqualified: score.is_disqualified === 1 || score.is_disqualified === true
+          } : {
             attempts: 0,
             reached_zone: false,
             reached_top: false,
@@ -44,16 +54,56 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
             top_attempt: null,
             is_finalized: false,
             is_disqualified: false
-          }})
+          }
+          setBoulderScores({ [boulderRoute]: normalizedScore })
+        } else if (scoreRes.status === 429) {
+          console.warn('Rate limited when fetching boulder score, will retry')
+          // Don't show error, just log - rate limit should be temporary
         }
       } else {
-        // Fetch all routes (original behavior)
+        // Fetch all routes using batch endpoint (optimized - single request instead of multiple)
+        const totalBoulders = competition.total_boulders || 4
+        const boulderNumbers = Array.from({ length: totalBoulders }, (_, i) => i + 1).join(',')
         const response = await fetch(
-          `/api/competitions/${competition.id}/climbers/${climber.id}/boulders/1`
+          `/api/competitions/${competition.id}/boulders/batch?climberIds=${climber.id}&boulderNumbers=${boulderNumbers}`
         )
         if (response.ok) {
+          const scoreMap = await response.json()
           const scores = {}
-          const totalBoulders = competition.total_boulders || 4
+          for (let i = 1; i <= totalBoulders; i++) {
+            const key = `${climber.id}_${i}`
+            const rawScore = scoreMap[key]
+            // Normalize MySQL boolean values (0/1) to JavaScript booleans
+            scores[i] = rawScore ? {
+              ...rawScore,
+              is_finalized: rawScore.is_finalized === 1 || rawScore.is_finalized === true,
+              is_locked: rawScore.is_locked === 1 || rawScore.is_locked === true,
+              reached_zone: rawScore.reached_zone === 1 || rawScore.reached_zone === true,
+              reached_top: rawScore.reached_top === 1 || rawScore.reached_top === true,
+              is_disqualified: rawScore.is_disqualified === 1 || rawScore.is_disqualified === true
+            } : {
+              id: null,
+              competition_id: competition.id,
+              climber_id: climber.id,
+              boulder_number: i,
+              attempts: 0,
+              reached_zone: false,
+              reached_top: false,
+              zone_attempt: null,
+              top_attempt: null,
+              is_finalized: false,
+              is_disqualified: false,
+              is_locked: false
+            }
+          }
+          setBoulderScores(scores)
+        } else if (response.status === 429) {
+          console.warn('Rate limited when fetching batch scores, will retry')
+          // Don't show error, just log - rate limit should be temporary
+          // Could implement retry logic here if needed
+        } else {
+          // Fallback to individual requests if batch endpoint fails
+          const scores = {}
           for (let i = 1; i <= totalBoulders; i++) {
             const scoreRes = await fetch(
               `/api/competitions/${competition.id}/climbers/${climber.id}/boulders/${i}`
@@ -61,6 +111,18 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
             if (scoreRes.ok) {
               const score = await scoreRes.json()
               scores[i] = score || {
+                attempts: 0,
+                reached_zone: false,
+                reached_top: false,
+                zone_attempt: null,
+                top_attempt: null,
+                is_finalized: false,
+                is_disqualified: false
+              }
+            } else if (scoreRes.status === 429) {
+              console.warn(`Rate limited when fetching boulder ${i} score`)
+              // Use default score for this boulder
+              scores[i] = {
                 attempts: 0,
                 reached_zone: false,
                 reached_top: false,
@@ -187,6 +249,33 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
     }
   }
 
+  // Debounced attempt handler to prevent rapid clicks
+  const handleBoulderActionDebounced = useCallback((boulderNumber, action) => {
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    
+    // For attempt action, debounce to prevent spam
+    if (action === 'attempt') {
+      debounceTimerRef.current = setTimeout(() => {
+        handleBoulderAction(boulderNumber, action)
+      }, 150) // 150ms debounce for attempt button
+    } else {
+      // For other actions, execute immediately
+      handleBoulderAction(boulderNumber, action)
+    }
+  }, []) // handleBoulderAction is stable function, no need to include in deps
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
+  }, [])
+
   const handleBoulderAction = async (boulderNumber, action) => {
     // Fat Finger Protection: Show confirmation for critical actions
     if (action === 'top' || action === 'finalize' || action === 'disqualify') {
@@ -213,22 +302,56 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
 
     try {
       setLoading(true)
-      const response = await fetch(
-        `/api/competitions/${competition.id}/climbers/${climber.id}/boulders/${boulderNumber}`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ action })
-        }
+      
+      // Queue request untuk prevent data race conditions
+      const response = await queueBoulderScoreUpdate(
+        competition.id,
+        climber.id,
+        boulderNumber,
+        () => fetch(
+          `/api/competitions/${competition.id}/climbers/${climber.id}/boulders/${boulderNumber}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ action })
+          }
+        )
       )
 
       if (response.ok) {
-        await fetchBoulderScores()
+        // Optimistic update: Use response data directly instead of fetching again
+        const updatedScore = await response.json()
         
-        // Show success message for critical actions
+        // Update local state immediately for instant UI feedback
+        if (boulderRoute) {
+          const normalizedScore = {
+            ...updatedScore,
+            is_finalized: updatedScore.is_finalized === 1 || updatedScore.is_finalized === true,
+            is_locked: updatedScore.is_locked === 1 || updatedScore.is_locked === true,
+            reached_zone: updatedScore.reached_zone === 1 || updatedScore.reached_zone === true,
+            reached_top: updatedScore.reached_top === 1 || updatedScore.reached_top === true,
+            is_disqualified: updatedScore.is_disqualified === 1 || updatedScore.is_disqualified === true
+          }
+          setBoulderScores({ [boulderRoute]: normalizedScore })
+        } else {
+          // Update all routes if not in route mode
+          setBoulderScores(prev => ({
+            ...prev,
+            [boulderNumber]: {
+              ...updatedScore,
+              is_finalized: updatedScore.is_finalized === 1 || updatedScore.is_finalized === true,
+              is_locked: updatedScore.is_locked === 1 || updatedScore.is_locked === true,
+              reached_zone: updatedScore.reached_zone === 1 || updatedScore.reached_zone === true,
+              reached_top: updatedScore.reached_top === 1 || updatedScore.reached_top === true,
+              is_disqualified: updatedScore.is_disqualified === 1 || updatedScore.is_disqualified === true
+            }
+          }))
+        }
+        
+        // Show success message for critical actions (non-blocking)
         if (action === 'top' || action === 'finalize' || action === 'disqualify') {
-          await Swal.fire({
+          Swal.fire({
             icon: 'success',
             title: action === 'top' ? 'Top Recorded' : action === 'disqualify' ? 'Peserta Didiskualifikasi' : 'Score Finalized',
             text: action === 'top' 
@@ -242,30 +365,55 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
         }
         
         // Auto-advance to next climber if action is 'finalize' or 'top' (top auto-finalizes) and in route-based mode
+        // NO NEED to refetch - server emits socket.io event and optimistic update already applied
         if (boulderRoute && onSuccess && (action === 'finalize' || action === 'top')) {
-          // Small delay to allow UI to update
-          setTimeout(() => {
-            onSuccess(action === 'top' ? 'finalize' : action) // Treat 'top' as 'finalize' for auto-advance
-          }, 500)
+          // Immediate advance without delay for better UX
+          onSuccess(action === 'top' ? 'finalize' : action)
         } else if (onSuccess && action !== 'finalize' && action !== 'top') {
-          // For other actions, just refresh but don't advance
+          // For other actions, just notify but don't advance
           onSuccess(null)
         }
+      } else if (response.status === 429) {
+        // Handle rate limit error gracefully
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Terlalu Banyak Request',
+          text: 'Server sedang sibuk. Silakan tunggu sebentar dan coba lagi.',
+          timer: 3000
+        })
       } else {
-        const error = await response.json()
+        // Try to parse error, but handle cases where it's not JSON
+        let errorMessage = 'Failed to update score'
+        try {
+          const error = await response.json()
+          errorMessage = error.error || errorMessage
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage
+        }
         await Swal.fire({
           icon: 'error',
           title: 'Error',
-          text: error.error || 'Failed to update score'
+          text: errorMessage
         })
       }
     } catch (error) {
       console.error('Error updating boulder score:', error)
-      await Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Failed to update score'
-      })
+      // Handle SyntaxError for non-JSON responses (like rate limit messages)
+      if (error instanceof SyntaxError) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Terlalu Banyak Request',
+          text: 'Server sedang sibuk. Silakan tunggu sebentar dan coba lagi.',
+          timer: 3000
+        })
+      } else {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Failed to update score'
+        })
+      }
     } finally {
       setLoading(false)
     }
@@ -338,8 +486,8 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
   if (!isOpen || !climber || !competition) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full p-4 sm:p-6 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-xl font-bold text-gray-900">Input Score</h3>
@@ -427,44 +575,55 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
                             </div>
                           )}
                         </div>
-                        {!score.is_finalized && !score.is_locked && (
+                        {!score.is_locked && (
                           <div className="grid grid-cols-2 gap-3">
+                            {/* Attempt button - always available (even after finalized) for record keeping */}
                             <button
-                              onClick={() => handleBoulderAction(boulderRoute, 'attempt')}
-                              disabled={loading}
-                              className="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 font-semibold"
+                              onClick={() => handleBoulderActionDebounced(boulderRoute, 'attempt')}
+                              disabled={loading || score.is_locked}
+                              className="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 active:scale-95 transition-all disabled:opacity-50 font-semibold shadow-sm"
                             >
                               + Attempt
                             </button>
-                            {!score.reached_zone && (
+                            {/* Zone/Top buttons - only available when not finalized */}
+                            {!score.is_finalized && (
+                              <>
+                                {!score.reached_zone && (
+                                  <button
+                                    onClick={() => handleBoulderAction(boulderRoute, 'zone')}
+                                    disabled={loading || score.attempts === 0 || score.is_locked}
+                                    className="px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 active:scale-95 transition-all disabled:opacity-50 font-semibold shadow-sm"
+                                  >
+                                    Zone
+                                  </button>
+                                )}
+                                {!score.reached_top && (
+                                  <button
+                                    onClick={() => handleBoulderAction(boulderRoute, 'top')}
+                                    disabled={loading || score.attempts === 0 || score.is_locked}
+                                    className="px-4 py-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 active:scale-95 transition-all disabled:opacity-50 font-semibold shadow-sm"
+                                  >
+                                    Top
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            {/* Finalize button - available when not finalized, can finalize even with only attempts (no zone/top required) */}
+                            {!score.is_finalized && (
                               <button
-                                onClick={() => handleBoulderAction(boulderRoute, 'zone')}
-                                disabled={loading || score.attempts === 0}
-                                className="px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50 font-semibold"
+                                onClick={() => handleBoulderAction(boulderRoute, 'finalize')}
+                                disabled={loading || score.attempts === 0 || score.is_locked}
+                                className="px-4 py-3 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 active:scale-95 transition-all disabled:opacity-50 font-semibold shadow-sm"
+                                title={score.attempts === 0 ? 'Tambahkan attempt terlebih dahulu' : 'Finalize score (dapat digunakan meskipun hanya attempt, tanpa zone/top)'}
                               >
-                                Zone
+                                Finalize
                               </button>
                             )}
-                            {!score.reached_top && (
-                              <button
-                                onClick={() => handleBoulderAction(boulderRoute, 'top')}
-                                disabled={loading || score.attempts === 0}
-                                className="px-4 py-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50 font-semibold"
-                              >
-                                Top
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleBoulderAction(boulderRoute, 'finalize')}
-                              disabled={loading || score.attempts === 0}
-                              className="px-4 py-3 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50 font-semibold"
-                            >
-                              Finalize
-                            </button>
+                            {/* Disqualify button - always available */}
                             <button
                               onClick={() => handleBoulderAction(boulderRoute, 'disqualify')}
                               disabled={loading}
-                              className="px-4 py-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50 font-semibold col-span-2"
+                              className="px-4 py-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 active:scale-95 transition-all disabled:opacity-50 font-semibold col-span-2 shadow-sm"
                             >
                               N/A (Diskualifikasi)
                             </button>
@@ -475,7 +634,7 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
                     
                     {/* Navigation Buttons for Route-based Mode */}
                     {boulderRoute && allClimbers.length > 1 && (
-                      <div className="mt-6 pt-4 border-t border-gray-200 flex items-center justify-between">
+                      <div className="mt-6 pt-4 border-t border-gray-200 flex items-center justify-between gap-2">
                         <button
                           onClick={() => {
                             if (onNavigateClimber) {
@@ -483,12 +642,13 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
                             }
                           }}
                           disabled={!onNavigateClimber}
-                          className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                          className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm sm:text-base shadow-sm"
                         >
-                          <ChevronLeft size={20} />
-                          Sebelumnya
+                          <ChevronLeft size={18} className="sm:w-5 sm:h-5" />
+                          <span className="hidden sm:inline">Sebelumnya</span>
+                          <span className="sm:hidden">Prev</span>
                         </button>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-xs sm:text-sm text-gray-600 text-center flex-1">
                           {(() => {
                             const currentIndex = allClimbers.findIndex(c => c.id === climber.id)
                             const totalUnjudged = allClimbers.filter(c => {
@@ -497,7 +657,12 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
                               const isFinalized = score.is_finalized === 1 || score.is_finalized === true
                               return !isFinalized
                             }).length
-                            return `${currentIndex + 1} / ${allClimbers.length} (${totalUnjudged} belum dinilai)`
+                            return (
+                              <>
+                                <span className="block sm:hidden">{currentIndex + 1}/{allClimbers.length}</span>
+                                <span className="hidden sm:block">{currentIndex + 1} / {allClimbers.length} ({totalUnjudged} belum dinilai)</span>
+                              </>
+                            )
                           })()}
                         </span>
                         <button
@@ -507,10 +672,11 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
                             }
                           }}
                           disabled={!onNavigateClimber}
-                          className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                          className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm sm:text-base shadow-sm"
                         >
-                          Selanjutnya
-                          <ChevronRight size={20} />
+                          <span className="hidden sm:inline">Selanjutnya</span>
+                          <span className="sm:hidden">Next</span>
+                          <ChevronRight size={18} className="sm:w-5 sm:h-5" />
                         </button>
                       </div>
                     )}
@@ -573,9 +739,9 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
                         {!score.is_finalized && !score.is_locked && (
                           <div className="flex flex-col gap-2 mt-3">
                             <button
-                              onClick={() => handleBoulderAction(boulderNum, 'attempt')}
+                              onClick={() => handleBoulderActionDebounced(boulderNum, 'attempt')}
                               disabled={loading}
-                              className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200 transition-colors disabled:opacity-50"
+                              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 active:scale-95 transition-all disabled:opacity-50 font-medium shadow-sm"
                             >
                               + Attempt
                             </button>
@@ -583,7 +749,7 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
                               <button
                                 onClick={() => handleBoulderAction(boulderNum, 'zone')}
                                 disabled={loading || score.attempts === 0}
-                                className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 transition-colors disabled:opacity-50"
+                                className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 active:scale-95 transition-all disabled:opacity-50 font-medium shadow-sm"
                               >
                                 Zone
                               </button>
@@ -592,11 +758,20 @@ function ScoreInputModal({ isOpen, onClose, climber, competition, onSuccess, bou
                               <button
                                 onClick={() => handleBoulderAction(boulderNum, 'top')}
                                 disabled={loading || score.attempts === 0}
-                                className="px-3 py-1.5 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200 transition-colors disabled:opacity-50"
+                                className="px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200 active:scale-95 transition-all disabled:opacity-50 font-medium shadow-sm"
                               >
                                 Top
                               </button>
                             )}
+                            {/* Finalize button - can finalize even with only attempts (no zone/top required) */}
+                            <button
+                              onClick={() => handleBoulderAction(boulderNum, 'finalize')}
+                              disabled={loading || score.attempts === 0}
+                              className="px-3 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm hover:bg-orange-200 active:scale-95 transition-all disabled:opacity-50 font-medium shadow-sm"
+                              title={score.attempts === 0 ? 'Tambahkan attempt terlebih dahulu' : 'Finalize score (dapat digunakan meskipun hanya attempt, tanpa zone/top)'}
+                            >
+                              Finalize
+                            </button>
                           </div>
                         )}
                       </div>

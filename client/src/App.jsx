@@ -1,34 +1,47 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 import PublicLayout from './components/PublicLayout'
 import DashboardLayout from './components/DashboardLayout'
 import ProtectedRoute from './components/ProtectedRoute'
-import LandingPage from './pages/LandingPage'
-import AboutPage from './pages/AboutPage'
-import AthletesPage from './pages/AthletesPage'
-import SchedulePage from './pages/SchedulePage'
-import NewsPage from './pages/NewsPage'
-import NewsDetailPage from './pages/NewsDetailPage'
-import ContactPage from './pages/ContactPage'
-import LiveScorePage from './pages/LiveScorePage'
-import SpeedScorePage from './pages/SpeedScorePage'
-import LiveScoreSelectorPage from './pages/LiveScoreSelectorPage'
-import BigScreenPage from './pages/BigScreenPage'
-import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import AthletesManagementPage from './pages/AthletesManagementPage'
-import CompetitionsManagementPage from './pages/CompetitionsManagementPage'
-import UsersManagementPage from './pages/UsersManagementPage'
-import JudgeInterfacePage from './pages/JudgeInterfacePage'
-import SchedulesManagementPage from './pages/SchedulesManagementPage'
-import NewsManagementPage from './pages/NewsManagementPage'
-import SettingsPage from './pages/SettingsPage'
-import ClimbersPhotoManagementPage from './pages/ClimbersPhotoManagementPage'
-import SpeedOverlay from './pages/SpeedOverlay'
-import SpeedLeaderboardOverlay from './pages/SpeedLeaderboardOverlay'
-import BoulderCurrentOverlay from './pages/BoulderCurrentOverlay'
-import BoulderTimerOverlay from './pages/BoulderTimerOverlay'
-import BoulderLeaderboardOverlay from './pages/BoulderLeaderboardOverlay'
+
+// Lazy load pages untuk code splitting dan mengurangi initial bundle size
+const LandingPage = lazy(() => import('./pages/LandingPage'))
+const AboutPage = lazy(() => import('./pages/AboutPage'))
+const AthletesPage = lazy(() => import('./pages/AthletesPage'))
+const SchedulePage = lazy(() => import('./pages/SchedulePage'))
+const NewsPage = lazy(() => import('./pages/NewsPage'))
+const NewsDetailPage = lazy(() => import('./pages/NewsDetailPage'))
+const ContactPage = lazy(() => import('./pages/ContactPage'))
+const LiveScorePage = lazy(() => import('./pages/LiveScorePage'))
+const SpeedScorePage = lazy(() => import('./pages/SpeedScorePage'))
+const LiveScoreSelectorPage = lazy(() => import('./pages/LiveScoreSelectorPage'))
+const BigScreenPage = lazy(() => import('./pages/BigScreenPage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const AthletesManagementPage = lazy(() => import('./pages/AthletesManagementPage'))
+const CompetitionsManagementPage = lazy(() => import('./pages/CompetitionsManagementPage'))
+const UsersManagementPage = lazy(() => import('./pages/UsersManagementPage'))
+const JudgeInterfacePage = lazy(() => import('./pages/JudgeInterfacePage'))
+const BoulderRouteJudgingPage = lazy(() => import('./pages/BoulderRouteJudgingPage'))
+const SchedulesManagementPage = lazy(() => import('./pages/SchedulesManagementPage'))
+const NewsManagementPage = lazy(() => import('./pages/NewsManagementPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const ClimbersPhotoManagementPage = lazy(() => import('./pages/ClimbersPhotoManagementPage'))
+const ClimbersManagementPage = lazy(() => import('./pages/ClimbersManagementPage'))
+const SpeedOverlay = lazy(() => import('./pages/SpeedOverlay'))
+const SpeedLeaderboardOverlay = lazy(() => import('./pages/SpeedLeaderboardOverlay'))
+const BoulderCurrentOverlay = lazy(() => import('./pages/BoulderCurrentOverlay'))
+const BoulderTimerOverlay = lazy(() => import('./pages/BoulderTimerOverlay'))
+const BoulderLeaderboardOverlay = lazy(() => import('./pages/BoulderLeaderboardOverlay'))
+
 import './App.css'
+
+// Loading component untuk suspense fallback
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+  </div>
+)
 
 function App() {
   return (
@@ -38,7 +51,8 @@ function App() {
         v7_relativeSplatPath: true,
       }}
     >
-      <Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
         {/* Public Routes */}
         <Route path="/" element={<PublicLayout><LandingPage /></PublicLayout>} />
         <Route path="/tentang" element={<PublicLayout><AboutPage /></PublicLayout>} />
@@ -94,6 +108,16 @@ function App() {
           } 
         />
         <Route 
+          path="/dashboard/climbers" 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <ClimbersManagementPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
           path="/dashboard/users" 
           element={
             <ProtectedRoute>
@@ -119,6 +143,15 @@ function App() {
           element={
             <ProtectedRoute>
               <JudgeInterfacePage />
+            </ProtectedRoute>
+          } 
+        />
+        {/* Boulder Route Judging Page - Mobile Optimized */}
+        <Route 
+          path="/judge-interface/boulder/:competitionId/route/:routeNumber" 
+          element={
+            <ProtectedRoute>
+              <BoulderRouteJudgingPage />
             </ProtectedRoute>
           } 
         />
@@ -164,6 +197,7 @@ function App() {
         {/* 404 */}
         <Route path="*" element={<PublicLayout><LandingPage /></PublicLayout>} />
       </Routes>
+      </Suspense>
     </Router>
   )
 }

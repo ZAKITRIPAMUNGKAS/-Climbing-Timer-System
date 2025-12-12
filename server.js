@@ -9,6 +9,10 @@
     const bcrypt = require('bcryptjs');
     const session = require('express-session');
     const MySQLStore = require('express-mysql-session')(session);
+    const rateLimit = require('express-rate-limit');
+    const { validateIntParam, validateParams } = require('./server/utils/paramValidator');
+    const { errorHandler, logError } = require('./server/utils/errorHandler');
+    const { cacheMiddleware, invalidateCache } = require('./server/utils/cache');
     require('dotenv').config();
     // const { SerialPort } = require('serialport'); // Uncomment ketika hardware ready
 
@@ -17,8 +21,22 @@
     const io = socketIo(server);
 
     // Middleware
-    app.use(express.json());
-    app.use(express.urlencoded({ extended: true }));
+    // Compression untuk mengurangi ukuran response (gzip/brotli)
+    const compression = require('compression');
+    app.use(compression({
+        level: 6, // Level kompresi (1-9, 6 adalah balance yang baik)
+        filter: (req, res) => {
+            // Jangan compress jika client tidak support atau untuk file tertentu
+            if (req.headers['x-no-compression']) {
+                return false;
+            }
+            // Compress semua response kecuali file binary yang sudah di-compress
+            return compression.filter(req, res);
+        }
+    }));
+    
+    app.use(express.json({ limit: '10mb' })); // Limit JSON payload size
+    app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     const fs = require('fs');
 
     // ============================================
@@ -41,6 +59,28 @@
     };
 
     const pool = mysql.createPool(dbConfig);
+
+    // Connection pool monitoring
+    pool.on('connection', (connection) => {
+        console.log('[DB] New connection established:', connection.threadId);
+    });
+
+    pool.on('error', (err) => {
+        console.error('[DB] Pool error:', err);
+        if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+            console.log('[DB] Attempting to reconnect...');
+        }
+    });
+
+    // Log pool statistics periodically (every 5 minutes)
+    setInterval(() => {
+        const poolStats = {
+            totalConnections: pool.pool._allConnections.length,
+            freeConnections: pool.pool._freeConnections.length,
+            queuedRequests: pool.pool._connectionQueue.length
+        };
+        console.log('[DB] Pool stats:', poolStats);
+    }, 300000); // 5 minutes
 
     // MySQL Session Store configuration for production
     const sessionStore = new MySQLStore({
@@ -164,20 +204,135 @@
         fileFilter: csvFileFilter
     });
 
-    // Serve uploaded files
+    // Serve uploaded files dengan caching headers
+    // IMPORTANT: This must be before other static middleware
     app.use('/uploads', (req, res, next) => {
-        const filePath = path.join(uploadsDir, req.path);
-        
-        // Check if file exists
-        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-            // File exists, serve it
-            return express.static(uploadsDir)(req, res, next);
+        // Log request for debugging
+        console.log(`[STATIC] Upload request: ${req.path}`);
+        next();
+    }, express.static(uploadsDir, {
+        maxAge: '1d', // Cache untuk 1 hari
+        etag: true,
+        lastModified: true,
+        setHeaders: (res, filePath) => {
+            // Set proper content type untuk images
+            if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
+                res.setHeader('Content-Type', 'image/jpeg');
+            } else if (filePath.endsWith('.png')) {
+                res.setHeader('Content-Type', 'image/png');
+            } else if (filePath.endsWith('.gif')) {
+                res.setHeader('Content-Type', 'image/gif');
+            } else if (filePath.endsWith('.webp')) {
+                res.setHeader('Content-Type', 'image/webp');
+            }
+            // Cache headers
+            res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+        },
+        fallthrough: false // Don't fall through if file not found
+    }));
+    
+    // Serve static files dengan caching
+    // JANGAN serve index.html dari public folder (itu untuk timer system)
+    // Route handler akan handle routing untuk React app
+    app.use(express.static(path.join(__dirname, 'public'), {
+        index: false, // Jangan serve index.html otomatis
+        maxAge: '1d', // Cache static files untuk 1 hari
+        etag: true,
+        lastModified: true,
+        setHeaders: (res, filePath) => {
+            // Jangan serve HTML files dari public folder (kecuali yang di-handle oleh route handler)
+            if (path.extname(filePath) === '.html') {
+                return; // Skip HTML files, let route handlers serve them
+            }
+            // Cache lebih lama untuk assets yang tidak berubah
+            if (filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.woff2')) {
+                res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); // 1 tahun untuk assets
+            } else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg') || filePath.endsWith('.png') || filePath.endsWith('.gif') || filePath.endsWith('.webp')) {
+                res.setHeader('Cache-Control', 'public, max-age=86400, immutable'); // 1 hari untuk images
+            }
         }
-        
-        // File doesn't exist - log warning but don't break the app
-        console.warn(`[STATIC] Image not found: /uploads${req.path}`);
-        res.status(404).send('Image not found');
+    }));
+
+    // Block direct access to public/index.html (timer system should be accessed via /timersistem)
+    // This prevents the timer system page from being served when accessing root
+    app.use((req, res, next) => {
+        if (req.path === '/index.html' || req.path === '/index') {
+            // Redirect to timer system if they explicitly want index.html
+            if (req.path === '/index.html') {
+                return res.redirect('/timersistem');
+            }
+            // If they're trying to access /index, let the route handler for / handle it
+            return next();
+        }
+        next();
     });
+
+    // ============================================
+    // RATE LIMITING
+    // ============================================
+    // General API rate limiter
+    const apiLimiter = rateLimit({
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 2000, // Significantly increased: 2000 requests per 15 minutes (for multiple judges and participants)
+        message: 'Too many requests from this IP, please try again later.',
+        standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+        legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+        skip: (req) => {
+            // Skip rate limiting for static files and check-auth (called frequently)
+            // Also skip boulder batch endpoint (has its own limiter)
+            return req.path.startsWith('/uploads/') || 
+                   req.path.startsWith('/sounds/') ||
+                   req.path.startsWith('/react-build/') ||
+                   req.path === '/api/check-auth' ||
+                   req.path.includes('/boulders/batch'); // Skip - has dedicated limiter
+        }
+    });
+
+    // Stricter rate limiter for authentication endpoints
+    const authLimiter = rateLimit({
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 5, // Limit each IP to 5 login attempts per 15 minutes
+        message: 'Too many login attempts, please try again later.',
+        standardHeaders: true,
+        legacyHeaders: false,
+        skipSuccessfulRequests: true // Don't count successful requests
+    });
+
+    // Rate limiter for upload endpoints (more restrictive)
+    const uploadLimiter = rateLimit({
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 20, // Limit each IP to 20 uploads per 15 minutes
+        message: 'Too many upload requests, please try again later.',
+        standardHeaders: true,
+        legacyHeaders: false
+    });
+
+    // Rate limiter for bulk operations
+    const bulkLimiter = rateLimit({
+        windowMs: 60 * 60 * 1000, // 1 hour
+        max: 10, // Limit each IP to 10 bulk operations per hour
+        message: 'Too many bulk operations, please try again later.',
+        standardHeaders: true,
+        legacyHeaders: false
+    });
+
+    // More lenient rate limiter for read-only boulder score endpoints (frequently accessed)
+    const boulderScoreReadLimiter = rateLimit({
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 3000, // Very high limit: 3000 requests per 15 minutes for read operations (multiple judges refreshing scores)
+        message: 'Too many requests from this IP, please try again later.',
+        standardHeaders: true,
+        legacyHeaders: false,
+        skip: (req) => {
+            // Skip rate limiting for static files
+            return req.path.startsWith('/uploads/') || 
+                   req.path.startsWith('/sounds/') ||
+                   req.path.startsWith('/react-build/');
+        }
+    });
+
+    // Apply general rate limiting to all API routes
+    app.use('/api/', apiLimiter);
 
     // ============================================
     // AUTHENTICATION MIDDLEWARE
@@ -188,6 +343,40 @@
         } else {
             return res.status(401).json({ error: 'Unauthorized. Please login first.' });
         }
+    }
+
+    // ============================================
+    // HTML SANITIZATION HELPER
+    // ============================================
+    // Basic HTML sanitization to prevent malicious content
+    // Full sanitization happens on client-side with DOMPurify
+    function sanitizeHtmlContent(html) {
+        if (!html || typeof html !== 'string') {
+            return '';
+        }
+
+        // Limit content length to prevent DoS (max 1MB of HTML)
+        if (html.length > 1000000) {
+            console.warn('[SANITIZE] HTML content too long, truncating');
+            html = html.substring(0, 1000000);
+        }
+
+        // Remove script tags and event handlers (basic protection)
+        let cleaned = html
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+            .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+            .replace(/on\w+\s*=\s*[^\s>]*/gi, '')
+            .replace(/javascript:/gi, '')
+            .replace(/data:text\/html/gi, '')
+            .replace(/vbscript:/gi, '');
+
+        // Remove iframe and object tags that could be dangerous
+        cleaned = cleaned
+            .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+            .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+            .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '');
+
+        return cleaned;
     }
 
     // ============================================
@@ -1043,11 +1232,19 @@
                 return res.status(400).json({ error: 'Image is required' });
             }
 
+            // Sanitize HTML content before saving
+            const sanitizedDescription = sanitizeHtmlContent(description || '');
+            
+            // Validate title length
+            if (title.length > 500) {
+                return res.status(400).json({ error: 'Title terlalu panjang (maksimal 500 karakter)' });
+            }
+
             const image = `/uploads/${req.file.filename}`;
 
             const [result] = await pool.execute(
                 'INSERT INTO news (title, category, color, date, description, image) VALUES (?, ?, ?, ?, ?, ?)',
-                [title, category, color || 'crimson', date, description || '', image]
+                [title.trim(), category.trim(), color || 'crimson', date, sanitizedDescription, image]
             );
 
             const [news] = await pool.execute('SELECT * FROM news WHERE id = ?', [result.insertId]);
@@ -1063,6 +1260,14 @@
             const { title, category, color, date, description, existingImage } = req.body;
             let image = existingImage || null;
 
+            // Sanitize HTML content before saving
+            const sanitizedDescription = sanitizeHtmlContent(description || '');
+            
+            // Validate title length
+            if (title && title.length > 500) {
+                return res.status(400).json({ error: 'Title terlalu panjang (maksimal 500 karakter)' });
+            }
+
             if (req.file) {
                 // Delete old image if exists
                 if (existingImage) {
@@ -1076,7 +1281,7 @@
 
             const [result] = await pool.execute(
                 'UPDATE news SET title = ?, category = ?, color = ?, date = ?, description = ?, image = ? WHERE id = ?',
-                [title, category, color, date, description || '', image, req.params.id]
+                [title?.trim() || '', category?.trim() || '', color || 'crimson', date, sanitizedDescription, image, req.params.id]
             );
 
             if (result.affectedRows === 0) {
@@ -1132,13 +1337,19 @@
     // API ENDPOINTS - LIVE SCORE BOULDER SYSTEM
     // ============================================
 
-    // Get all competitions
-    app.get('/api/competitions', async (req, res) => {
+    // Get all competitions (with caching - 2 minutes)
+    app.get('/api/competitions', cacheMiddleware(120000, (req) => `cache:competitions:all`), async (req, res) => {
         try {
-            const [competitions] = await pool.execute('SELECT * FROM competitions ORDER BY created_at DESC');
+            // Format event_date as YYYY-MM-DD string to avoid timezone issues
+            const [competitions] = await pool.execute(
+                `SELECT id, name, status, total_boulders, location, 
+                        COALESCE(DATE_FORMAT(event_date, '%Y-%m-%d'), NULL) as event_date, 
+                        round, created_at, updated_at 
+                 FROM competitions ORDER BY created_at DESC`
+            );
             res.json(competitions);
         } catch (error) {
-            console.error('[API] Error fetching competitions:', error);
+            logError(error, 'Fetch competitions');
             res.status(500).json({ error: 'Failed to fetch competitions' });
         }
     });
@@ -1147,7 +1358,14 @@
     app.get('/api/competitions/active', async (req, res) => {
         console.log('[API] GET /api/competitions/active requested');
         try {
-            const [competitions] = await pool.execute('SELECT * FROM competitions WHERE status = ? ORDER BY created_at DESC LIMIT 1', ['active']);
+            // Format event_date as YYYY-MM-DD string to avoid timezone issues
+            const [competitions] = await pool.execute(
+                `SELECT id, name, status, total_boulders, location, 
+                        COALESCE(DATE_FORMAT(event_date, '%Y-%m-%d'), NULL) as event_date, 
+                        round, created_at, updated_at 
+                 FROM competitions WHERE status = ? ORDER BY created_at DESC LIMIT 1`, 
+                ['active']
+            );
             console.log('[API] Active competitions found:', competitions.length);
             if (competitions.length === 0) {
                 console.log('[API] No active competition found');
@@ -1164,7 +1382,14 @@
     // Get competition by ID (MUST be after /api/competitions/active)
     app.get('/api/competitions/:id', async (req, res) => {
         try {
-            const [competitions] = await pool.execute('SELECT * FROM competitions WHERE id = ?', [req.params.id]);
+            // Format event_date as YYYY-MM-DD string to avoid timezone issues
+            const [competitions] = await pool.execute(
+                `SELECT id, name, status, total_boulders, location, 
+                        COALESCE(DATE_FORMAT(event_date, '%Y-%m-%d'), NULL) as event_date, 
+                        round, created_at, updated_at 
+                 FROM competitions WHERE id = ?`, 
+                [req.params.id]
+            );
             if (competitions.length === 0) {
                 return res.status(404).json({ error: 'Competition not found' });
             }
@@ -1178,50 +1403,106 @@
     // Create competition (Admin only)
     app.post('/api/competitions', requireAuth, async (req, res) => {
         try {
-            const { name, total_boulders, status } = req.body;
+            const { name, total_boulders, status, location, event_date, round } = req.body;
             
             if (!name) {
                 return res.status(400).json({ error: 'Competition name is required' });
             }
 
+            // Normalize event_date to prevent timezone issues - extract only YYYY-MM-DD part
+            let normalizedEventDate = null;
+            if (event_date && typeof event_date === 'string' && event_date.trim()) {
+                const dateStr = event_date.trim().split('T')[0]; // Extract date part only (YYYY-MM-DD)
+                // Validate date format (YYYY-MM-DD)
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                    normalizedEventDate = dateStr;
+                }
+            }
+
             const [result] = await pool.execute(
-                'INSERT INTO competitions (name, total_boulders, status) VALUES (?, ?, ?)',
-                [name, total_boulders || 4, status || 'active']
+                'INSERT INTO competitions (name, total_boulders, status, location, event_date, round) VALUES (?, ?, ?, ?, ?, ?)',
+                [name, total_boulders || 4, status || 'active', location || null, normalizedEventDate, round || 'qualification']
             );
 
-            const [competitions] = await pool.execute('SELECT * FROM competitions WHERE id = ?', [result.insertId]);
+            // Format event_date as YYYY-MM-DD string to avoid timezone issues
+            const [competitions] = await pool.execute(
+                `SELECT id, name, status, total_boulders, location, 
+                        COALESCE(DATE_FORMAT(event_date, '%Y-%m-%d'), NULL) as event_date, 
+                        round, created_at, updated_at 
+                 FROM competitions WHERE id = ?`, 
+                [result.insertId]
+            );
             if (competitions.length === 0) {
                 return res.status(500).json({ error: 'Failed to retrieve created competition' });
             }
+            // Invalidate competitions cache
+            invalidateCache('cache:competitions:*');
             res.status(201).json(competitions[0]);
         } catch (error) {
             console.error('[API] Error creating competition:', error);
-            res.status(500).json({ error: 'Failed to create competition' });
+            const errorMessage = error.sqlMessage || error.message || 'Failed to create competition';
+            res.status(500).json({ 
+                error: errorMessage,
+                details: process.env.NODE_ENV === 'development' ? {
+                    message: error.message,
+                    sqlMessage: error.sqlMessage,
+                    code: error.code
+                } : undefined
+            });
         }
     });
 
     // Update competition (Admin only)
     app.put('/api/competitions/:id', requireAuth, async (req, res) => {
         try {
-            const { name, status, total_boulders } = req.body;
+            const { name, status, total_boulders, location, event_date, round } = req.body;
+
+            // Normalize event_date to prevent timezone issues - extract only YYYY-MM-DD part
+            let normalizedEventDate = null;
+            if (event_date && typeof event_date === 'string' && event_date.trim()) {
+                const dateStr = event_date.trim().split('T')[0]; // Extract date part only (YYYY-MM-DD)
+                // Validate date format (YYYY-MM-DD)
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                    normalizedEventDate = dateStr;
+                }
+            }
 
             const [result] = await pool.execute(
-                'UPDATE competitions SET name = ?, status = ?, total_boulders = ? WHERE id = ?',
-                [name, status, total_boulders, req.params.id]
+                'UPDATE competitions SET name = ?, status = ?, total_boulders = ?, location = ?, event_date = ?, round = ? WHERE id = ?',
+                [name, status, total_boulders, location || null, normalizedEventDate, round || 'qualification', req.params.id]
             );
 
             if (result.affectedRows === 0) {
                 return res.status(404).json({ error: 'Competition not found' });
             }
 
-            const [competitions] = await pool.execute('SELECT * FROM competitions WHERE id = ?', [req.params.id]);
+            // Invalidate competitions cache after update (both wildcard and specific key)
+            invalidateCache('cache:competitions:*');
+            invalidateCache('cache:competitions:all');
+
+            // Format event_date as YYYY-MM-DD string to avoid timezone issues
+            const [competitions] = await pool.execute(
+                `SELECT id, name, status, total_boulders, location, 
+                        COALESCE(DATE_FORMAT(event_date, '%Y-%m-%d'), NULL) as event_date, 
+                        round, created_at, updated_at 
+                 FROM competitions WHERE id = ?`, 
+                [req.params.id]
+            );
             if (competitions.length === 0) {
                 return res.status(404).json({ error: 'Competition not found' });
             }
             res.json(competitions[0]);
         } catch (error) {
             console.error('[API] Error updating competition:', error);
-            res.status(500).json({ error: 'Failed to update competition' });
+            const errorMessage = error.sqlMessage || error.message || 'Failed to update competition';
+            res.status(500).json({ 
+                error: errorMessage,
+                details: process.env.NODE_ENV === 'development' ? {
+                    message: error.message,
+                    sqlMessage: error.sqlMessage,
+                    code: error.code
+                } : undefined
+            });
         }
     });
 
@@ -1232,15 +1513,32 @@
             if (result.affectedRows === 0) {
                 return res.status(404).json({ error: 'Competition not found' });
             }
+            // Invalidate competitions cache
+            invalidateCache('cache:competitions:*');
             res.json({ message: 'Competition deleted successfully' });
         } catch (error) {
             console.error('[API] Error deleting competition:', error);
-            res.status(500).json({ error: 'Failed to delete competition' });
+            const errorMessage = error.sqlMessage || error.message || 'Failed to delete competition';
+            // Check if it's a foreign key constraint error
+            if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.errno === 1451) {
+                return res.status(400).json({ 
+                    error: 'Cannot delete competition: There are related records (climbers, scores, etc.) that must be deleted first',
+                    details: errorMessage
+                });
+            }
+            res.status(500).json({ 
+                error: errorMessage,
+                details: process.env.NODE_ENV === 'development' ? {
+                    message: error.message,
+                    sqlMessage: error.sqlMessage,
+                    code: error.code
+                } : undefined
+            });
         }
     });
 
-    // Get climbers for a competition
-    app.get('/api/competitions/:id/climbers', async (req, res) => {
+    // Get climbers for a competition (with caching - 1 minute, invalidate on update)
+    app.get('/api/competitions/:id/climbers', cacheMiddleware(60000, (req) => `cache:competitions:${req.params.id}:climbers`), async (req, res) => {
         try {
             const [climbers] = await pool.execute(
                 'SELECT * FROM climbers WHERE competition_id = ? ORDER BY bib_number ASC',
@@ -1248,7 +1546,7 @@
             );
             res.json(climbers);
         } catch (error) {
-            console.error('[API] Error fetching climbers:', error);
+            logError(error, 'Fetch climbers', { competitionId: req.params.id });
             res.status(500).json({ error: 'Failed to fetch climbers' });
         }
     });
@@ -1268,18 +1566,20 @@
             );
 
             const [climbers] = await pool.execute('SELECT * FROM climbers WHERE id = ?', [result.insertId]);
+            // Invalidate climbers cache for this competition
+            invalidateCache(`cache:competitions:${req.params.id}:climbers`);
             res.status(201).json(climbers[0]);
         } catch (error) {
             if (error.code === 'ER_DUP_ENTRY') {
                 return res.status(400).json({ error: 'Bib number already exists in this competition' });
             }
-            console.error('[API] Error creating climber:', error);
+            logError(error, 'Create climber', { competitionId: req.params.id });
             res.status(500).json({ error: 'Failed to create climber' });
         }
     });
 
     // Bulk upload climbers for boulder competition (CSV/Excel)
-    app.post('/api/competitions/:id/climbers/bulk-upload', requireAuth, (req, res, next) => {
+    app.post('/api/competitions/:id/climbers/bulk-upload', requireAuth, bulkLimiter, (req, res, next) => {
         console.log('[API] Bulk upload request received:', req.path, 'Competition ID:', req.params.id);
         uploadCSV.single('file')(req, res, (err) => {
             if (err) {
@@ -1432,6 +1732,76 @@
         }
     });
 
+    // Get climber photo (Public endpoint)
+    app.get('/api/competitions/:competitionId/climbers/:climberId/photo', async (req, res) => {
+        try {
+            const { competitionId, climberId } = req.params;
+
+            // Check if climber exists and belongs to competition
+            const [climbers] = await pool.execute(
+                'SELECT * FROM climbers WHERE id = ? AND competition_id = ?',
+                [climberId, competitionId]
+            );
+
+            if (climbers.length === 0) {
+                console.warn(`[API] Photo request: Climber not found - Competition ID: ${competitionId}, Climber ID: ${climberId}`);
+                return res.status(404).json({ error: 'Climber not found' });
+            }
+
+            const climber = climbers[0];
+
+            // Check if climber has a photo
+            if (!climber.photo) {
+                console.warn(`[API] Photo request: No photo in database - Competition ID: ${competitionId}, Climber ID: ${climberId}`);
+                return res.status(404).json({ error: 'Photo not found' });
+            }
+
+            // Construct file path and validate it's within public directory (security check)
+            const normalizedPhotoPath = path.normalize(climber.photo).replace(/^(\.\.(\/|\\|$))+/, '');
+            const photoPath = path.join(__dirname, 'public', normalizedPhotoPath);
+            const publicDir = path.join(__dirname, 'public');
+            
+            // Security check: ensure the resolved path is within public directory
+            if (!photoPath.startsWith(publicDir)) {
+                console.error(`[API] Photo request: Security violation - Path traversal attempt - Path: ${climber.photo}`);
+                return res.status(400).json({ error: 'Invalid photo path' });
+            }
+
+            // Check if file exists
+            if (!fs.existsSync(photoPath)) {
+                console.error(`[API] Photo request: File not found on disk - Path: ${photoPath}, Database path: ${climber.photo}`);
+                console.error(`[API] Photo request: Competition ID: ${competitionId}, Climber ID: ${climberId}, Climber name: ${climber.name}`);
+                return res.status(404).json({ 
+                    error: 'Photo file not found',
+                    message: 'Photo path exists in database but file is missing on server'
+                });
+            }
+
+            // Check if it's actually a file (not a directory)
+            const stats = fs.statSync(photoPath);
+            if (!stats.isFile()) {
+                console.error(`[API] Photo request: Path is not a file - Path: ${photoPath}`);
+                return res.status(500).json({ error: 'Invalid photo path' });
+            }
+
+            // Send the file
+            console.log(`[API] Photo request: Successfully serving photo - Competition ID: ${competitionId}, Climber ID: ${climberId}, Path: ${climber.photo}`);
+            res.sendFile(photoPath);
+        } catch (error) {
+            console.error('[API] Error fetching climber photo:', error);
+            console.error('[API] Error details:', {
+                message: error.message,
+                stack: error.stack,
+                competitionId: req.params.competitionId,
+                climberId: req.params.climberId
+            });
+            res.status(500).json({ 
+                error: 'Failed to fetch photo',
+                message: error.message 
+            });
+        }
+    });
+
     // Upload/Update climber photo (Admin only)
     app.put('/api/competitions/:competitionId/climbers/:climberId/photo', requireAuth, upload.single('photo'), async (req, res) => {
         try {
@@ -1466,19 +1836,44 @@
             }
 
             // Update climber photo
-            await pool.execute(
-                'UPDATE climbers SET photo = ? WHERE id = ?',
-                [photoPath, climberId]
-            );
+            // Check if photo column exists first
+            try {
+                await pool.execute(
+                    'UPDATE climbers SET photo = ? WHERE id = ?',
+                    [photoPath, climberId]
+                );
+            } catch (error) {
+                if (error.code === 'ER_BAD_FIELD_ERROR' && error.sqlMessage && error.sqlMessage.includes('photo')) {
+                    console.error('[API] Photo column does not exist. Please run migration: node run_migration_photo.js');
+                    if (req.file && fs.existsSync(req.file.path)) {
+                        fs.unlinkSync(req.file.path);
+                    }
+                    return res.status(500).json({ 
+                        error: 'Photo column not found', 
+                        message: 'Please run migration: node run_migration_photo.js' 
+                    });
+                }
+                throw error;
+            }
 
             const [updated] = await pool.execute('SELECT * FROM climbers WHERE id = ?', [climberId]);
             res.json(updated[0]);
         } catch (error) {
             console.error('[API] Error uploading climber photo:', error);
+            console.error('[API] Error details:', {
+                message: error.message,
+                code: error.code,
+                sqlMessage: error.sqlMessage,
+                competitionId: req.params.competitionId,
+                climberId: req.params.climberId
+            });
             if (req.file && fs.existsSync(req.file.path)) {
                 fs.unlinkSync(req.file.path);
             }
-            res.status(500).json({ error: 'Failed to upload photo' });
+            res.status(500).json({ 
+                error: 'Failed to upload photo',
+                message: error.message 
+            });
         }
     });
 
@@ -1508,10 +1903,18 @@
             }
 
             // Update climber photo to NULL
-            await pool.execute(
-                'UPDATE climbers SET photo = NULL WHERE id = ?',
-                [climberId]
-            );
+            try {
+                await pool.execute(
+                    'UPDATE climbers SET photo = NULL WHERE id = ?',
+                    [climberId]
+                );
+            } catch (error) {
+                if (error.code === 'ER_BAD_FIELD_ERROR' && error.sqlMessage.includes('photo')) {
+                    console.error('[API] Photo column does not exist. Please run migration: node run_migration_photo.js');
+                    throw new Error('Photo column not found. Please run migration: node run_migration_photo.js');
+                }
+                throw error;
+            }
 
             const [updated] = await pool.execute('SELECT * FROM climbers WHERE id = ?', [climberId]);
             res.json(updated[0]);
@@ -1591,8 +1994,12 @@
             );
             
             // Get competition to know total boulders
+            // Format event_date as YYYY-MM-DD string to avoid timezone issues
             const [competitions] = await pool.execute(
-                'SELECT * FROM competitions WHERE id = ?',
+                `SELECT id, name, status, total_boulders, location, 
+                        COALESCE(DATE_FORMAT(event_date, '%Y-%m-%d'), NULL) as event_date, 
+                        round, created_at, updated_at 
+                 FROM competitions WHERE id = ?`,
                 [req.params.id]
             );
             
@@ -1696,8 +2103,184 @@
         }
     });
 
+    // Generate final round from qualification (Admin only)
+    // For Boulder: Creates a new competition with round='final' and copies qualified climbers (top 8 + ties)
+    // Directly from qualification to final (no semifinal for boulder)
+    app.post('/api/competitions/:id/generate-final', requireAuth, async (req, res) => {
+        try {
+            const qualificationId = parseInt(req.params.id);
+            const { topCount = 8 } = req.body; // Default top 8, can be customized
+            
+            // Use transaction to ensure all-or-nothing operation
+            const result = await withTransaction(pool, async (connection) => {
+                // Get qualification competition
+                const [qualificationComps] = await connection.execute(
+                    'SELECT * FROM competitions WHERE id = ? AND round = ?',
+                    [qualificationId, 'qualification']
+                );
+                
+                if (qualificationComps.length === 0) {
+                    throw new Error('Qualification competition not found or is not a qualification round');
+                }
+                
+                const qualificationComp = qualificationComps[0];
+                
+                // Check if final already exists
+                const [existingFinals] = await connection.execute(
+                    'SELECT * FROM competitions WHERE name LIKE ? AND round = ?',
+                    [`%${qualificationComp.name}%`, 'final']
+                );
+                
+                if (existingFinals.length > 0) {
+                    throw new Error('Final round already exists for this qualification');
+                }
+                
+                // Get leaderboard from qualification
+                const [climbers] = await connection.execute(
+                    'SELECT * FROM climbers WHERE competition_id = ? ORDER BY bib_number ASC',
+                    [qualificationId]
+                );
+                
+                const [scores] = await connection.execute(
+                    'SELECT * FROM scores WHERE competition_id = ? ORDER BY climber_id, boulder_number ASC',
+                    [qualificationId]
+                );
+                
+                const totalBoulders = qualificationComp.total_boulders || 4;
+                
+                // Calculate leaderboard (same logic as GET /api/competitions/:id/leaderboard)
+                const leaderboard = climbers.map(climber => {
+                    const climberScores = scores.filter(s => s.climber_id === climber.id);
+                    let totalScore = 0;
+                    
+                    for (let i = 1; i <= totalBoulders; i++) {
+                        const score = climberScores.find(s => s.boulder_number === i);
+                        const isDisqualified = score ? (score.is_disqualified === 1 || score.is_disqualified === true) : false;
+                        if (isDisqualified) continue;
+                        
+                        const isTop = score ? (score.reached_top === 1 || score.reached_top === true) : false;
+                        const topAttempts = score && score.top_attempt ? score.top_attempt : 0;
+                        const isZone = score ? (score.reached_zone === 1 || score.reached_zone === true) : false;
+                        const zoneAttempts = score && score.zone_attempt ? score.zone_attempt : 0;
+                        const calculatedPoints = calculateBoulderScore(isTop, topAttempts, isZone, zoneAttempts);
+                        totalScore += calculatedPoints;
+                    }
+                    
+                    return {
+                        id: climber.id,
+                        name: climber.name,
+                        bib_number: climber.bib_number,
+                        team: climber.team || '',
+                        totalScore: parseFloat(totalScore.toFixed(1))
+                    };
+                });
+                
+                // Sort by totalScore DESC
+                leaderboard.sort((a, b) => b.totalScore - a.totalScore);
+                
+                // Assign ranks
+                leaderboard.forEach((climber, index) => {
+                    climber.rank = index + 1;
+                });
+                
+                // Get top 8 + ties (same logic as PDF cutoff)
+                let qualifiedCount = topCount;
+                if (leaderboard.length > topCount - 1) {
+                    const cutoffClimber = leaderboard[topCount - 1];
+                    const cutoffScore = cutoffClimber.totalScore;
+                    
+                    // Find all climbers with same score as cutoff
+                    for (let i = topCount; i < leaderboard.length; i++) {
+                        if (leaderboard[i].totalScore === cutoffScore) {
+                            qualifiedCount++;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                
+                const qualifiedClimbers = leaderboard.slice(0, qualifiedCount);
+                
+                if (qualifiedClimbers.length < 2) {
+                    throw new Error(`Need at least 2 qualified climbers. Found ${qualifiedClimbers.length}`);
+                }
+                
+                // Create final competition
+                const finalName = `${qualificationComp.name} - Final`;
+                const [finalResult] = await connection.execute(
+                    'INSERT INTO competitions (name, status, total_boulders, location, event_date, round) VALUES (?, ?, ?, ?, ?, ?)',
+                    [
+                        finalName,
+                        'active',
+                        qualificationComp.total_boulders || 4,
+                        qualificationComp.location || null,
+                        qualificationComp.event_date || null,
+                        'final'
+                    ]
+                );
+                
+                const finalCompetitionId = finalResult.insertId;
+                
+                // Copy qualified climbers to final competition
+                for (const climber of qualifiedClimbers) {
+                    // Get original climber data
+                    const originalClimber = climbers.find(c => c.id === climber.id);
+                    if (!originalClimber) continue;
+                    
+                    await connection.execute(
+                        'INSERT INTO climbers (competition_id, name, bib_number, team) VALUES (?, ?, ?, ?)',
+                        [finalCompetitionId, originalClimber.name, originalClimber.bib_number, originalClimber.team || '']
+                    );
+                }
+                
+                // Get created final competition with formatted event_date
+                const [finalComps] = await connection.execute(
+                    `SELECT id, name, status, total_boulders, location, 
+                            COALESCE(DATE_FORMAT(event_date, '%Y-%m-%d'), NULL) as event_date, 
+                            round, created_at, updated_at 
+                     FROM competitions WHERE id = ?`,
+                    [finalCompetitionId]
+                );
+                
+                return {
+                    finalCompetition: finalComps[0],
+                    qualifiedCount: qualifiedClimbers.length,
+                    qualifiedClimbers: qualifiedClimbers.map(c => ({
+                        rank: c.rank,
+                        name: c.name,
+                        bib_number: c.bib_number,
+                        totalScore: c.totalScore
+                    }))
+                };
+            });
+            
+            // Emit WebSocket event
+            io.emit('competition-updated', {
+                competition_id: qualificationId,
+                action: 'final_generated'
+            });
+            
+            res.json({
+                success: true,
+                message: `Final round created with ${result.qualifiedCount} qualified climbers (top ${topCount} + ties)`,
+                finalCompetition: result.finalCompetition,
+                qualifiedClimbers: result.qualifiedClimbers
+            });
+        } catch (error) {
+            console.error('[API] Error generating final round:', error);
+            const statusCode = error.message.includes('not found') || 
+                            error.message.includes('already exists') || 
+                            error.message.includes('Need at least') ? 400 : 500;
+            res.status(statusCode).json({ error: 'Failed to generate final round: ' + error.message });
+        }
+    });
+
     // Get score for a specific climber and boulder
-    app.get('/api/competitions/:competitionId/climbers/:climberId/boulders/:boulderNumber', async (req, res) => {
+    // Uses more lenient rate limiter and caching for frequently accessed endpoint
+    app.get('/api/competitions/:competitionId/climbers/:climberId/boulders/:boulderNumber', 
+        boulderScoreReadLimiter,
+        cacheMiddleware(15000, (req) => `cache:score:${req.params.competitionId}:${req.params.climberId}:${req.params.boulderNumber}`), // 15 second cache for individual scores 
+        async (req, res) => {
         try {
             const { competitionId, climberId, boulderNumber } = req.params;
             const [scores] = await pool.execute(
@@ -1729,6 +2312,50 @@
         }
     });
 
+    // Batch endpoint: Get multiple boulder scores for a climber or multiple climbers
+    // Reduces number of requests when fetching scores for multiple boulders/climbers
+    app.get('/api/competitions/:competitionId/boulders/batch', 
+        boulderScoreReadLimiter,
+        // Reduced cache time to 5 seconds for real-time updates (was 30 seconds)
+        cacheMiddleware(5000, (req) => `cache:batch_scores:${req.params.competitionId}:${req.query.climberIds || 'all'}:${req.query.boulderNumbers || 'all'}`),
+        async (req, res) => {
+        try {
+            const { competitionId } = req.params;
+            const { climberIds, boulderNumbers } = req.query;
+            
+            // Parse query parameters
+            const climberIdList = climberIds ? climberIds.split(',').map(id => parseInt(id.trim())) : null;
+            const boulderNumberList = boulderNumbers ? boulderNumbers.split(',').map(num => parseInt(num.trim())) : null;
+            
+            let query = 'SELECT * FROM scores WHERE competition_id = ?';
+            const params = [competitionId];
+            
+            if (climberIdList && climberIdList.length > 0) {
+                query += ' AND climber_id IN (' + climberIdList.map(() => '?').join(',') + ')';
+                params.push(...climberIdList);
+            }
+            
+            if (boulderNumberList && boulderNumberList.length > 0) {
+                query += ' AND boulder_number IN (' + boulderNumberList.map(() => '?').join(',') + ')';
+                params.push(...boulderNumberList);
+            }
+            
+            const [scores] = await pool.execute(query, params);
+            
+            // Group scores by climber_id and boulder_number for easy lookup
+            const scoreMap = {};
+            scores.forEach(score => {
+                const key = `${score.climber_id}_${score.boulder_number}`;
+                scoreMap[key] = score;
+            });
+            
+            res.json(scoreMap);
+        } catch (error) {
+            console.error('[API] Error fetching batch scores:', error);
+            res.status(500).json({ error: 'Failed to fetch batch scores' });
+        }
+    });
+
     // Update score (Judge only - requires authentication)
     // REFACTORED: Added validation and is_locked check
     app.put('/api/competitions/:competitionId/climbers/:climberId/boulders/:boulderNumber', requireAuth, validate(boulderScoreActionSchema), async (req, res) => {
@@ -1752,19 +2379,28 @@
             let is_locked = score ? (score.is_locked === 1 || score.is_locked === true) : false;
 
             // Check if score is locked (requires unlock via appeals endpoint)
-            // Allow disqualify action even if finalized (to toggle disqualification)
-            if ((is_locked || is_finalized) && action !== 'disqualify') {
+            // Allow disqualify and attempt actions even if finalized
+            // - disqualify: to toggle disqualification status
+            // - attempt: to add attempts for record keeping (even after finalized)
+            if (is_locked && action !== 'disqualify' && action !== 'attempt') {
                 return res.status(403).json({ 
-                    error: 'Score is locked or finalized. Use appeals endpoint to unlock first.' 
+                    error: 'Score is locked. Use appeals endpoint to unlock first.' 
+                });
+            }
+            
+            // Block zone/top/finalize actions if already finalized (but allow attempt)
+            if (is_finalized && action !== 'disqualify' && action !== 'attempt') {
+                return res.status(403).json({ 
+                    error: 'Score is finalized. Cannot modify zone/top/finalize. Use appeals endpoint to unlock first.' 
                 });
             }
 
             let is_disqualified = score ? (score.is_disqualified === 1 || score.is_disqualified === true) : false;
 
             // Handle actions
-            if (action === 'attempt') {
-                attempts += 1;
-            } else if (action === 'zone') {
+            // Note: For 'attempt', we'll increment from locked score in transaction to handle concurrency
+            // So don't increment here - it will be handled in transaction
+            if (action === 'zone') {
                 if (reached_zone) {
                     return res.status(400).json({ error: 'Zone already reached' });
                 }
@@ -1801,17 +2437,80 @@
                 }
             }
 
-            // Insert or update score (use transaction for data integrity)
+            // Insert or update score (use transaction with row-level lock to prevent race conditions)
             await withTransaction(pool, async (connection) => {
-                if (score) {
+                // Use SELECT FOR UPDATE to lock the row and prevent concurrent updates
+                // This ensures data consistency when multiple judges update the same score simultaneously
+                let [lockedScores] = await connection.execute(
+                    'SELECT * FROM scores WHERE competition_id = ? AND climber_id = ? AND boulder_number = ? FOR UPDATE',
+                    [competitionId, climberId, boulderNumber]
+                );
+                
+                // Re-read score state after lock (in case it changed during lock acquisition)
+                const lockedScore = lockedScores.length > 0 ? lockedScores[0] : null;
+                
+                // Re-validate state after lock (prevent lost updates)
+                if (lockedScore) {
+                    // Check if score was finalized/locked by another process
+                    const isLocked = lockedScore.is_locked === 1 || lockedScore.is_locked === true;
+                    const isFinalized = lockedScore.is_finalized === 1 || lockedScore.is_finalized === true;
+                    
+                    // Allow attempt and disqualify even if locked/finalized, but block other actions
+                    if (isLocked && action !== 'disqualify' && action !== 'attempt') {
+                        throw new Error('Score was locked by another process');
+                    }
+                    
+                    // Allow attempt even if finalized, but block zone/top/finalize
+                    if (isFinalized && action !== 'disqualify' && action !== 'attempt') {
+                        throw new Error('Score was finalized by another process. Cannot modify zone/top/finalize.');
+                    }
+                    
+                    // Merge current state with locked state (use latest values)
+                    // For attempt action, we want to increment from the locked score's attempts
+                    if (action === 'attempt') {
+                        attempts = lockedScore.attempts + 1;
+                    } else {
+                        attempts = lockedScore.attempts || attempts;
+                    }
+                    reached_zone = lockedScore.reached_zone || reached_zone;
+                    reached_top = lockedScore.reached_top || reached_top;
+                    zone_attempt = lockedScore.zone_attempt || zone_attempt;
+                    top_attempt = lockedScore.top_attempt || top_attempt;
+                    is_disqualified = lockedScore.is_disqualified === 1 || lockedScore.is_disqualified === true;
+                    
+                    // Preserve finalized/locked status from database if action is attempt
+                    if (action === 'attempt') {
+                        is_finalized = isFinalized;
+                        is_locked = isLocked;
+                    }
+                }
+                
+                if (lockedScore) {
                     await connection.execute(
                         'UPDATE scores SET attempts = ?, reached_zone = ?, reached_top = ?, zone_attempt = ?, top_attempt = ?, is_finalized = ?, is_disqualified = ? WHERE id = ?',
-                        [attempts, reached_zone, reached_top, zone_attempt, top_attempt, is_finalized, is_disqualified, score.id]
+                        [attempts, reached_zone, reached_top, zone_attempt, top_attempt, is_finalized, is_disqualified, lockedScore.id]
                     );
+                    // Update score object with latest values
+                    score = {
+                        ...lockedScore,
+                        attempts: attempts,
+                        reached_zone: reached_zone,
+                        reached_top: reached_top,
+                        zone_attempt: zone_attempt,
+                        top_attempt: top_attempt,
+                        is_finalized: is_finalized,
+                        is_disqualified: is_disqualified
+                    };
                 } else {
+                    // New score record - handle attempt action
+                    let insertAttempts = 0;
+                    if (action === 'attempt') {
+                        insertAttempts = 1; // First attempt
+                    }
+                    
                     const [result] = await connection.execute(
                         'INSERT INTO scores (competition_id, climber_id, boulder_number, attempts, reached_zone, reached_top, zone_attempt, top_attempt, is_finalized, is_disqualified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                        [competitionId, climberId, boulderNumber, attempts, reached_zone, reached_top, zone_attempt, top_attempt, is_finalized, is_disqualified]
+                        [competitionId, climberId, boulderNumber, insertAttempts, reached_zone, reached_top, zone_attempt, top_attempt, is_finalized, is_disqualified]
                     );
                     const [newScores] = await connection.execute('SELECT * FROM scores WHERE id = ?', [result.insertId]);
                     if (newScores.length === 0) {
@@ -1821,7 +2520,12 @@
                 }
             });
 
-            // Emit WebSocket event for real-time update
+            // Invalidate cache for this specific score and related caches (including batch cache)
+            invalidateCache(`cache:score:${competitionId}:${climberId}:${boulderNumber}`);
+            invalidateCache(`cache:leaderboard:${competitionId}`);
+            invalidateCache(`cache:batch_scores:${competitionId}:*`); // Invalidate all batch score caches for real-time updates
+            
+            // Emit WebSocket event for real-time update (use score from transaction)
             const socketData = {
                 competition_id: parseInt(competitionId),
                 climber_id: parseInt(climberId),
@@ -1831,16 +2535,27 @@
             console.log('[SOCKET] Emitting score-updated event:', socketData);
             io.emit('score-updated', socketData);
 
-            // Get updated score
-            const [updatedScores] = await pool.execute(
-                'SELECT * FROM scores WHERE competition_id = ? AND climber_id = ? AND boulder_number = ?',
-                [competitionId, climberId, boulderNumber]
-            );
-
-            res.json(updatedScores[0]);
+            // Return the updated score from transaction
+            res.json(score);
         } catch (error) {
-            console.error('[API] Error updating score:', error);
-            res.status(500).json({ error: 'Failed to update score' });
+            logError(error, 'Update boulder score', {
+                competitionId,
+                climberId,
+                boulderNumber,
+                action: req.body.action
+            });
+            
+            // Return sanitized error
+            const isDevelopment = process.env.NODE_ENV === 'development';
+            if (error.message && error.message.includes('locked or finalized')) {
+                return res.status(409).json({ 
+                    error: 'Score was updated by another process. Please refresh and try again.' 
+                });
+            }
+            
+            res.status(500).json({ 
+                error: isDevelopment ? error.message : 'Failed to update score' 
+            });
         }
     });
 
@@ -1893,9 +2608,9 @@
     // Create speed competition (Admin only)
     app.post('/api/speed-competitions', requireAuth, async (req, res) => {
         try {
-            const { name, status } = req.body;
+            const { name, status, location, event_date } = req.body;
             
-            console.log('[API] Creating speed competition:', { name, status });
+            console.log('[API] Creating speed competition:', { name, status, location, event_date });
             
             if (!name) {
                 return res.status(400).json({ error: 'Competition name is required' });
@@ -1905,10 +2620,35 @@
             const validStatuses = ['qualification', 'finals', 'finished'];
             const competitionStatus = status && validStatuses.includes(status) ? status : 'qualification';
 
-            const [result] = await pool.execute(
-                'INSERT INTO speed_competitions (name, status) VALUES (?, ?)',
-                [name, competitionStatus]
-            );
+            // Normalize event_date to prevent timezone issues - extract only YYYY-MM-DD part
+            let normalizedEventDate = null;
+            if (event_date && typeof event_date === 'string' && event_date.trim()) {
+                const dateStr = event_date.trim().split('T')[0]; // Extract date part only (YYYY-MM-DD)
+                // Validate date format (YYYY-MM-DD)
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                    normalizedEventDate = dateStr;
+                }
+            }
+
+            // Build INSERT query - check if columns exist by trying to insert with optional fields
+            // First try with location and event_date if they're provided
+            let result;
+            try {
+                // Try to insert with location and event_date first
+                const insertQuery = 'INSERT INTO speed_competitions (name, status, location, event_date) VALUES (?, ?, ?, ?)';
+                const insertValues = [name, competitionStatus, location || null, normalizedEventDate];
+                [result] = await pool.execute(insertQuery, insertValues);
+            } catch (insertError) {
+                // If columns don't exist, fall back to basic insert
+                if (insertError.code === 'ER_BAD_FIELD_ERROR') {
+                    console.log('[API] location/event_date columns not found, using basic insert');
+                    const insertQuery = 'INSERT INTO speed_competitions (name, status) VALUES (?, ?)';
+                    const insertValues = [name, competitionStatus];
+                    [result] = await pool.execute(insertQuery, insertValues);
+                } else {
+                    throw insertError;
+                }
+            }
 
             const [competitions] = await pool.execute('SELECT * FROM speed_competitions WHERE id = ?', [result.insertId]);
             
@@ -1925,8 +2665,7 @@
                 message: error.message,
                 code: error.code,
                 sqlMessage: error.sqlMessage,
-                sqlState: error.sqlState,
-                stack: error.stack
+                sqlState: error.sqlState
             });
             
             // Return more detailed error message
@@ -1946,16 +2685,54 @@
     // Update speed competition (Admin only)
     app.put('/api/speed-competitions/:id', requireAuth, async (req, res) => {
         try {
-            const { name, status } = req.body;
+            const { name, status, location, event_date } = req.body;
 
-            const [result] = await pool.execute(
-                'UPDATE speed_competitions SET name = ?, status = ? WHERE id = ?',
-                [name, status, req.params.id]
-            );
+            // Normalize event_date to prevent timezone issues - extract only YYYY-MM-DD part
+            let normalizedEventDate = null;
+            if (event_date && typeof event_date === 'string' && event_date.trim()) {
+                const dateStr = event_date.trim().split('T')[0]; // Extract date part only (YYYY-MM-DD)
+                // Validate date format (YYYY-MM-DD)
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                    normalizedEventDate = dateStr;
+                }
+            }
+
+            // Build update query dynamically based on what fields are provided
+            const updateFields = [];
+            const updateValues = [];
+            
+            if (name !== undefined) {
+                updateFields.push('name = ?');
+                updateValues.push(name);
+            }
+            if (status !== undefined) {
+                updateFields.push('status = ?');
+                updateValues.push(status);
+            }
+            if (location !== undefined) {
+                updateFields.push('location = ?');
+                updateValues.push(location || null);
+            }
+            if (event_date !== undefined) {
+                updateFields.push('event_date = ?');
+                updateValues.push(normalizedEventDate);
+            }
+
+            if (updateFields.length === 0) {
+                return res.status(400).json({ error: 'No fields to update' });
+            }
+
+            updateValues.push(req.params.id);
+            const updateQuery = `UPDATE speed_competitions SET ${updateFields.join(', ')} WHERE id = ?`;
+
+            const [result] = await pool.execute(updateQuery, updateValues);
 
             if (result.affectedRows === 0) {
                 return res.status(404).json({ error: 'Speed competition not found' });
             }
+
+            // Invalidate cache after update (if cache exists)
+            // Note: speed_competitions might not have cache, but invalidate anyway for consistency
 
             const [competitions] = await pool.execute('SELECT * FROM speed_competitions WHERE id = ?', [req.params.id]);
             if (competitions.length === 0) {
@@ -1964,7 +2741,15 @@
             res.json(competitions[0]);
         } catch (error) {
             console.error('[API] Error updating speed competition:', error);
-            res.status(500).json({ error: 'Failed to update speed competition' });
+            const errorMessage = error.sqlMessage || error.message || 'Failed to update speed competition';
+            res.status(500).json({ 
+                error: errorMessage,
+                details: process.env.NODE_ENV === 'development' ? {
+                    message: error.message,
+                    sqlMessage: error.sqlMessage,
+                    code: error.code
+                } : undefined
+            });
         }
     });
 
@@ -4069,7 +4854,22 @@
             res.json({ message: 'Speed competition deleted successfully' });
         } catch (error) {
             console.error('[API] Error deleting speed competition:', error);
-            res.status(500).json({ error: 'Failed to delete speed competition' });
+            const errorMessage = error.sqlMessage || error.message || 'Failed to delete speed competition';
+            // Check if it's a foreign key constraint error
+            if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.errno === 1451) {
+                return res.status(400).json({ 
+                    error: 'Cannot delete speed competition: There are related records (climbers, scores, etc.) that must be deleted first',
+                    details: errorMessage
+                });
+            }
+            res.status(500).json({ 
+                error: errorMessage,
+                details: process.env.NODE_ENV === 'development' ? {
+                    message: error.message,
+                    sqlMessage: error.sqlMessage,
+                    code: error.code
+                } : undefined
+            });
         }
     });
 
@@ -4161,6 +4961,10 @@
     app.get('/', (req, res) => {
         const reactIndexPath = path.join(__dirname, 'public', 'react-build', 'index.html');
         if (fs.existsSync(reactIndexPath)) {
+            // Disable caching untuk React index.html agar selalu fresh
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
             res.sendFile(reactIndexPath);
         } else {
             // Fallback jika React build belum ada
@@ -4305,6 +5109,29 @@
         res.send(robotsTxt);
     });
 
+    // Static image routes - Ensure logo and images are accessible
+    app.get('/logo.jpeg', (req, res) => {
+        const logoPath = path.join(__dirname, 'public', 'logo.jpeg');
+        if (fs.existsSync(logoPath)) {
+            res.type('image/jpeg');
+            res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+            res.sendFile(logoPath);
+        } else {
+            res.status(404).send('Logo not found');
+        }
+    });
+
+    app.get('/beranda.jpeg', (req, res) => {
+        const berandaPath = path.join(__dirname, 'public', 'beranda.jpeg');
+        if (fs.existsSync(berandaPath)) {
+            res.type('image/jpeg');
+            res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+            res.sendFile(berandaPath);
+        } else {
+            res.status(404).send('Image not found');
+        }
+    });
+
     // Favicon route - Ensure favicon is accessible
     app.get('/favicon.ico', (req, res) => {
         const faviconPath = path.join(__dirname, 'public', 'favicon.ico');
@@ -4356,21 +5183,27 @@
             if (req.path.startsWith('/api/')) {
                 return next();
             }
+            // Skip jika file tidak ada di react-build (akan fallback ke public folder)
             next();
         }, express.static(reactBuildPath, {
             index: false, // Jangan serve index.html via static, sudah di-handle di route
             maxAge: '1y', // Cache static assets
             etag: true,
-            lastModified: true
+            lastModified: true,
+            fallthrough: true // Allow fallthrough ke middleware berikutnya jika file tidak ditemukan
         }));
     }
 
     // Serve static files dari folder public (CSS, JS, images, sounds, dll)
     // Diletakkan SETELAH explicit routes agar tidak meng-override routing HTML
-    // Hanya serve file yang bukan HTML
+    // Serve images dan static assets yang tidak ada di react-build
     app.use((req, res, next) => {
         // Skip API routes
         if (req.path.startsWith('/api/')) {
+            return next();
+        }
+        // Skip react-build routes (sudah di-handle sebelumnya)
+        if (req.path.startsWith('/react-build/')) {
             return next();
         }
         next();
@@ -4380,6 +5213,10 @@
             // Jangan serve HTML files via static middleware
             if (path.extname(filePath) === '.html') {
                 return;
+            }
+            // Set proper cache headers untuk images
+            if (filePath.endsWith('.jpeg') || filePath.endsWith('.jpg') || filePath.endsWith('.png') || filePath.endsWith('.gif') || filePath.endsWith('.webp')) {
+                res.setHeader('Cache-Control', 'public, max-age=86400, immutable'); // 1 hari untuk images
             }
         }
     }));
@@ -4725,6 +5562,16 @@ app.get('/berita/:id', async (req, res, next) => {
         raceState.matchStatus = 'COUNTDOWN';
         console.log('[START MATCH] Status set to:', raceState.matchStatus);
         
+        // Play beepstartspeed.MP3 (countdown audio) - MAJUKAN SEBELUM broadcastState untuk mengurangi delay
+        // Kirim timestamp untuk sinkronisasi yang lebih akurat
+        const countdownStartTime = Date.now();
+        io.emit('play-sound', { 
+            type: 'countdown-start',
+            startTime: countdownStartTime,
+            audioDuration: 3000 // Durasi audio dalam ms (3 detik)
+        });
+        console.log('[COUNTDOWN] Playing beepstartspeed.MP3 (ADVANCED), startTime:', countdownStartTime);
+        
         // Reset timer display ke 00:00.000 selama countdown
         raceState.laneA.finalDuration = '00:00.000';
         raceState.laneA.startTime = 0;
@@ -4733,16 +5580,6 @@ app.get('/berita/:id', async (req, res, next) => {
         
         broadcastState();
         console.log('[COUNTDOWN] Starting countdown, timer reset to 00:00.000');
-
-        // Play beepstartspeed.MP3 (countdown audio)
-        // Kirim timestamp untuk sinkronisasi yang lebih akurat
-        const countdownStartTime = Date.now();
-        io.emit('play-sound', { 
-            type: 'countdown-start',
-            startTime: countdownStartTime,
-            audioDuration: 3000 // Durasi audio dalam ms (3 detik)
-        });
-        console.log('[COUNTDOWN] Playing beepstartspeed.MP3, startTime:', countdownStartTime);
         
         // Set global start time setelah audio selesai (3000ms = 3 detik)
         // Timer TIDAK mulai sebelum countdown audio selesai
@@ -4750,6 +5587,13 @@ app.get('/berita/:id', async (req, res, next) => {
         setTimeout(() => {
             raceState.globalStartTime = Date.now();
             raceState.matchStatus = 'RUNNING';
+            
+            // Play "tut" sound saat timer mulai (server-side untuk sinkronisasi yang lebih baik)
+            io.emit('play-sound', { 
+                type: 'timer-start',
+                timestamp: raceState.globalStartTime
+            });
+            console.log('[TIMER START] Playing "tut" sound at', raceState.globalStartTime);
             
             // Set start time untuk kedua lane langsung (tidak perlu wait bottom sensor)
             raceState.laneA.startTime = raceState.globalStartTime;
@@ -5199,6 +6043,11 @@ app.get('/berita/:id', async (req, res, next) => {
     }
 
     const LOCAL_IP = getLocalIPAddress();
+
+    // ============================================
+    // ERROR HANDLER MIDDLEWARE (Must be last, before routes that don't use next())
+    // ============================================
+    app.use(errorHandler);
 
     // Listen on all network interfaces (0.0.0.0) to allow access from other devices
     server.listen(PORT, '0.0.0.0', () => {

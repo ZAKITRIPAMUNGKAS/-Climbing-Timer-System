@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+// Import jspdf-autotable as a function (required for Vite/modern bundlers)
+import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 
 /**
@@ -33,7 +34,7 @@ export function generateStartListPDF(climbers, competition, round = 'Qualificati
     ])
   
   // Generate table
-  doc.autoTable({
+  autoTable(doc, {
     startY: 50,
     head: [['No', 'Bib', 'Name', 'Team']],
     body: tableData,
@@ -139,7 +140,7 @@ export function generateResultListPDF(leaderboard, competition, round = 'Qualifi
   }
   
   // Generate table
-  doc.autoTable({
+  autoTable(doc, {
     startY: 50,
     head: [headers],
     body: tableData,
@@ -167,6 +168,608 @@ export function generateResultListPDF(leaderboard, competition, round = 'Qualifi
   
   // Save PDF
   const filename = `${competition.name || 'competition'}_results_${round.toLowerCase()}.pdf`
+  doc.save(filename)
+}
+
+/**
+ * Helper function to load image as base64
+ */
+async function loadImageAsBase64(imagePath) {
+  try {
+    const response = await fetch(imagePath)
+    const blob = await response.blob()
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch (error) {
+    console.error('Error loading image:', error)
+    return null
+  }
+}
+
+/**
+ * Generate Official Result PDF (FPTI Format)
+ * @param {Array} leaderboard - Array of leaderboard entries
+ * @param {Object} competition - Competition object
+ * @param {String} round - Round name (e.g., "Qualification", "Semifinal")
+ * @param {String} categoryType - Category type: "Boulder", "Lead", or "Speed"
+ * @param {Object} options - Additional options: { eventName, location, date, categoryName, cutoffRank }
+ */
+export async function generateOfficialResultPDF(leaderboard, competition, round = 'Qualification', categoryType = 'Boulder', options = {}) {
+  // Load logos first (left and right)
+  const logoBase64 = await loadImageAsBase64('/logo.jpeg')
+  const logoRightBase64 = await loadImageAsBase64('/header_surat_kanan.png')
+  
+  // Create jsPDF instance - same way as other functions that work
+  const doc = new jsPDF()
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  
+  // Default options
+  const eventName = options.eventName || competition.name || 'PORPROV TAHUN 2025'
+  const location = options.location || 'Semarang'
+  const date = options.date || new Date().toLocaleDateString('id-ID', { 
+    day: '2-digit', 
+    month: 'long', 
+    year: 'numeric' 
+  })
+  const categoryName = options.categoryName || `${round} ${categoryType} Perorangan`
+  const cutoffRank = options.cutoffRank || 8
+  
+  // Calculate tie-break cutoff
+  // If climber at cutoffRank has same score as climbers below, include all tied climbers
+  let qualifiedCount = cutoffRank
+  const sortedLeaderboard = [...leaderboard].sort((a, b) => {
+    // Sort by rank if available
+    if (a.rank && b.rank) return a.rank - b.rank
+    // Sort by score (descending for boulder, ascending for speed)
+    if (categoryType === 'Boulder') {
+      const scoreA = a.totalScore || 0
+      const scoreB = b.totalScore || 0
+      if (scoreA !== scoreB) return scoreB - scoreA
+    } else if (categoryType === 'Speed') {
+      const timeA = a.total_time || 999
+      const timeB = b.total_time || 999
+      if (timeA !== timeB) return timeA - timeB
+    } else if (categoryType === 'Lead') {
+      const heightA = a.height || 0
+      const heightB = b.height || 0
+      if (heightA !== heightB) return heightB - heightA
+    }
+    return 0
+  })
+  
+  if (sortedLeaderboard.length > cutoffRank - 1) {
+    const cutoffClimber = sortedLeaderboard[cutoffRank - 1]
+    let cutoffScore = null
+    
+    if (categoryType === 'Boulder') {
+      cutoffScore = cutoffClimber.totalScore
+    } else if (categoryType === 'Speed') {
+      cutoffScore = cutoffClimber.total_time
+    } else if (categoryType === 'Lead') {
+      cutoffScore = cutoffClimber.height
+    }
+    
+    // Find all climbers with same score as cutoff
+    if (cutoffScore !== null) {
+      for (let i = cutoffRank; i < sortedLeaderboard.length; i++) {
+        const climber = sortedLeaderboard[i]
+        let climberScore = null
+        
+        if (categoryType === 'Boulder') {
+          climberScore = climber.totalScore
+        } else if (categoryType === 'Speed') {
+          climberScore = climber.total_time
+        } else if (categoryType === 'Lead') {
+          climberScore = climber.height
+        }
+        
+        if (climberScore === cutoffScore) {
+          qualifiedCount++
+        } else {
+          break
+        }
+      }
+    }
+  }
+  
+  // Header section - Start from higher position to accommodate logos
+  let currentY = 30 // Start lower to avoid logo cutoff at top and give space for both logos
+  
+  // Helper function to get image dimensions
+  const getImageDimensions = (base64) => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        resolve({ width: img.width, height: img.height })
+      }
+      img.onerror = () => {
+        // Fallback to square if can't load
+        resolve({ width: 1, height: 1 })
+      }
+      img.src = base64
+    })
+  }
+  
+  // Helper function to add image with proper aspect ratio
+  const addImageWithAspectRatio = async (base64, x, y, maxWidth, maxHeight, format = 'JPEG') => {
+    if (!base64) return false
+    
+    try {
+      const imgDims = await getImageDimensions(base64)
+      const aspectRatio = imgDims.width / imgDims.height
+      
+      // Calculate dimensions maintaining aspect ratio
+      let imgWidth = maxWidth
+      let imgHeight = maxHeight
+      
+      // Maintain aspect ratio - fit within max bounds
+      if (maxWidth / maxHeight > aspectRatio) {
+        // Height is the limiting factor
+        imgHeight = maxHeight
+        imgWidth = imgHeight * aspectRatio
+      } else {
+        // Width is the limiting factor
+        imgWidth = maxWidth
+        imgHeight = imgWidth / aspectRatio
+      }
+      
+      // Add image to PDF - maintain aspect ratio, don't stretch
+      doc.addImage(base64, format, x, y, imgWidth, imgHeight, undefined, 'FAST')
+      return true
+    } catch (error) {
+      console.error('Error adding image to PDF:', error)
+      return false
+    }
+  }
+  
+  // Logo (left) - FPTI logo
+  const logoMaxWidth = 20
+  const logoMaxHeight = 16
+  const logoX = 15
+  const logoY = currentY - 8 // Position logo higher with more margin from top
+  
+  if (logoBase64) {
+    const logoAdded = await addImageWithAspectRatio(logoBase64, logoX, logoY, logoMaxWidth, logoMaxHeight, 'JPEG')
+    if (!logoAdded) {
+      // Fallback: Draw placeholder if image add fails
+      doc.setDrawColor(200, 200, 200)
+      doc.setFillColor(255, 255, 255)
+      doc.rect(logoX, logoY, logoMaxWidth, logoMaxHeight, 'FD')
+      doc.setFontSize(7)
+      doc.setFont(undefined, 'normal')
+      doc.setTextColor(150, 150, 150)
+      doc.text('LOGO', logoX + logoMaxWidth / 2, logoY + logoMaxHeight / 2, { align: 'center', baseline: 'middle' })
+    }
+  } else {
+    // Fallback: Draw placeholder if logo fails to load
+    doc.setDrawColor(200, 200, 200)
+    doc.setFillColor(255, 255, 255)
+    doc.rect(logoX, logoY, logoMaxWidth, logoMaxHeight, 'FD')
+    doc.setFontSize(7)
+    doc.setFont(undefined, 'normal')
+    doc.setTextColor(150, 150, 150)
+    doc.text('LOGO', logoX + logoMaxWidth / 2, logoY + logoMaxHeight / 2, { align: 'center', baseline: 'middle' })
+  }
+  
+  // Logo (right) - header_surat_kanan.png
+  const logoRightMaxWidth = 20
+  const logoRightMaxHeight = 16
+  const logoRightX = pageWidth - 15 - logoRightMaxWidth // Position from right edge
+  const logoRightY = currentY - 8 // Same Y position as left logo
+  
+  if (logoRightBase64) {
+    const logoRightAdded = await addImageWithAspectRatio(logoRightBase64, logoRightX, logoRightY, logoRightMaxWidth, logoRightMaxHeight, 'PNG')
+    if (!logoRightAdded) {
+      // Fallback: Draw placeholder if image add fails
+      doc.setDrawColor(200, 200, 200)
+      doc.setFillColor(255, 255, 255)
+      doc.rect(logoRightX, logoRightY, logoRightMaxWidth, logoRightMaxHeight, 'FD')
+      doc.setFontSize(7)
+      doc.setFont(undefined, 'normal')
+      doc.setTextColor(150, 150, 150)
+      doc.text('LOGO', logoRightX + logoRightMaxWidth / 2, logoRightY + logoRightMaxHeight / 2, { align: 'center', baseline: 'middle' })
+    }
+  } else {
+    // Fallback: Draw placeholder if logo fails to load
+    doc.setDrawColor(200, 200, 200)
+    doc.setFillColor(255, 255, 255)
+    doc.rect(logoRightX, logoRightY, logoRightMaxWidth, logoRightMaxHeight, 'FD')
+    doc.setFontSize(7)
+    doc.setFont(undefined, 'normal')
+    doc.setTextColor(150, 150, 150)
+    doc.text('LOGO', logoRightX + logoRightMaxWidth / 2, logoRightY + logoRightMaxHeight / 2, { align: 'center', baseline: 'middle' })
+  }
+  
+  // Center header - positioned between the two logos
+  doc.setFontSize(10)
+  doc.setFont(undefined, 'bold')
+  const centerText = 'FEDERASI PANJAT TEBING INDONESIA KARANGANYAR'
+  const centerTextWidth = doc.getTextWidth(centerText)
+  doc.text(centerText, (pageWidth - centerTextWidth) / 2, currentY + 5)
+  
+  currentY += 10 // Spacing after header
+  
+  // Event name - Use round from competition if available
+  doc.setFontSize(11)
+  doc.setFont(undefined, 'normal')
+  const roundText = round.toUpperCase() === 'QUALIFICATION' ? 'KUALIFIKASI' : 
+                     round.toUpperCase() === 'SEMIFINAL' ? 'SEMIFINAL' :
+                     round.toUpperCase() === 'FINAL' ? 'FINAL' : round.toUpperCase()
+  const eventText = `BABAK ${roundText} ${eventName.toUpperCase()}`
+  const eventTextWidth = doc.getTextWidth(eventText)
+  doc.text(eventText, (pageWidth - eventTextWidth) / 2, currentY)
+  
+  currentY += 6
+  
+  // Location & Date
+  doc.setFontSize(10)
+  const locationDateText = `${location}, ${date}`
+  const locationDateWidth = doc.getTextWidth(locationDateText)
+  doc.text(locationDateText, (pageWidth - locationDateWidth) / 2, currentY)
+  
+  currentY += 10
+  
+  // Sub-header: Official Result + Category Name
+  doc.setFontSize(12)
+  doc.setFont(undefined, 'bold')
+  const subHeaderText = `Official Result - ${categoryName}`
+  const subHeaderWidth = doc.getTextWidth(subHeaderText)
+  doc.text(subHeaderText, (pageWidth - subHeaderWidth) / 2, currentY)
+  
+  currentY += 10
+  
+  // Prepare table data
+  let headers = ['Rank', 'Bib', 'Name', 'Team/Kontingen']
+  let tableData = []
+  
+  if (categoryType === 'Boulder') {
+    // Add boulder columns (B1, B2, B3, B4)
+    const totalBoulders = competition.total_boulders || 4
+    for (let i = 1; i <= totalBoulders; i++) {
+      headers.push(`B${i}`)
+    }
+    headers.push('Total Score')
+    
+    tableData = sortedLeaderboard.map((entry, index) => {
+      const row = [
+        entry.rank || index + 1,
+        entry.bib_number || '-',
+        entry.name || '-',
+        entry.team || entry.school || entry.kontingen || '-'
+      ]
+      
+      // Add boulder scores
+      // Note: API returns scores with field 'boulderIndex' (1-based), not 'boulder_number'
+      const scores = entry.scores || []
+      for (let i = 1; i <= totalBoulders; i++) {
+        // Find score by boulderIndex (from API) or boulder_number (if exists)
+        const boulderScore = scores.find(s => 
+          s.boulderIndex === i || 
+          s.boulder_number === i || 
+          s.boulder === i ||
+          (Array.isArray(scores) && scores.indexOf(s) === i - 1) // Fallback: index-based
+        )
+        
+        if (boulderScore) {
+          // Check if disqualified
+          if (boulderScore.isDisqualified || boulderScore.is_disqualified) {
+            row.push('DNS')
+          } else {
+            // Format: T{topAttempts} z{zoneAttempts} or just z{zoneAttempts} if no top
+            const topAttempts = boulderScore.topAttempts || boulderScore.top_attempt || 0
+            const zoneAttempts = boulderScore.zoneAttempts || boulderScore.zone_attempt || 0
+            const isTop = boulderScore.isTop || boulderScore.reached_top
+            const isZone = boulderScore.isZone || boulderScore.reached_zone
+            
+            if (isTop && topAttempts > 0) {
+              // Has Top: Always show T{topAttempts} z{zoneAttempts} (zone attempts still count even if Top is reached)
+              const zonePart = zoneAttempts > 0 ? ` z${zoneAttempts}` : ' z0'
+              row.push(`T${topAttempts}${zonePart}`)
+            } else if (isZone && zoneAttempts > 0) {
+              // Only Zone (no Top)
+              row.push(`z${zoneAttempts}`)
+            } else if (topAttempts > 0 || zoneAttempts > 0) {
+              // Has attempts but no top/zone reached yet - show attempts
+              const parts = []
+              if (topAttempts > 0) parts.push(`T${topAttempts}`)
+              if (zoneAttempts > 0) parts.push(`z${zoneAttempts}`)
+              row.push(parts.length > 0 ? parts.join(' ') : '-')
+            } else {
+              // No attempts recorded
+              row.push('-')
+            }
+          }
+        } else {
+          // No score data for this boulder
+          row.push('-')
+        }
+      }
+      
+      row.push((entry.totalScore || 0).toFixed(1))
+      return row
+    })
+  } else if (categoryType === 'Lead') {
+    headers.push('Previous Round (QF)', 'Height/Score')
+    
+    tableData = sortedLeaderboard.map((entry, index) => [
+      entry.rank || index + 1,
+      entry.bib_number || '-',
+      entry.name || '-',
+      entry.team || entry.kontingen || '-',
+      entry.previous_round_score || entry.qualification_score || '-',
+      entry.height ? `${entry.height}m` : (entry.score || '-')
+    ])
+  } else if (categoryType === 'Speed') {
+    headers.push('Lane A', 'Lane B', 'Total Time', 'Status')
+    
+    const formatTime = (time) => {
+      if (!time) return '-'
+      if (typeof time === 'number') return `${time.toFixed(2)}s`
+      return time.toString()
+    }
+    
+    tableData = sortedLeaderboard.map((entry, index) => [
+      entry.rank || index + 1,
+      entry.bib_number || '-',
+      entry.name || '-',
+      entry.team || entry.kontingen || '-',
+      formatTime(entry.lane_a_time),
+      formatTime(entry.lane_b_time),
+      formatTime(entry.total_time),
+      entry.status || 'VALID'
+    ])
+  }
+  
+  // Generate table with autoTable - Professional FPTI styling
+  const autoTableOptions = {
+    startY: currentY,
+    head: [headers],
+    body: tableData,
+    theme: 'grid', // Use grid theme for visible vertical and horizontal lines
+    headStyles: {
+      fillColor: [27, 94, 32], // Dark Green (#1B5E20) - FPTI standard
+      textColor: [255, 255, 255], // White (#FFFFFF)
+      fontStyle: 'bold',
+      fontSize: 9,
+      halign: 'center',
+      valign: 'middle',
+      lineWidth: 0.1,
+      lineColor: [0, 0, 0] // Black borders for header
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: [0, 0, 0], // Black (#000000)
+      fillColor: [255, 255, 255], // White (#FFFFFF) by default
+      halign: 'left',
+      valign: 'middle',
+      lineWidth: 0.1, // Thin borders
+      lineColor: [176, 190, 197] // Light Gray (#B0BEC5)
+    },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 15 }, // Rank - Center
+      1: { halign: 'center', cellWidth: 15 }, // Bib - Center
+      2: { halign: 'left', cellWidth: 50 }, // Name - Left
+      3: { halign: 'left', cellWidth: 40 }  // Team - Left
+    },
+    didParseCell: (data) => {
+      // Qualification Logic: Apply background color based on qualification status
+      if (data.section === 'body') {
+        // Check if this row is within qualification quota (Top 8 + Ties)
+        if (data.row.index < qualifiedCount && data.row.index >= 0) {
+          // Qualified climber: Very Light Green background
+          data.cell.styles.fillColor = [232, 245, 233] // Very Light Green (#E8F5E9)
+        } else {
+          // Non-qualified climber: White background
+          data.cell.styles.fillColor = [255, 255, 255] // White (#FFFFFF)
+        }
+      }
+      
+      // Set alignment per column type
+      if (data.column.index === 0) { // Rank - Center
+        data.cell.styles.halign = 'center'
+      } else if (data.column.index === 1) { // Bib - Center
+        data.cell.styles.halign = 'center'
+      } else if (data.column.index === 2 || data.column.index === 3) { 
+        // Name, Team - Left aligned
+        data.cell.styles.halign = 'left'
+      } else {
+        // Score columns (B1, B2, etc., Total Score) - Center aligned
+        data.cell.styles.halign = 'center'
+      }
+    },
+    margin: { top: currentY, left: 10, right: 10 }
+  }
+  
+  // Adjust column widths and alignment for different categories
+  if (categoryType === 'Boulder') {
+    const totalBoulders = competition.total_boulders || 4
+    autoTableOptions.columnStyles = {
+      0: { halign: 'center', cellWidth: 12 }, // Rank
+      1: { halign: 'center', cellWidth: 12 }, // Bib
+      2: { halign: 'left', cellWidth: 50 }, // Name (more space)
+      3: { halign: 'left', cellWidth: 40 }, // Team/Kontingen
+    }
+    // Boulder columns (B1, B2, B3, B4)
+    for (let i = 0; i < totalBoulders; i++) {
+      autoTableOptions.columnStyles[4 + i] = { halign: 'center', cellWidth: 14 } // B1, B2, etc.
+    }
+    // Total Score column - wider to avoid wrapping
+    autoTableOptions.columnStyles[4 + totalBoulders] = { halign: 'center', cellWidth: 22 } // Total Score
+  } else if (categoryType === 'Speed') {
+    autoTableOptions.columnStyles = {
+      0: { halign: 'center', cellWidth: 12 }, // Rank
+      1: { halign: 'center', cellWidth: 12 }, // Bib
+      2: { halign: 'left', cellWidth: 50 }, // Name
+      3: { halign: 'left', cellWidth: 35 }, // Team
+      4: { halign: 'center', cellWidth: 18 }, // Lane A
+      5: { halign: 'center', cellWidth: 18 }, // Lane B
+      6: { halign: 'center', cellWidth: 20 }, // Total Time
+      7: { halign: 'center', cellWidth: 18 } // Status
+    }
+  } else if (categoryType === 'Lead') {
+    autoTableOptions.columnStyles = {
+      0: { halign: 'center', cellWidth: 12 }, // Rank
+      1: { halign: 'center', cellWidth: 12 }, // Bib
+      2: { halign: 'left', cellWidth: 50 }, // Name
+      3: { halign: 'left', cellWidth: 35 }, // Team
+      4: { halign: 'center', cellWidth: 28 }, // Previous Round
+      5: { halign: 'center', cellWidth: 28 } // Height/Score
+    }
+  }
+  
+  // Generate table using autoTable - use functional syntax for Vite compatibility
+  autoTable(doc, autoTableOptions)
+  
+  // Get final Y position after table
+  let currentYAfterTable = doc.lastAutoTable.finalY || currentY + 50
+  
+  // Draw thick green line after last qualified climber (qualification cutoff indicator)
+  if (qualifiedCount > 0 && doc.lastAutoTable && doc.lastAutoTable.finalY && tableData.length > 0) {
+    // Calculate approximate row height
+    const tableHeight = doc.lastAutoTable.finalY - currentY
+    const headerHeight = 10 // Approximate header height
+    const bodyHeight = tableHeight - headerHeight
+    const rowHeight = bodyHeight / tableData.length
+    
+    // Calculate Y position of the bottom of the last qualified row
+    const qualifiedRowBottom = currentY + headerHeight + (rowHeight * qualifiedCount)
+    
+    // Draw thick dark green line across the table width (cutoff indicator)
+    if (qualifiedRowBottom < doc.lastAutoTable.finalY) {
+      doc.setDrawColor(27, 94, 32) // Dark Green (#1B5E20)
+      doc.setLineWidth(0.5) // Thick line (0.5mm)
+      const tableLeft = 10
+      const tableRight = pageWidth - 10
+      doc.line(tableLeft, qualifiedRowBottom, tableRight, qualifiedRowBottom)
+      doc.setLineWidth(0.1) // Reset to normal line width
+    }
+  }
+  
+  // Add section for qualified climbers (finalists) if this is qualification round
+  // For Boulder: Qualification -> Final (no Semifinal), top 8 + ties go directly to Final
+  // Always put qualified climbers section on page 2
+  if ((round === 'qualification' || round === 'Qualification') && qualifiedCount > 0 && sortedLeaderboard.length > 0) {
+    // Always add new page for qualified climbers section (page 2)
+    doc.addPage()
+    currentYAfterTable = 25 // Start from top of page 2 with proper margin
+    
+    // Title for qualified climbers section
+    doc.setFontSize(11)
+    doc.setFont(undefined, 'bold')
+    doc.setTextColor(0, 0, 0)
+    // For Boulder competitions: Qualification always goes directly to Final (no Semifinal)
+    // For other competition types, check the round
+    const nextRoundText = categoryType === 'Boulder' ? 'Final' :
+                          round === 'qualification' || round === 'Qualification' ? 'Final' : 
+                          round === 'semifinal' || round === 'Semifinal' ? 'Final' : 'Babak Selanjutnya'
+    const qualifiedTitle = `Atlet yang Lolos ke ${nextRoundText}:`
+    doc.text(qualifiedTitle, 15, currentYAfterTable)
+    
+    currentYAfterTable += 8
+    
+    // Get qualified climbers
+    const qualifiedClimbers = sortedLeaderboard.slice(0, qualifiedCount)
+    
+    // Prepare data for qualified climbers table
+    const qualifiedData = qualifiedClimbers.map((entry, index) => [
+      entry.rank || index + 1,
+      entry.bib_number || '-',
+      entry.name || '-',
+      entry.team || entry.school || entry.kontingen || '-'
+    ])
+    
+    // Generate table for qualified climbers
+    autoTable(doc, {
+      startY: currentYAfterTable,
+      head: [['Rank', 'Bib', 'Nama', 'Team/Kontingen']],
+      body: qualifiedData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [27, 94, 32], // Dark Green (#1B5E20)
+        textColor: [255, 255, 255], // White
+        fontStyle: 'bold',
+        fontSize: 9,
+        halign: 'center'
+      },
+      bodyStyles: {
+        fontSize: 9,
+        textColor: [0, 0, 0],
+        fillColor: [255, 255, 255],
+        lineWidth: 0.1,
+        lineColor: [176, 190, 197]
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 15 }, // Rank
+        1: { halign: 'center', cellWidth: 15 }, // Bib
+        2: { halign: 'left', cellWidth: 70 }, // Name
+        3: { halign: 'left', cellWidth: 50 }  // Team
+      },
+      margin: { top: currentYAfterTable, left: 10, right: 10 }
+    })
+    
+    // Update currentYAfterTable after qualified climbers table
+    currentYAfterTable = doc.lastAutoTable.finalY + 5
+  }
+  
+  // Footer section - check current Y position and add new page if needed
+  const finalYPosition = doc.lastAutoTable ? doc.lastAutoTable.finalY : currentYAfterTable
+  let footerY = pageHeight - 40
+  
+  // If content is too close to footer, move footer to next page
+  if (finalYPosition > footerY - 15) {
+    doc.addPage()
+    footerY = pageHeight - 40
+  }
+  
+  // Reset text color to black for footer
+  doc.setTextColor(0, 0, 0)
+  
+  // Official Result text (bottom left)
+  doc.setFontSize(10)
+  doc.setFont(undefined, 'bold')
+  doc.text('Official Result', 15, footerY)
+  
+  // Timestamp (bottom left, below Official Result)
+  const now = new Date()
+  const timestamp = now.toLocaleDateString('id-ID', { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric' 
+  }) + ', ' + now.toLocaleTimeString('id-ID', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  })
+  doc.setFontSize(9)
+  doc.setFont(undefined, 'normal')
+  doc.text(timestamp, 15, footerY + 6)
+  
+  // Judge signature placeholder (bottom right) - with proper spacing
+  doc.setFontSize(9)
+  doc.setFont(undefined, 'normal')
+  const judgeText = 'Chief Judge:'
+  const judgeTextWidth = doc.getTextWidth(judgeText)
+  const signatureX = pageWidth - 55
+  doc.text(judgeText, signatureX - judgeTextWidth - 5, footerY)
+  
+  // Signature line (wider and properly positioned)
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(0.1)
+  doc.line(signatureX, footerY + 3, pageWidth - 10, footerY + 3)
+  
+  // Optional: Add name placeholder below signature line
+  doc.setFontSize(8)
+  doc.setTextColor(150, 150, 150)
+  const namePlaceholder = '(Nama)'
+  const nameWidth = doc.getTextWidth(namePlaceholder)
+  doc.text(namePlaceholder, signatureX + (pageWidth - 10 - signatureX) / 2 - nameWidth / 2, footerY + 7, { align: 'center' })
+  
+  // Save PDF
+  const filename = `Official_Result_${competition.name || 'competition'}_${round}_${categoryType}.pdf`.replace(/[^a-z0-9]/gi, '_')
   doc.save(filename)
 }
 

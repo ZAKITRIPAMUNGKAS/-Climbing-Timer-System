@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, Upload, Search, Edit, Trash2, AlertCircle, CheckCircle2, X, Calendar, Tag } from 'lucide-react'
 import ReactQuill from 'react-quill'
+import DOMPurify from 'dompurify'
+import Swal from 'sweetalert2'
 import 'react-quill/dist/quill.snow.css'
 
 function NewsManagementPage() {
@@ -20,6 +22,8 @@ function NewsManagementPage() {
   })
   const [selectedImage, setSelectedImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const quillRef = useRef(null)
 
   useEffect(() => {
     fetchNews()
@@ -58,9 +62,18 @@ function NewsManagementPage() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus berita ini?')) {
-      return
-    }
+    const result = await Swal.fire({
+      title: 'Hapus Berita?',
+      text: 'Data berita akan dihapus permanen',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Ya, Hapus',
+      cancelButtonText: 'Batal'
+    })
+
+    if (!result.isConfirmed) return
 
     try {
       const response = await fetch(`/api/news/${id}`, {
@@ -69,14 +82,29 @@ function NewsManagementPage() {
       })
 
       if (response.ok) {
-        setMessage({ type: 'success', text: 'Berita berhasil dihapus' })
+        Swal.fire({
+          icon: 'success',
+          title: 'Berhasil',
+          text: 'Berita berhasil dihapus',
+          timer: 2000,
+          showConfirmButton: false
+        })
         fetchNews()
       } else {
-        setMessage({ type: 'error', text: 'Gagal menghapus berita' })
+        const error = await response.json()
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.error || 'Gagal menghapus berita'
+        })
       }
     } catch (error) {
       console.error('Error deleting news:', error)
-      setMessage({ type: 'error', text: 'Terjadi kesalahan saat menghapus' })
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Terjadi kesalahan saat menghapus'
+      })
     }
   }
 
@@ -107,22 +135,6 @@ function NewsManagementPage() {
     return text.trim()
   }
 
-  // Helper function to convert plain text to HTML with paragraphs
-  const textToHtml = (text) => {
-    if (!text) return ''
-    // Split by double line breaks (paragraphs) or single line breaks
-    const paragraphs = text
-      .split(/\n\s*\n/)  // Split by double newlines (paragraphs)
-      .map(p => p.trim())
-      .filter(p => p.length > 0)
-      .map(p => {
-        // Replace single newlines within paragraph with <br>
-        return p.replace(/\n/g, '<br>')
-      })
-    
-    // Wrap each paragraph in <p> tags
-    return paragraphs.map(p => `<p>${p}</p>`).join('')
-  }
 
   const handleEdit = (article) => {
     setEditingNews(article)
@@ -155,45 +167,146 @@ function NewsManagementPage() {
   const handleImageChange = (e) => {
     const file = e.target.files[0]
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        setMessage({ type: 'error', text: 'File harus berupa gambar' })
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+      if (!allowedTypes.includes(file.type)) {
+        setMessage({ type: 'error', text: 'Format file tidak didukung. Gunakan JPG, PNG, GIF, atau WEBP' })
+        e.target.value = '' // Clear input
         return
       }
+      
+      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setMessage({ type: 'error', text: 'Ukuran file maksimal 5MB' })
+        e.target.value = '' // Clear input
         return
       }
+      
+      // Additional security: check file name for dangerous patterns
+      const dangerousPatterns = /[<>:"|?*\x00-\x1f]/g
+      if (dangerousPatterns.test(file.name)) {
+        setMessage({ type: 'error', text: 'Nama file tidak valid' })
+        e.target.value = '' // Clear input
+        return
+      }
+      
       setSelectedImage(file)
       const reader = new FileReader()
       reader.onloadend = () => {
         setImagePreview(reader.result)
       }
       reader.readAsDataURL(file)
+      
+      // Clear any previous error messages
+      setMessage({ type: '', text: '' })
     }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     
+    // Validation
     if (!editForm.title.trim()) {
-      setMessage({ type: 'error', text: 'Judul berita wajib diisi' })
+      Swal.fire({
+        icon: 'warning',
+        title: 'Judul wajib diisi',
+        text: 'Mohon isi judul berita'
+      })
+      return
+    }
+    
+    if (editForm.title.trim().length < 10) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Judul terlalu pendek',
+        text: 'Judul berita minimal 10 karakter'
+      })
+      return
+    }
+
+    if (editForm.title.trim().length > 200) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Judul terlalu panjang',
+        text: 'Judul berita maksimal 200 karakter'
+      })
       return
     }
     
     if (!editForm.category.trim()) {
-      setMessage({ type: 'error', text: 'Kategori wajib diisi' })
+      Swal.fire({
+        icon: 'warning',
+        title: 'Kategori wajib diisi',
+        text: 'Mohon isi kategori berita'
+      })
+      return
+    }
+
+    if (editForm.category.trim().length > 50) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Kategori terlalu panjang',
+        text: 'Kategori maksimal 50 karakter'
+      })
       return
     }
     
     if (!editForm.date) {
-      setMessage({ type: 'error', text: 'Tanggal wajib diisi' })
+      Swal.fire({
+        icon: 'warning',
+        title: 'Tanggal wajib diisi',
+        text: 'Mohon pilih tanggal berita'
+      })
+      return
+    }
+
+    // Validate description/content
+    const plainTextContent = editForm.description 
+      ? editForm.description.replace(/<[^>]*>/g, '').trim() 
+      : ''
+    
+    if (plainTextContent.length < 50) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Konten terlalu pendek',
+        text: 'Deskripsi/Konten berita minimal 50 karakter'
+      })
+      return
+    }
+
+    if (plainTextContent.length > 50000) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Konten terlalu panjang',
+        text: 'Deskripsi/Konten berita maksimal 50.000 karakter'
+      })
       return
     }
 
     if (!editingNews && !selectedImage) {
-      setMessage({ type: 'error', text: 'Gambar wajib diupload untuk berita baru' })
+      Swal.fire({
+        icon: 'warning',
+        title: 'Gambar wajib diupload',
+        text: 'Gambar wajib diupload untuk berita baru'
+      })
       return
     }
+
+    // Final sanitization before sending to server
+    const sanitizedDescription = DOMPurify.sanitize(editForm.description, {
+      ALLOWED_TAGS: [
+        'p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'ul', 'ol', 'li', 'a', 'blockquote', 'div', 'span',
+        'table', 'thead', 'tbody', 'tr', 'td', 'th'
+      ],
+      ALLOWED_ATTR: [
+        'href', 'title', 'target', 'rel', 'class'
+      ],
+      ALLOW_DATA_ATTR: false,
+      ALLOW_UNKNOWN_PROTOCOLS: false
+    })
+
+    setIsSubmitting(true)
 
     try {
       let response
@@ -203,7 +316,7 @@ function NewsManagementPage() {
         formData.append('category', editForm.category.trim())
         formData.append('color', editForm.color)
         formData.append('date', editForm.date)
-        formData.append('description', editForm.description || '')
+        formData.append('description', sanitizedDescription)
         formData.append('image', selectedImage)
         if (editingNews && editingNews.image) {
           formData.append('existingImage', editingNews.image)
@@ -231,25 +344,43 @@ function NewsManagementPage() {
             category: editForm.category.trim(),
             color: editForm.color,
             date: editForm.date,
-            description: editForm.description || '',
+            description: sanitizedDescription,
             existingImage: editingNews.image || null
           })
         })
       }
 
       if (response.ok) {
-        setMessage({ type: 'success', text: editingNews ? 'Berita berhasil diperbarui' : 'Berita berhasil ditambahkan' })
+        Swal.fire({
+          icon: 'success',
+          title: 'Berhasil',
+          text: editingNews ? 'Berita berhasil diperbarui' : 'Berita berhasil ditambahkan',
+          timer: 2000,
+          showConfirmButton: false
+        })
         setShowModal(false)
         setSelectedImage(null)
         setImagePreview(null)
+        setEditingNews(null)
+        setEditForm({ title: '', category: '', color: 'crimson', date: '', description: '' })
         fetchNews()
       } else {
         const error = await response.json()
-        setMessage({ type: 'error', text: error.error || 'Gagal menyimpan berita' })
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.error || 'Gagal menyimpan berita'
+        })
       }
     } catch (error) {
       console.error('Error saving news:', error)
-      setMessage({ type: 'error', text: 'Terjadi kesalahan saat menyimpan berita' })
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Terjadi kesalahan saat menyimpan berita'
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -430,6 +561,8 @@ function NewsManagementPage() {
                   setShowModal(false)
                   setSelectedImage(null)
                   setImagePreview(null)
+                  setEditingNews(null)
+                  setEditForm({ title: '', category: '', color: 'crimson', date: '', description: '' })
                 }}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -539,14 +672,19 @@ function NewsManagementPage() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Deskripsi
+                  Deskripsi / Konten Berita <span className="text-red-500">*</span>
                 </label>
-                <div className="border border-gray-300 rounded-lg overflow-hidden">
+                <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
                   <ReactQuill
                     theme="snow"
                     value={editForm.description}
-                    onChange={(value) => setEditForm({ ...editForm, description: value })}
-                    placeholder="Masukkan deskripsi berita..."
+                    onChange={(value) => {
+                      // Store the value directly, sanitization will be done on submit
+                      // Sanitizing on every keystroke can cause UX issues
+                      setEditForm({ ...editForm, description: value })
+                    }}
+                    ref={quillRef}
+                    placeholder="Masukkan deskripsi berita... (Minimal 50 karakter)"
                     modules={{
                       toolbar: [
                         [{ 'header': [1, 2, 3, false] }],
@@ -555,7 +693,10 @@ function NewsManagementPage() {
                         [{ 'align': [] }],
                         ['link'],
                         ['clean']
-                      ]
+                      ],
+                      clipboard: {
+                        matchVisual: false
+                      }
                     }}
                     formats={[
                       'header',
@@ -564,12 +705,27 @@ function NewsManagementPage() {
                       'align',
                       'link'
                     ]}
-                    style={{ minHeight: '300px' }}
+                    style={{ 
+                      minHeight: '350px',
+                      backgroundColor: 'white'
+                    }}
+                    bounds="self"
                   />
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  Gunakan toolbar di atas untuk memformat teks (bold, italic, dll). Paragraf akan otomatis di-indent saat ditampilkan.
-                </p>
+                <div className="mt-2 flex items-center justify-between">
+                  <p className="text-xs text-gray-500">
+                    Gunakan toolbar untuk memformat teks. HTML berbahaya akan otomatis dihapus.
+                  </p>
+                  <p className={`text-xs font-medium ${
+                    editForm.description && editForm.description.replace(/<[^>]*>/g, '').trim().length >= 50
+                      ? 'text-green-600'
+                      : 'text-red-600'
+                  }`}>
+                    {editForm.description 
+                      ? `${editForm.description.replace(/<[^>]*>/g, '').trim().length} karakter`
+                      : '0 karakter'} / Minimal 50 karakter
+                  </p>
+                </div>
               </div>
 
               {/* Modal Footer */}
@@ -580,16 +736,27 @@ function NewsManagementPage() {
                     setShowModal(false)
                     setSelectedImage(null)
                     setImagePreview(null)
+                    setEditingNews(null)
+                    setEditForm({ title: '', category: '', color: 'crimson', date: '', description: '' })
                   }}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-semibold"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {editingNews ? 'Simpan Perubahan' : 'Tambah Berita'}
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <span>{editingNews ? 'Simpan Perubahan' : 'Tambah Berita'}</span>
+                  )}
                 </button>
               </div>
             </form>

@@ -458,8 +458,8 @@ function SpeedOverlay() {
           }
         }
       }
-    }
-    
+  }
+
     const result = fromParentheses || fromRaceState || fromDatabase || null
     console.log('[SPEED OVERLAY] Team B lookup:', { athleteNameB, fromParentheses, fromRaceState, fromDatabase, result })
     return result
@@ -642,8 +642,8 @@ function ClimberWing({ climber, position, showPreviousTime = false }) {
                   fontFamily: "'Roboto Condensed', sans-serif"
                 }}>
                   {climber.team || '-'}
-                </div>
-                
+              </div>
+              
                 {/* PB Time */}
                 {climber.pb && (
                   <div className="text-cyan-200 text-xs font-bold tabular-nums mt-1" style={{
@@ -659,10 +659,10 @@ function ClimberWing({ climber, position, showPreviousTime = false }) {
                 {/* Name (closest to center) */}
                 <div className="text-white text-2xl font-black uppercase tracking-wider" style={{
                   textShadow: '2px 2px 6px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.7)',
-                  fontFamily: "'Roboto Condensed', 'Inter', sans-serif",
+                fontFamily: "'Roboto Condensed', 'Inter', sans-serif",
                   letterSpacing: '0.1em',
                   fontWeight: 900
-                }}>
+              }}>
                   {climber.name}
                 </div>
                 
@@ -672,22 +672,22 @@ function ClimberWing({ climber, position, showPreviousTime = false }) {
                   fontFamily: "'Roboto Condensed', sans-serif"
                 }}>
                   {climber.team || '-'}
-                </div>
-                
+              </div>
+              
                 {/* PB Time */}
                 {climber.pb && (
                   <div className="text-cyan-200 text-xs font-bold tabular-nums mt-1" style={{
-                    textShadow: '1px 1px 3px rgba(0,0,0,0.8)',
+                textShadow: '1px 1px 3px rgba(0,0,0,0.8)',
                     fontFamily: "'Roboto Condensed', monospace"
-                  }}>
+              }}>
                     PB {formatTimeBroadcast(climber.pb)}
                   </div>
                 )}
               </>
             )}
           </div>
-        </div>
-      </div>
+              </div>
+            </div>
 
       {/* Top Layer - Time Bar (Thinner, sits on top of Base Layer edge) */}
       <div className={`absolute top-0 ${isLeft ? 'left-0 right-12' : 'right-0 left-12'} h-14`}>
@@ -725,9 +725,9 @@ function ClimberWing({ climber, position, showPreviousTime = false }) {
                       textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
                       fontFamily: "'Roboto Condensed', sans-serif"
                     }}>W</span>
-                  </div>
-                )}
-                
+                </div>
+              )}
+              
                 {/* Final Time - Large, Bold */}
                 <div className="relative">
                   <div className={`text-[38px] font-black tabular-nums leading-none ${
@@ -763,14 +763,14 @@ function ClimberWing({ climber, position, showPreviousTime = false }) {
                 <div className="relative">
                   <div className={`text-[38px] font-black tabular-nums leading-none ${
                     climber.isWinner ? 'text-yellow-300' : 'text-white'
-                  }`} style={{
+              }`} style={{
                     textShadow: climber.isWinner 
                       ? '0 0 25px rgba(253, 224, 71, 0.9), 3px 3px 10px rgba(0,0,0,0.95)'
                       : '3px 3px 8px rgba(0,0,0,0.95), 0 0 15px rgba(0,0,0,0.8)',
                     fontFamily: "'Chakra Petch', 'Roboto Condensed', monospace",
                     letterSpacing: '0.08em',
-                    fontWeight: 900
-                  }}>
+                fontWeight: 900
+              }}>
                     {formatTimeBroadcast(climber.finalTime)}
                   </div>
                   {/* Previous Time - Behind timer (during countdown) */}
@@ -786,8 +786,8 @@ function ClimberWing({ climber, position, showPreviousTime = false }) {
                       </div>
                     </div>
                   )}
-                </div>
-                
+              </div>
+              
                 {/* Win Indicator - Green Box with "W" */}
                 {climber.isWinner && (
                   <div className="bg-gradient-to-br from-green-500 to-green-600 px-3 py-1.5 rounded shadow-[0_2px_8px_rgba(34,197,94,0.6)] border border-green-400/50">
@@ -809,8 +809,8 @@ function ClimberWing({ climber, position, showPreviousTime = false }) {
             )}
           </div>
         </div>
-      </div>
-    </div>
+              </div>
+            </div>
   )
 }
 
@@ -830,12 +830,12 @@ function CenterBadge({ matchInfo }) {
         <div className="relative h-full flex flex-col items-center justify-center px-4 gap-1">
           <div className="text-gray-900 text-xs font-black uppercase tracking-widest" style={{
             textShadow: '1px 1px 2px rgba(255,255,255,0.5)',
-            fontFamily: "'Roboto Condensed', 'Inter', sans-serif",
+                fontFamily: "'Roboto Condensed', 'Inter', sans-serif",
             letterSpacing: '0.15em',
             fontWeight: 900
-          }}>
+              }}>
             {matchInfo.category}
-          </div>
+              </div>
           <div className="text-gray-800 text-sm font-bold uppercase tracking-wide" style={{
             textShadow: '1px 1px 2px rgba(255,255,255,0.5)',
             fontFamily: "'Roboto Condensed', 'Inter', sans-serif",
@@ -843,10 +843,10 @@ function CenterBadge({ matchInfo }) {
             fontWeight: 700
           }}>
             {matchInfo.round}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
   )
 }
 

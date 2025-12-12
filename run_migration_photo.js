@@ -1,61 +1,85 @@
+/**
+ * Run Photo Column Migration
+ * Adds photo column to climbers and speed_climbers tables
+ */
+
 const mysql = require('mysql2/promise');
-require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-
-const dbConfig = {
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '272800',
-    database: process.env.DB_NAME || 'fpti_karanganyar',
-    port: process.env.DB_PORT || 3306,
-    authPlugin: 'mysql_native_password'
-};
+require('dotenv').config();
 
 async function runMigration() {
     let connection;
+    
     try {
-        console.log('🔄 Connecting to database...');
-        connection = await mysql.createConnection(dbConfig);
+        // Connect to database
+        connection = await mysql.createConnection({
+            host: process.env.DB_HOST || 'localhost',
+            user: process.env.DB_USER || 'root',
+            password: process.env.DB_PASSWORD || '272800',
+            database: process.env.DB_NAME || 'fpti_karanganyar',
+            port: process.env.DB_PORT || 3306,
+            authPlugin: 'mysql_native_password'
+        });
+
         console.log('✅ Connected to database');
 
         // Read migration file
         const migrationPath = path.join(__dirname, 'database', 'migration_add_photo_to_climbers.sql');
         const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
 
-        // Split by semicolon and execute each statement
-        const statements = migrationSQL
-            .split(';')
-            .map(s => s.trim())
-            .filter(s => s.length > 0 && !s.startsWith('--'));
+        console.log('📝 Running photo column migration...');
 
-        console.log('🔄 Running migration...');
-        for (const statement of statements) {
-            if (statement.trim()) {
-                try {
-                    await connection.execute(statement);
-                    console.log('✅ Executed:', statement.substring(0, 50) + '...');
-                } catch (error) {
-                    // Ignore "Duplicate column" errors (column already exists)
-                    if (error.code === 'ER_DUP_FIELDNAME') {
-                        console.log('⚠️  Column already exists, skipping:', statement.substring(0, 50) + '...');
-                    } else {
-                        throw error;
-                    }
+        // Execute SQL statements directly
+        const sqlStatements = [
+            'ALTER TABLE climbers ADD COLUMN photo VARCHAR(500) DEFAULT NULL AFTER team',
+            'ALTER TABLE speed_climbers ADD COLUMN photo VARCHAR(500) DEFAULT NULL AFTER team'
+        ];
+
+        console.log(`\n📋 Found ${sqlStatements.length} SQL statements to execute`);
+
+        for (const statement of sqlStatements) {
+            try {
+                console.log(`\n📝 Executing: ${statement}`);
+                await connection.query(statement);
+                console.log(`✅ Successfully executed`);
+            } catch (error) {
+                // Check if column already exists
+                if (error.code === 'ER_DUP_FIELDNAME') {
+                    console.log(`⚠️  Column already exists, skipping: ${error.message}`);
+                } else {
+                    console.error(`❌ Error: ${error.message}`);
+                    console.error(`   Error code: ${error.code}`);
+                    console.error(`   SQL: ${statement}`);
+                    throw error;
                 }
             }
         }
 
-        console.log('✅ Migration completed successfully!');
+        console.log('');
+        console.log('✅ Photo column migration completed successfully!');
+        console.log('📊 Columns added:');
+        console.log('  - climbers.photo');
+        console.log('  - speed_climbers.photo');
+
     } catch (error) {
         console.error('❌ Migration failed:', error.message);
-        process.exit(1);
+        throw error;
     } finally {
         if (connection) {
             await connection.end();
+            console.log('🔌 Database connection closed');
         }
     }
 }
 
-runMigration();
-
+// Run migration
+runMigration()
+    .then(() => {
+        console.log('✅ Migration script completed');
+        process.exit(0);
+    })
+    .catch((error) => {
+        console.error('❌ Migration script failed:', error);
+        process.exit(1);
+    });

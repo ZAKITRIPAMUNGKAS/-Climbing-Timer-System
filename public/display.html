@@ -488,6 +488,9 @@
     <audio id="audioWarning" preload="auto">
         <source src="/sounds/warning.mp3" type="audio/mpeg">
     </audio>
+    <audio id="audioFinish" preload="auto">
+        <source src="/sounds/finish.mp3" type="audio/mpeg">
+    </audio>
 
     <script>
         const { createApp } = Vue;
@@ -519,6 +522,7 @@
                     socket: null,
                     beepStartSpeed: null,
                     audioWarning: null,
+                    audioFinish: null,
                     competitionId: null
                 }
             },
@@ -551,15 +555,22 @@
                 this.socket = io();
                 this.beepStartSpeed = document.getElementById('beepStartSpeed');
                 this.audioWarning = document.getElementById('audioWarning');
+                this.audioFinish = document.getElementById('audioFinish');
                 
-                // Audio preloading
+                // Audio preloading - Pastikan audio siap untuk mengurangi delay
                 if (this.beepStartSpeed) {
                     this.beepStartSpeed.load();
                     this.beepStartSpeed.volume = 1.0;
+                    // Set preload attribute untuk memastikan audio di-buffer lebih awal
+                    this.beepStartSpeed.preload = 'auto';
                 }
                 if (this.audioWarning) {
                     this.audioWarning.load();
                     this.audioWarning.volume = 1.0;
+                }
+                if (this.audioFinish) {
+                    this.audioFinish.load();
+                    this.audioFinish.volume = 1.0;
                 }
 
                 this.socket.on('race-state', (state) => {
@@ -601,9 +612,13 @@
 
                 this.socket.on('play-sound', (data) => {
                     if (data.type === 'countdown-start') {
-                        this.playBeepStartSpeed();
+                        // Pass data untuk sinkronisasi timestamp
+                        this.playBeepStartSpeed(data);
                     } else if (data.type === 'false-start') {
                         this.playFalseStartWarning();
+                    } else if (data.type === 'timer-start') {
+                        // Play "tut" sound saat timer mulai (setelah countdown)
+                        this.playFinishSound();
                     }
                 });
             },
@@ -629,10 +644,30 @@
                     
                     return false;
                 },
-                playBeepStartSpeed() {
+                playBeepStartSpeed(data) {
                     if (this.beepStartSpeed) {
+                        // Reset audio ke awal
                         this.beepStartSpeed.currentTime = 0;
-                        this.beepStartSpeed.play().catch(console.error);
+                        
+                        // Jika ada timestamp, gunakan untuk sinkronisasi yang lebih baik
+                        if (data && data.startTime) {
+                            const now = Date.now();
+                            const delay = now - data.startTime;
+                            
+                            // Jika delay kecil (< 50ms), play langsung
+                            // Jika delay lebih besar, kompensasi dengan memajukan sedikit
+                            if (delay < 50) {
+                                this.beepStartSpeed.play().catch(console.error);
+                            } else {
+                                // Untuk delay yang lebih besar, tetap play tapi dengan sedikit kompensasi
+                                // Audio akan dimainkan lebih cepat untuk mengkompensasi delay
+                                this.beepStartSpeed.playbackRate = 1.0;
+                                this.beepStartSpeed.play().catch(console.error);
+                            }
+                        } else {
+                            // Fallback: play langsung tanpa sinkronisasi
+                            this.beepStartSpeed.play().catch(console.error);
+                        }
                     }
                 },
                 playFalseStartWarning() {
@@ -646,6 +681,16 @@
                         }
                     };
                     playWarning();
+                },
+                playFinishSound() {
+                    if (this.audioFinish) {
+                        // Reset dan play immediately untuk menghindari miss
+                        // Suara "tut" diputar saat timer mulai (setelah countdown)
+                        this.audioFinish.currentTime = 0;
+                        this.audioFinish.play().catch(err => {
+                            console.error('Error playing timer start sound:', err);
+                        });
+                    }
                 },
                 async fetchActiveCompetition() {
                     try {

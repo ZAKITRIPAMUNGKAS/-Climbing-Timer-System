@@ -14,7 +14,10 @@ function CompetitionsManagementPage() {
     name: '',
     total_boulders: 4,
     status: 'active',
-    type: 'boulder'
+    type: 'boulder',
+    location: '',
+    event_date: '',
+    round: 'qualification'
   })
 
   useEffect(() => {
@@ -23,9 +26,11 @@ function CompetitionsManagementPage() {
 
   const fetchCompetitions = async () => {
     try {
+      // Add timestamp to bypass browser cache
+      const timestamp = new Date().getTime()
       const [boulderRes, speedRes] = await Promise.all([
-        fetch('/api/competitions'),
-        fetch('/api/speed-competitions')
+        fetch(`/api/competitions?t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/speed-competitions?t=${timestamp}`, { cache: 'no-store' })
       ])
       
       if (boulderRes.ok) {
@@ -58,18 +63,33 @@ function CompetitionsManagementPage() {
         : url
 
       // Prepare request body based on competition type
+      // Normalize event_date to avoid timezone issues - ensure it's a plain YYYY-MM-DD string or null
+      let normalizedEventDate = null
+      if (formData.event_date && typeof formData.event_date === 'string' && formData.event_date.trim()) {
+        const dateStr = formData.event_date.trim().split('T')[0]  // Extract only date part (YYYY-MM-DD)
+        // Only set if it's a valid date format
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          normalizedEventDate = dateStr
+        }
+      }
+      
       let requestBody
       if (formData.type === 'boulder') {
         requestBody = {
           name: formData.name,
           total_boulders: formData.total_boulders,
-          status: formData.status
+          status: formData.status,
+          location: formData.location || null,
+          event_date: normalizedEventDate,
+          round: formData.round || 'qualification'
         }
       } else {
         // Speed competition
         requestBody = {
           name: formData.name,
-          status: formData.status
+          status: formData.status,
+          location: formData.location || null,
+          event_date: normalizedEventDate
         }
       }
 
@@ -81,10 +101,16 @@ function CompetitionsManagementPage() {
       })
 
       if (response.ok) {
-        await fetchCompetitions()
+        // Close modal first
         setShowModal(false)
         setEditingCompetition(null)
-        setFormData({ name: '', total_boulders: 4, status: 'active', type: 'boulder' })
+        setFormData({ name: '', total_boulders: 4, status: 'active', type: 'boulder', location: '', event_date: '', round: 'qualification' })
+        
+        // Then refresh data with a small delay to ensure backend cache is cleared
+        await new Promise(resolve => setTimeout(resolve, 200))
+        await fetchCompetitions()
+        
+        alert(editingCompetition ? 'Competition updated successfully!' : 'Competition created successfully!')
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error occurred' }))
         console.error('Error response:', errorData)
@@ -99,11 +125,30 @@ function CompetitionsManagementPage() {
 
   const handleEdit = (comp, type) => {
     setEditingCompetition({ ...comp, type })
+    
+    // Format event_date for date input (YYYY-MM-DD format)
+    let formattedDate = ''
+    if (comp.event_date) {
+      if (typeof comp.event_date === 'string') {
+        // Extract date part from ISO string or use as-is if already YYYY-MM-DD
+        formattedDate = comp.event_date.split('T')[0].split(' ')[0]
+      } else if (comp.event_date instanceof Date) {
+        // Convert Date object to YYYY-MM-DD
+        const year = comp.event_date.getFullYear()
+        const month = String(comp.event_date.getMonth() + 1).padStart(2, '0')
+        const day = String(comp.event_date.getDate()).padStart(2, '0')
+        formattedDate = `${year}-${month}-${day}`
+      }
+    }
+    
     setFormData({
       name: comp.name,
       total_boulders: comp.total_boulders || 4,
       status: comp.status,
-      type: type
+      type: type,
+      location: comp.location || '',
+      event_date: formattedDate,
+      round: comp.round || 'qualification'
     })
     setShowModal(true)
   }
@@ -123,17 +168,22 @@ function CompetitionsManagementPage() {
 
       if (response.ok) {
         await fetchCompetitions()
+        alert('Competition deleted successfully')
       } else {
-        alert('Failed to delete competition')
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error occurred' }))
+        console.error('Error response:', errorData)
+        const errorMessage = errorData.error || errorData.message || 'Failed to delete competition'
+        alert(`Error: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error deleting competition:', error)
-      alert('Failed to delete competition')
+      alert(`Failed to delete competition: ${error.message || 'Network error'}`)
     }
   }
 
   const [generatingBracket, setGeneratingBracket] = useState(false)
   const [generatingNextRound, setGeneratingNextRound] = useState({})
+  const [generatingFinal, setGeneratingFinal] = useState({})
 
   const handleGenerateBracket = async (competitionId) => {
     if (generatingBracket) return // Double-click protection
@@ -194,6 +244,36 @@ function CompetitionsManagementPage() {
     }
   }
 
+  const handleGenerateFinal = async (competitionId) => {
+    if (generatingFinal[competitionId]) return // Double-click protection
+    
+    if (!confirm('Generate Final round dari top 8 kualifikasi? (Akan membuat competition baru untuk Final)')) return
+
+    setGeneratingFinal(prev => ({ ...prev, [competitionId]: true }))
+    try {
+      const response = await fetch(`/api/competitions/${competitionId}/generate-final`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ topCount: 8 })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert(`Final round berhasil dibuat!\n\n${data.message}\n\nCompetition: ${data.finalCompetition.name}`)
+        await fetchCompetitions()
+      } else {
+        alert(data.error || 'Failed to generate final round')
+      }
+    } catch (error) {
+      console.error('Error generating final round:', error)
+      alert('Failed to generate final round')
+    } finally {
+      setGeneratingFinal(prev => ({ ...prev, [competitionId]: false }))
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -213,7 +293,7 @@ function CompetitionsManagementPage() {
         <button
           onClick={() => {
             setEditingCompetition(null)
-            setFormData({ name: '', total_boulders: 4, status: 'active', type: 'boulder' })
+            setFormData({ name: '', total_boulders: 4, status: 'active', type: 'boulder', location: '', event_date: '', round: 'qualification' })
             setShowModal(true)
           }}
           className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
@@ -269,6 +349,22 @@ function CompetitionsManagementPage() {
                       <Users size={16} />
                       Upload Foto
                     </a>
+                    {/* Generate Final button - only show for qualification rounds */}
+                    {comp.round === 'qualification' && (
+                      <button
+                        onClick={() => handleGenerateFinal(comp.id)}
+                        disabled={generatingFinal[comp.id]}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-orange-50 text-orange-600 rounded hover:bg-orange-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Zap size={16} />
+                        {generatingFinal[comp.id] ? 'Generating...' : 'Generate Final (Top 8 + Ties)'}
+                      </button>
+                    )}
+                    {comp.round && (
+                      <div className="text-xs text-gray-500 text-center py-1">
+                        Round: {comp.round === 'qualification' ? 'Kualifikasi' : comp.round === 'semifinal' ? 'Semifinal' : comp.round === 'final' ? 'Final' : comp.round}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleEdit(comp, 'boulder')}
@@ -445,20 +541,59 @@ function CompetitionsManagementPage() {
                 </div>
               )}
               {formData.type === 'boulder' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="active">Active</option>
-                    <option value="finished">Finished</option>
-                  </select>
-                </div>
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Round/Babak
+                    </label>
+                    <select
+                      value={formData.round}
+                      onChange={(e) => setFormData({ ...formData, round: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="qualification">Kualifikasi</option>
+                      <option value="semifinal">Semifinal</option>
+                      <option value="final">Final</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="active">Active</option>
+                      <option value="finished">Finished</option>
+                    </select>
+                  </div>
+                </>
               )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Lokasi
+                </label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="Contoh: Karanganyar"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tanggal Event
+                </label>
+                <input
+                  type="date"
+                  value={formData.event_date}
+                  onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
               <div className="flex items-center gap-3 pt-4">
                 <button
                   type="submit"
@@ -471,7 +606,7 @@ function CompetitionsManagementPage() {
                   onClick={() => {
                     setShowModal(false)
                     setEditingCompetition(null)
-                    setFormData({ name: '', total_boulders: 4, status: 'active', type: 'boulder' })
+                    setFormData({ name: '', total_boulders: 4, status: 'active', type: 'boulder', location: '', event_date: '', round: 'qualification' })
                   }}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                 >

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Trophy, TrendingUp, Award, Target, Info, Search, FileText, Download, Monitor, Activity } from 'lucide-react'
 import LeaderboardCard from '../components/LeaderboardCard'
 import PublicLayout from '../components/PublicLayout'
-import { generateStartListPDF, generateResultListExcel } from '../utils/pdfExport'
+import { generateStartListPDF, generateOfficialResultPDF } from '../utils/pdfExport'
 
 function LiveScorePage() {
   const [competition, setCompetition] = useState(null)
@@ -16,6 +16,7 @@ function LiveScorePage() {
   const [isUpdating, setIsUpdating] = useState(false) // Indicator for real-time updates
   const [currentClimber, setCurrentClimber] = useState(null) // Current climber data
   const [currentClimberScore, setCurrentClimberScore] = useState(null) // Latest score for current climber
+  // Round is determined automatically from competition.round
   const socketRef = useRef(null)
 
   useEffect(() => {
@@ -88,12 +89,52 @@ function LiveScorePage() {
     generateStartListPDF(climbers, competition, 'Qualification')
   }
 
-  const handleExportResultList = () => {
+  const handleExportResultList = async () => {
     if (leaderboard.length === 0) {
       alert('Tidak ada hasil yang tersedia untuk Result List')
       return
     }
-    generateResultListExcel(leaderboard, competition, 'Qualification')
+    
+    // Get round for display from competition.round (automatically determined)
+    const round = competition?.round || 'qualification'
+    const roundDisplay = round === 'qualification' ? 'Kualifikasi' : 
+                         round === 'semifinal' ? 'Semifinal' : 
+                         round === 'final' ? 'Final' : 'Kualifikasi'
+    
+    // Format date from competition or use current date
+    let eventDate = new Date().toLocaleDateString('id-ID', { 
+      day: '2-digit', 
+      month: 'long', 
+      year: 'numeric' 
+    })
+    if (competition?.event_date) {
+      const dateObj = new Date(competition.event_date)
+      eventDate = dateObj.toLocaleDateString('id-ID', { 
+        day: '2-digit', 
+        month: 'long', 
+        year: 'numeric' 
+      })
+    }
+    
+    // Use Official Result PDF (FPTI Format) - now async to load logo
+    try {
+      await generateOfficialResultPDF(
+        leaderboard,
+        competition,
+        round, // Use round from competition or selectedRound
+        competition?.type === 'boulder' ? 'Boulder' : 'Speed', // categoryType
+        {
+          eventName: competition?.name || 'PORPROV TAHUN 2025',
+          location: competition?.location || 'Karanganyar',
+          date: eventDate,
+          categoryName: `${roundDisplay} ${competition?.type === 'boulder' ? 'Boulder' : 'Speed'} Perorangan`,
+          cutoffRank: 8
+        }
+      )
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      alert('Error saat generate PDF. Silakan coba lagi.')
+    }
   }
 
   useEffect(() => {
@@ -116,7 +157,8 @@ function LiveScorePage() {
       const response = await fetch(`/api/competitions/${competitionId}`)
       if (response.ok) {
         const data = await response.json()
-        setCompetition(data)
+        // LiveScorePage is specifically for boulder competitions, so add type
+        setCompetition({ ...data, type: 'boulder' })
       } else {
         setLoading(false)
       }
@@ -298,7 +340,7 @@ function LiveScorePage() {
                    </span>
                 </div>
                 <h1 className="text-3xl md:text-5xl font-black text-zinc-100 tracking-tighter uppercase leading-none">
-                  Boulder Lead
+                  Boulder {competition?.round === 'final' ? 'Final' : competition?.round === 'semifinal' ? 'Semifinal' : 'Kualifikasi'}
                   <span className="text-[#FFB800]">.</span>
                 </h1>
                 <div className="flex items-center gap-2 text-zinc-400 font-mono text-sm">

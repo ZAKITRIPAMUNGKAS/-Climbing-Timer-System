@@ -3,8 +3,11 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { ArrowLeft, Calendar, Tag, Share2, Facebook, Twitter, MessageCircle, Copy, Check, Clock, ChevronRight } from 'lucide-react'
 import { motion } from 'framer-motion'
+import DOMPurify from 'dompurify'
 import PublicLayout from '../components/PublicLayout'
+import ErrorBoundary from '../components/ErrorBoundary'
 import './LandingPage.css'
+import './NewsDetailPage.css'
 
 function NewsDetailPage() {
   const { id } = useParams()
@@ -26,6 +29,41 @@ function NewsDetailPage() {
       return `${baseUrl}${imagePath}`
     } else {
       return `${baseUrl}/uploads/${imagePath}`
+    }
+  }
+
+  // Helper function to sanitize HTML content
+  const sanitizeHtml = (html) => {
+    if (!html) return ''
+    
+    try {
+      // Configure DOMPurify to allow safe HTML tags and attributes
+      const config = {
+        ALLOWED_TAGS: [
+          'p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+          'ul', 'ol', 'li', 'a', 'img', 'blockquote', 'div', 'span',
+          'table', 'thead', 'tbody', 'tr', 'td', 'th'
+        ],
+        ALLOWED_ATTR: [
+          'href', 'title', 'alt', 'src', 'class', 'style', 'target', 'rel'
+        ],
+        ALLOW_DATA_ATTR: false,
+        ALLOW_UNKNOWN_PROTOCOLS: false
+      }
+      
+      // Sanitize the HTML
+      const sanitized = DOMPurify.sanitize(html, config)
+      
+      // Additional cleanup: remove any remaining script tags and event handlers
+      return sanitized
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/on\w+="[^"]*"/gi, '')
+        .replace(/on\w+='[^']*'/gi, '')
+        .replace(/javascript:/gi, '')
+    } catch (error) {
+      console.error('Error sanitizing HTML:', error)
+      // If sanitization fails, return plain text
+      return html.replace(/<[^>]*>/g, '')
     }
   }
 
@@ -163,8 +201,9 @@ function NewsDetailPage() {
   // --- MAIN RENDER ---
 
   return (
-    <PublicLayout>
-      {article && (
+    <ErrorBoundary>
+      <PublicLayout>
+        {article && (
         <Helmet>
           <title>{article.title} - FPTI Karanganyar</title>
           <meta name="description" content={description} />
@@ -255,11 +294,18 @@ function NewsDetailPage() {
               <div className="mb-12 relative group overflow-hidden bg-[#111111] border border-zinc-800">
                 <img 
                   src={article.image.startsWith('http') ? article.image : `${window.location.origin}${article.image}`}
-                  alt={article.title}
+                  alt={article.title || 'News image'}
                   className="w-full h-auto object-cover max-h-[600px]"
                   loading="lazy"
                   onError={(e) => {
+                    e.target.onerror = null // Prevent infinite loop
                     e.target.src = `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23111111" width="800" height="600"/%3E%3Ctext fill="%23333333" font-family="Arial" font-size="24" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3EIMAGE NOT AVAILABLE%3C/text%3E%3C/svg%3E`
+                  }}
+                  onLoad={(e) => {
+                    // Validate image loaded successfully
+                    if (e.target.naturalWidth === 0 || e.target.naturalHeight === 0) {
+                      e.target.onerror()
+                    }
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent opacity-20"></div>
@@ -267,14 +313,18 @@ function NewsDetailPage() {
             )}
 
             {/* Content Body */}
-            <div className="prose prose-invert prose-lg max-w-none text-zinc-300">
+            <ErrorBoundary>
               <div 
-                className="leading-relaxed font-light [&>p]:mb-6 [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:text-white [&>h2]:mt-10 [&>h2]:mb-4 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:mb-6 [&>li]:mb-2"
-                dangerouslySetInnerHTML={{ 
-                  __html: (article.description || 'Tidak ada konten yang tersedia.')
-                }}
-              />
-            </div>
+                className="article-content"
+              >
+                <div 
+                  className="leading-relaxed font-light article-content-inner"
+                  dangerouslySetInnerHTML={{ 
+                    __html: sanitizeHtml(article.description || '<p>Tidak ada konten yang tersedia.</p>')
+                  }}
+                />
+              </div>
+            </ErrorBoundary>
           </motion.div>
         </article>
 
@@ -343,7 +393,8 @@ function NewsDetailPage() {
           </div>
         </footer>
       </div>
-    </PublicLayout>
+      </PublicLayout>
+    </ErrorBoundary>
   )
 }
 

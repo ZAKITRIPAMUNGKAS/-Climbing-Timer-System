@@ -609,50 +609,50 @@ function SpeedScorePage() {
 
                 <div className="h-6 w-px bg-zinc-800 mx-2 hidden sm:block"></div>
 
-                <button
-                  onClick={handleExportStartList}
+                  <button
+                    onClick={handleExportStartList}
                   className="px-4 py-2 bg-zinc-900 border border-zinc-800 hover:border-[#FFB800] hover:text-[#FFB800] transition-all duration-300 rounded font-bold text-xs uppercase tracking-wider flex items-center gap-2 text-zinc-400"
-                >
+                  >
                   <FileText size={14} />
                   <span>Start List</span>
-                </button>
-                <button
-                  onClick={handleExportResultList}
+                  </button>
+                  <button
+                    onClick={handleExportResultList}
                   className="px-4 py-2 bg-zinc-900 border border-zinc-800 hover:border-[#FFB800] hover:text-[#FFB800] transition-all duration-300 rounded font-bold text-xs uppercase tracking-wider flex items-center gap-2 text-zinc-400"
-                >
+                  >
                   <Download size={14} />
                   <span>Results</span>
-                </button>
+                  </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Tabs - Modern Segmented Control */}
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+      {/* Tabs - Modern Segmented Control */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <div className="inline-flex bg-[#121212] border border-zinc-800 rounded-sm p-1 gap-1 w-full sm:w-auto">
-            <button
-              onClick={() => setActiveTab('qualification')}
+          <button
+            onClick={() => setActiveTab('qualification')}
               className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 sm:py-2.5 font-bold transition-all duration-200 rounded-sm text-xs sm:text-sm uppercase tracking-wider ${
-                activeTab === 'qualification'
+              activeTab === 'qualification'
                   ? 'bg-[#FFB800] shadow-lg text-black'
                   : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
+            }`}
+          >
               Qualification
-            </button>
-            <button
-              onClick={() => setActiveTab('finals')}
+          </button>
+          <button
+            onClick={() => setActiveTab('finals')}
               className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 sm:py-2.5 font-bold transition-all duration-200 rounded-sm text-xs sm:text-sm uppercase tracking-wider ${
-                activeTab === 'finals'
+              activeTab === 'finals'
                   ? 'bg-[#FFB800] shadow-lg text-black'
                   : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
+            }`}
+          >
               Finals
-            </button>
-          </div>
+          </button>
         </div>
+      </div>
 
         {/* Content Area */}
         <main className="container mx-auto px-4 sm:px-6 lg:px-8 mt-8 pb-12">
@@ -688,18 +688,18 @@ function SpeedScorePage() {
                   <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-zinc-800 rounded-sm">
                     <div className="bg-[#121212] p-4 rounded-full mb-4">
                       <Users className="text-zinc-600" size={32} />
-                    </div>
+                      </div>
                     <h3 className="text-lg font-bold text-zinc-300 uppercase tracking-wider mb-2">
                       {searchQuery ? 'No Results Found' : 'No Data Available'}
                     </h3>
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery('')}
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
                         className="px-6 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 text-xs font-bold uppercase tracking-wider rounded transition-colors border border-zinc-800"
-                      >
+                        >
                         Clear Search
-                      </button>
-                    )}
+                        </button>
+                      )}
                   </div>
                 ) : (
                   filteredQualification.map((score, index) => (
@@ -723,16 +723,16 @@ function SpeedScorePage() {
                   <h3 className="text-lg font-bold text-zinc-300 uppercase tracking-wider mb-2">
                     {searchQuery ? 'No Results Found' : 'No Data Available'}
                   </h3>
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery('')}
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
                       className="px-6 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 text-xs font-bold uppercase tracking-wider rounded transition-colors border border-zinc-800"
-                    >
+                        >
                       Clear Search
-                    </button>
-                  )}
-                </div>
-              ) : (
+                        </button>
+                      )}
+                  </div>
+                ) : (
                 <SpeedBracketView 
                   matches={filteredFinals} 
                   onMatchClick={(match) => {

@@ -136,6 +136,7 @@ function BigScreenPage() {
         const data = await boulderRes.json()
         setCompetition(data)
         setCompetitionType('boulder')
+        // For boulder, round is determined automatically from competition.round
         fetchLeaderboard()
         return
       }
@@ -246,9 +247,10 @@ function BigScreenPage() {
     )
   }
 
+  // Determine round name based on competition type and round
   const roundName = competitionType === 'speed' 
     ? (round === 'finals' ? 'FINALS' : 'QUALIFICATION')
-    : 'LEADERBOARD'
+    : (competition?.round === 'final' ? 'FINAL' : competition?.round === 'semifinal' ? 'SEMIFINAL' : 'KUALIFIKASI')
 
   return (
     <div className="min-h-screen bg-rich-black text-off-white overflow-hidden">

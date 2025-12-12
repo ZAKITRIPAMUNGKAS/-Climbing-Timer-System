@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Search, Calendar } from 'lucide-react'
+import DOMPurify from 'dompurify'
 import PublicLayout from '../components/PublicLayout'
 import './LandingPage.css'
 
@@ -27,11 +28,28 @@ function NewsPage() {
     fetchNews()
   }, [])
 
+  // Helper function to sanitize HTML and convert to plain text for preview
+  const sanitizeHtmlForPreview = (html) => {
+    if (!html) return ''
+    
+    try {
+      // Strip HTML tags and get plain text
+      const tmp = document.createElement('DIV')
+      tmp.innerHTML = DOMPurify.sanitize(html, { ALLOWED_TAGS: [] })
+      return tmp.textContent || tmp.innerText || ''
+    } catch (error) {
+      console.error('Error sanitizing HTML for preview:', error)
+      // Fallback: simple regex strip
+      return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+    }
+  }
+
   const categories = ['all', ...new Set(news.map(n => n.category).filter(Boolean))]
 
   const filteredNews = news.filter(article => {
+    const plainText = sanitizeHtmlForPreview(article.description || '')
     const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         article.description.toLowerCase().includes(searchTerm.toLowerCase())
+                         plainText.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = filterCategory === 'all' || article.category === filterCategory
     return matchesSearch && matchesCategory
   })
@@ -138,9 +156,10 @@ function NewsPage() {
                   <h3 className="text-xl font-heading font-bold mb-3 text-white group-hover:text-goldenrod transition-colors">
                     {article.title}
                   </h3>
-                  <div className="text-gray-400 text-sm leading-relaxed line-clamp-3" dangerouslySetInnerHTML={{ 
-                    __html: article.description ? article.description.substring(0, 150) + '...' : 'Tidak ada deskripsi'
-                  }}></div>
+                  <div className="text-gray-400 text-sm leading-relaxed line-clamp-3">
+                    {sanitizeHtmlForPreview(article.description || 'Tidak ada deskripsi').substring(0, 150)}
+                    {sanitizeHtmlForPreview(article.description || '').length > 150 && '...'}
+                  </div>
                 </div>
               </motion.div>
               ))

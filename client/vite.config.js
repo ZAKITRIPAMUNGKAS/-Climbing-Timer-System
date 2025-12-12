@@ -4,11 +4,36 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  publicDir: '../public', // Gunakan public folder dari root untuk assets
+  // Set publicDir untuk development (Vite akan serve dari sini)
+  publicDir: '../public',
   build: {
     outDir: '../public/react-build',
     emptyOutDir: false, // Jangan hapus folder, karena ada logo dan file lain
-    copyPublicDir: true // Copy public folder ke build output
+    copyPublicDir: true, // Copy public files ke build output agar images accessible
+    // Optimasi bundle size
+    rollupOptions: {
+      output: {
+        // Code splitting untuk chunk yang lebih kecil
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['lucide-react', 'framer-motion'],
+          'utils-vendor': ['jspdf', 'jspdf-autotable', 'xlsx', 'socket.io-client'],
+          'editor-vendor': ['react-quill', 'dompurify'],
+          'alert-vendor': ['sweetalert2']
+        }
+      }
+    },
+    // Minify dan optimize (gunakan esbuild default, lebih cepat)
+    minify: 'esbuild', // esbuild lebih cepat dari terser dan sudah included
+    // Jika ingin gunakan terser, install: npm install -D terser
+    // terserOptions: {
+    //   compress: {
+    //     drop_console: true,
+    //     drop_debugger: true
+    //   }
+    // },
+    // Chunk size warning limit
+    chunkSizeWarningLimit: 1000
   },
   server: {
     proxy: {

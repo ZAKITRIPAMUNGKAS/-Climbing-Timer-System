@@ -207,13 +207,15 @@ function DashboardPage() {
             </div>
           </div>
 
-          {/* Boulder Current Climber */}
+          {/* Boulder Current Climber (by Search) */}
           <div className="p-4 border border-gray-200 rounded-lg bg-gradient-to-br from-amber-50 to-yellow-50">
             <div className="flex items-center justify-between mb-2">
               <div className="font-semibold text-gray-900">Boulder Current Climber</div>
               <ExternalLink className="text-gray-400" size={16} />
             </div>
-            <div className="text-xs text-gray-600 mb-3">Current climber card with name and total points only</div>
+            <div className="text-xs text-gray-600 mb-3">
+              <span className="font-semibold text-amber-700">By Search:</span> Find climber by name or bib number
+            </div>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -234,8 +236,72 @@ function DashboardPage() {
             </div>
             <div className="text-xs text-amber-700 mt-2 space-y-1">
               <div>⚠️ Replace "ID" with competition ID</div>
-              <div>⚠️ Replace "NAME_OR_BIB" with climber name or bib number (optional)</div>
+              <div>⚠️ Replace "NAME_OR_BIB" with climber name or bib number</div>
               <div className="text-gray-600 mt-1">Example: ?competition=3&search=KEMIN or ?competition=3&search=1</div>
+            </div>
+          </div>
+
+          {/* Boulder Climber by Number (by Route/Climber ID) */}
+          <div className="p-4 border border-gray-200 rounded-lg bg-gradient-to-br from-orange-50 to-red-50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold text-gray-900">Boulder Climber by Number</div>
+              <ExternalLink className="text-gray-400" size={16} />
+            </div>
+            <div className="text-xs text-gray-600 mb-3">
+              <span className="font-semibold text-orange-700">By Route/ID:</span> Auto-finds next unjudged climber for route, or show specific climber by ID
+            </div>
+            <div className="space-y-2">
+              {/* Route Number Option */}
+              <div>
+                <div className="text-xs font-medium text-gray-700 mb-1">Option 1: By Route Number (Auto)</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${window.location.origin}/overlay/boulder-current?competition=ID&route=ROUTE_NUMBER`}
+                    className="flex-1 px-3 py-2 text-xs bg-white border border-gray-300 rounded-md font-mono"
+                    onClick={(e) => e.target.select()}
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/overlay/boulder-current?competition=ID&route=ROUTE_NUMBER`)
+                      alert('Link copied! Replace ID and ROUTE_NUMBER. Auto-finds next unjudged climber for that route.')
+                    }}
+                    className="px-3 py-2 bg-orange-600 text-white text-xs rounded-md hover:bg-orange-700 transition-colors"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <div className="text-xs text-orange-700 mt-1">Example: ?competition=3&route=1 (finds next climber for route 1)</div>
+              </div>
+              
+              {/* Climber ID Option */}
+              <div>
+                <div className="text-xs font-medium text-gray-700 mb-1">Option 2: By Climber ID (Specific)</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${window.location.origin}/overlay/boulder-current?competition=ID&climber=CLIMBER_ID`}
+                    className="flex-1 px-3 py-2 text-xs bg-white border border-gray-300 rounded-md font-mono"
+                    onClick={(e) => e.target.select()}
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/overlay/boulder-current?competition=ID&climber=CLIMBER_ID`)
+                      alert('Link copied! Replace ID and CLIMBER_ID. Shows specific climber by their ID.')
+                    }}
+                    className="px-3 py-2 bg-orange-600 text-white text-xs rounded-md hover:bg-orange-700 transition-colors"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <div className="text-xs text-orange-700 mt-1">Example: ?competition=3&climber=26 (shows climber with ID 26)</div>
+              </div>
+            </div>
+            <div className="text-xs text-orange-700 mt-2 space-y-1">
+              <div>💡 <strong>Route mode:</strong> Auto-updates to next climber when current is finalized</div>
+              <div>💡 <strong>Climber ID mode:</strong> Shows specific climber, updates score in real-time</div>
             </div>
           </div>
 

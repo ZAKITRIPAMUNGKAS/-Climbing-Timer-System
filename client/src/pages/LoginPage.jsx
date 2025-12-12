@@ -22,12 +22,25 @@ function LoginPage() {
           const response = await fetch('/api/check-auth', {
             credentials: 'include'
           })
+          
+          if (response.status === 429) {
+            // Rate limited - just continue, don't block login
+            console.warn('Rate limited on auth check')
+            return
+          }
+          
+          if (!response.ok) {
+            // Not authenticated or other error
+            return
+          }
+          
           const data = await response.json()
           if (data.authenticated) {
             navigate(from, { replace: true })
           }
         } catch (error) {
           console.error('Session check error:', error)
+          // Don't block login on error
         }
       }
     }
@@ -48,6 +61,12 @@ function LoginPage() {
         credentials: 'include',
         body: JSON.stringify({ username, password }),
       })
+
+      if (response.status === 429) {
+        setError('Terlalu banyak percobaan login. Silakan tunggu sebentar dan coba lagi.')
+        setLoading(false)
+        return
+      }
 
       const data = await response.json()
 

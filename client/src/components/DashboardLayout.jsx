@@ -28,6 +28,12 @@ function DashboardLayout({ children }) {
         const response = await fetch('/api/check-auth', {
           credentials: 'include'
         })
+        if (response.status === 429) {
+          // Rate limited - wait a bit and retry, or just continue
+          console.warn('Rate limited on auth check, continuing anyway')
+          // Don't navigate away on rate limit, just continue
+          return
+        }
         const data = await response.json()
         if (data.authenticated) {
           setUser(data.user)
@@ -36,7 +42,10 @@ function DashboardLayout({ children }) {
         }
       } catch (error) {
         console.error('Auth check error:', error)
-        navigate('/login', { replace: true })
+        // Only navigate on actual errors, not rate limits
+        if (!error.message.includes('Too many')) {
+          navigate('/login', { replace: true })
+        }
       }
     }
     checkAuth()
@@ -63,6 +72,7 @@ function DashboardLayout({ children }) {
   const menuItems = [
     { name: 'Dashboard Overview', icon: LayoutDashboard, path: '/dashboard' },
     { name: 'Manage Competitions', icon: Trophy, path: '/dashboard/competitions' },
+    { name: 'Data Peserta', icon: Users, path: '/dashboard/climbers' },
     { name: 'Manage Athletes', icon: Users, path: '/dashboard/athletes' },
     { name: 'Manage Schedules', icon: Calendar, path: '/dashboard/schedules' },
     { name: 'Manage News', icon: Newspaper, path: '/dashboard/news' },

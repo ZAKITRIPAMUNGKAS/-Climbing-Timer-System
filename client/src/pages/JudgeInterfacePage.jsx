@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
-import { io } from 'socket.io-client'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Gavel, Trophy, Timer, Search, Maximize2, Minimize2, LogOut } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import Swal from 'sweetalert2'
@@ -7,6 +6,8 @@ import ScoreInputModal from '../components/ScoreInputModal'
 import FinalsMatchInputModal from '../components/FinalsMatchInputModal'
 import QualificationCard from '../components/QualificationCard'
 import SpeedBracketView from '../components/SpeedBracketView'
+import { socketManager } from '../utils/socketManager'
+import { SOCKET_EVENTS, LEGACY_EVENTS } from '../constants/socketEvents'
 
 function JudgeInterfacePage() {
   const navigate = useNavigate()
@@ -70,22 +71,147 @@ function JudgeInterfacePage() {
     }
   }
 
+  // Define fetch functions FIRST before using them in useEffect
+  const fetchCompetitions = async () => {
+    try {
+      const [boulderRes, speedRes] = await Promise.all([
+        fetch('/api/competitions'),
+        fetch('/api/speed-competitions')
+      ])
+      
+      const boulder = await boulderRes.json()
+      const speed = await speedRes.json()
+      
+      setCompetitions([
+        ...boulder.map(c => ({ ...c, type: 'boulder' })),
+        ...speed.map(c => ({ ...c, type: 'speed' }))
+      ])
+      setLoading(false)
+    } catch (error) {
+      console.error('Error fetching competitions:', error)
+      setLoading(false)
+    }
+  }
+
+  // Memoize fetch functions untuk prevent unnecessary re-creates
+  const fetchClimbers = useCallback(async (competitionId, type) => {
+    try {
+      const url = type === 'speed'
+        ? `/api/speed-competitions/${competitionId}/climbers`
+        : `/api/competitions/${competitionId}/climbers`
+      
+      const response = await fetch(url)
+      if (response.ok) {
+        const data = await response.json()
+        setClimbers(data)
+      }
+    } catch (error) {
+      console.error('Error fetching climbers:', error)
+    }
+  }, [])
+
+  const fetchQualificationScores = useCallback(async (competitionId) => {
+    try {
+      const response = await fetch(`/api/speed-competitions/${competitionId}/qualification`)
+      if (response.ok) {
+        const data = await response.json()
+        setQualificationScores(data)
+      }
+    } catch (error) {
+      console.error('Error fetching qualification scores:', error)
+    }
+  }, [])
+
+  const fetchFinalsMatches = useCallback(async (competitionId) => {
+    try {
+      const response = await fetch(`/api/speed-competitions/${competitionId}/finals`)
+      if (response.ok) {
+        const data = await response.json()
+        setFinalsMatches(data)
+      }
+    } catch (error) {
+      console.error('Error fetching finals matches:', error)
+    }
+  }, [])
+
+  // Memoized fetch function untuk prevent re-creation
+  const fetchClimberScoresForRoute = useCallback(async () => {
+    if (!selectedCompetition || !selectedBoulderRoute || climbers.length === 0) return
+    
+    try {
+      // Use batch endpoint to fetch all climber scores for the route in a single request (much faster)
+      const climberIds = climbers.map(c => c.id).join(',')
+      const response = await fetch(
+        `/api/competitions/${selectedCompetition.id}/boulders/batch?climberIds=${climberIds}&boulderNumbers=${selectedBoulderRoute}`,
+        { cache: 'no-store' } // Prevent caching for real-time updates
+      )
+      
+      if (response.ok) {
+        const scoreMap = await response.json()
+        const scores = {}
+        climbers.forEach(climber => {
+          const key = `${climber.id}_${selectedBoulderRoute}`
+          scores[climber.id] = scoreMap[key] || {
+            id: null,
+            competition_id: selectedCompetition.id,
+            climber_id: climber.id,
+            boulder_number: selectedBoulderRoute,
+            attempts: 0,
+            reached_zone: false,
+            reached_top: false,
+            zone_attempt: null,
+            top_attempt: null,
+            is_finalized: false,
+            is_disqualified: false
+          }
+        })
+        setClimberScores(scores)
+      } else {
+        // Fallback to parallel individual requests if batch endpoint fails (faster than sequential)
+        const promises = climbers.map(climber =>
+          fetch(`/api/competitions/${selectedCompetition.id}/climbers/${climber.id}/boulders/${selectedBoulderRoute}`, { cache: 'no-store' })
+            .then(res => res.ok ? res.json() : null)
+            .catch(() => null)
+        )
+        const scoreResults = await Promise.all(promises)
+        const scores = {}
+        climbers.forEach((climber, index) => {
+          scores[climber.id] = scoreResults[index] || {
+            id: null,
+            competition_id: selectedCompetition.id,
+            climber_id: climber.id,
+            boulder_number: selectedBoulderRoute,
+            attempts: 0,
+            reached_zone: false,
+            reached_top: false,
+            zone_attempt: null,
+            top_attempt: null,
+            is_finalized: false,
+            is_disqualified: false
+          }
+        })
+        setClimberScores(scores)
+      }
+    } catch (error) {
+      console.error('Error fetching climber scores:', error)
+    }
+  }, [selectedCompetition, selectedBoulderRoute, climbers])
+
   useEffect(() => {
     fetchCompetitions()
     
-    // Initialize socket connection
-    socketRef.current = io()
+    // Initialize socket connection dengan socketManager
+    socketRef.current = socketManager.connect()
     
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect()
-      }
+      // Cleanup handled by socketManager
     }
   }, [])
 
   // Separate effect for socket listener with selectedCompetition dependency
   useEffect(() => {
-    if (!socketRef.current) return
+    const socket = socketManager.getSocket()
+    if (!socket) return
     
     const handleQualificationUpdate = (data) => {
       if (selectedCompetition && selectedCompetition.type === 'speed' && selectedCompetition.id === data.speed_competition_id) {
@@ -99,16 +225,46 @@ function JudgeInterfacePage() {
       }
     }
     
-    socketRef.current.on('speed-qualification-updated', handleQualificationUpdate)
-    socketRef.current.on('speed-finals-updated', handleFinalsUpdate)
-    
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.off('speed-qualification-updated', handleQualificationUpdate)
-        socketRef.current.off('speed-finals-updated', handleFinalsUpdate)
+    // Listen for boulder score updates - update scores without refetching climbers
+    const handleBoulderScoreUpdate = (data) => {
+      if (selectedCompetition && selectedCompetition.type === 'boulder' && selectedCompetition.id === data.competition_id) {
+        // Update climberScores state directly from socket data instead of refetching
+        if (data.boulder_number === selectedBoulderRoute && data.score) {
+          setClimberScores(prev => ({
+            ...prev,
+            [data.climber_id]: data.score
+          }))
+        }
       }
     }
-  }, [selectedCompetition])
+    
+    // Register fallback fetch on reconnect untuk speed competitions
+    const reconnectKey = `judge-interface-${selectedCompetition?.id}`
+    const unsubReconnect = socketManager.onReconnect(reconnectKey, () => {
+      if (selectedCompetition?.type === 'speed') {
+        if (activeTab === 'qualification') {
+          fetchQualificationScores(selectedCompetition.id)
+        } else if (activeTab === 'finals') {
+          fetchFinalsMatches(selectedCompetition.id)
+        }
+        fetchClimbers(selectedCompetition.id, 'speed')
+      } else if (selectedCompetition?.type === 'boulder' && selectedBoulderRoute) {
+        fetchClimberScoresForRoute()
+      }
+    })
+    
+    // Use new event names with legacy fallback
+    const unsubSpeedQual = socketManager.on(LEGACY_EVENTS.SPEED_QUALIFICATION_UPDATED, handleQualificationUpdate)
+    const unsubSpeedFinals = socketManager.on(LEGACY_EVENTS.SPEED_FINALS_UPDATED, handleFinalsUpdate)
+    const unsubBoulder = socketManager.on(LEGACY_EVENTS.SCORE_UPDATED, handleBoulderScoreUpdate)
+    
+    return () => {
+      unsubSpeedQual()
+      unsubSpeedFinals()
+      unsubBoulder()
+      unsubReconnect()
+    }
+  }, [selectedCompetition?.id, selectedBoulderRoute, activeTab, fetchClimberScoresForRoute, fetchClimbers, fetchQualificationScores, fetchFinalsMatches])
 
   useEffect(() => {
     if (selectedCompetition) {
@@ -132,96 +288,19 @@ function JudgeInterfacePage() {
         setClimberScores({})
       }
     }
-  }, [selectedCompetition, activeTab])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCompetition?.id, activeTab]) // Use ID instead of entire object to prevent unnecessary re-renders
 
   // Fetch scores for all climbers when route is selected (for boulder)
+  // REMOVED climbers from dependency to prevent infinite loop
+  // climbers array reference changes every fetch, causing re-renders
   useEffect(() => {
     if (selectedCompetition && selectedCompetition.type === 'boulder' && selectedBoulderRoute && climbers.length > 0 && showScoreModal) {
       // Only fetch when modal is open to avoid unnecessary calls
       fetchClimberScoresForRoute()
     }
-  }, [selectedBoulderRoute, climbers, selectedCompetition, showScoreModal])
-
-  const fetchFinalsMatches = async (competitionId) => {
-    try {
-      const response = await fetch(`/api/speed-competitions/${competitionId}/finals`)
-      if (response.ok) {
-        const data = await response.json()
-        setFinalsMatches(data)
-      }
-    } catch (error) {
-      console.error('Error fetching finals matches:', error)
-    }
-  }
-
-  const fetchQualificationScores = async (competitionId) => {
-    try {
-      const response = await fetch(`/api/speed-competitions/${competitionId}/qualification`)
-      if (response.ok) {
-        const data = await response.json()
-        setQualificationScores(data)
-      }
-    } catch (error) {
-      console.error('Error fetching qualification scores:', error)
-    }
-  }
-
-  const fetchCompetitions = async () => {
-    try {
-      const [boulderRes, speedRes] = await Promise.all([
-        fetch('/api/competitions'),
-        fetch('/api/speed-competitions')
-      ])
-      
-      const boulder = await boulderRes.json()
-      const speed = await speedRes.json()
-      
-      setCompetitions([
-        ...boulder.map(c => ({ ...c, type: 'boulder' })),
-        ...speed.map(c => ({ ...c, type: 'speed' }))
-      ])
-      setLoading(false)
-    } catch (error) {
-      console.error('Error fetching competitions:', error)
-      setLoading(false)
-    }
-  }
-
-  const fetchClimbers = async (competitionId, type) => {
-    try {
-      const url = type === 'speed'
-        ? `/api/speed-competitions/${competitionId}/climbers`
-        : `/api/competitions/${competitionId}/climbers`
-      
-      const response = await fetch(url)
-      if (response.ok) {
-        const data = await response.json()
-        setClimbers(data)
-      }
-    } catch (error) {
-      console.error('Error fetching climbers:', error)
-    }
-  }
-
-  const fetchClimberScoresForRoute = async () => {
-    if (!selectedCompetition || !selectedBoulderRoute) return
-    
-    try {
-      const scores = {}
-      for (const climber of climbers) {
-        const response = await fetch(
-          `/api/competitions/${selectedCompetition.id}/climbers/${climber.id}/boulders/${selectedBoulderRoute}`
-        )
-        if (response.ok) {
-          const score = await response.json()
-          scores[climber.id] = score
-        }
-      }
-      setClimberScores(scores)
-    } catch (error) {
-      console.error('Error fetching climber scores:', error)
-    }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBoulderRoute, selectedCompetition?.id, showScoreModal, fetchClimberScoresForRoute]) // Added fetchClimberScoresForRoute to deps
 
   // Get next/previous unjudged climber for current route
   const getNextUnjudgedClimber = (currentClimberId, direction = 'next') => {
@@ -464,52 +543,11 @@ function JudgeInterfacePage() {
                   return (
                     <button
                       key={routeNum}
-                      onClick={async () => {
-                        setSelectedBoulderRoute(routeNum)
-                        // Fetch scores first, then find next unjudged climber
-                        if (climbers.length > 0) {
-                          // Fetch scores for this route
-                          const scores = {}
-                          for (const climber of climbers) {
-                            try {
-                              const response = await fetch(
-                                `/api/competitions/${selectedCompetition.id}/climbers/${climber.id}/boulders/${routeNum}`
-                              )
-                              if (response.ok) {
-                                const score = await response.json()
-                                scores[climber.id] = score
-                              }
-                            } catch (error) {
-                              console.error('Error fetching score:', error)
-                            }
-                          }
-                          setClimberScores(scores)
-                          
-                          // Find next unjudged climber
-                          let nextClimber = null
-                          for (const climber of climbers) {
-                            const score = scores[climber.id]
-                            if (!score) {
-                              nextClimber = climber
-                              break
-                            }
-                            const isFinalized = score.is_finalized === 1 || score.is_finalized === true
-                            if (!isFinalized) {
-                              nextClimber = climber
-                              break
-                            }
-                          }
-                          
-                          // If all judged, start from first
-                          if (!nextClimber) {
-                            nextClimber = climbers[0]
-                          }
-                          
-                          setSelectedClimber(nextClimber)
-                          setShowScoreModal(true)
-                        }
+                      onClick={() => {
+                        // Navigate to dedicated page instead of opening modal
+                        navigate(`/judge-interface/boulder/${selectedCompetition.id}/route/${routeNum}`)
                       }}
-                      className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg"
+                      className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:scale-95 transition-all font-semibold text-lg shadow-md"
                     >
                       Jalur {routeNum}
                     </button>
@@ -671,8 +709,11 @@ function JudgeInterfacePage() {
             const nextClimber = getNextUnjudgedClimber(selectedClimber.id, direction)
             if (nextClimber) {
               setSelectedClimber(nextClimber)
-              // Refresh scores when navigating
-              fetchClimberScoresForRoute()
+              // Scores are cached in climberScores state, no need to refetch immediately
+              // Only fetch if score not in cache
+              if (!climberScores[nextClimber.id]) {
+                fetchClimberScoresForRoute()
+              }
             } else {
               // Show message if no more unjudged climbers
               Swal.fire({
@@ -695,16 +736,27 @@ function JudgeInterfacePage() {
             if (selectedCompetition.type === 'boulder' && selectedBoulderRoute) {
               // Auto-advance to next climber if action is 'finalize' (or 'top' which auto-finalizes)
               if (action === 'finalize') {
+                // Optimistically update climberScores state based on action
+                setClimberScores(prev => {
+                  const updated = { ...prev }
+                  if (updated[selectedClimber.id]) {
+                    updated[selectedClimber.id] = {
+                      ...updated[selectedClimber.id],
+                      is_finalized: true
+                    }
+                  }
+                  return updated
+                })
+                
                 const currentIndex = climbers.findIndex(c => c.id === selectedClimber.id)
                 if (currentIndex < climbers.length - 1) {
-                  // Move to next climber - use setTimeout to ensure state updates properly
-                  setTimeout(() => {
-                    const nextClimber = climbers[currentIndex + 1]
-                    setSelectedClimber(nextClimber)
-                    // Refresh scores for the route after climber change
+                  // Move to next climber immediately for better UX
+                  const nextClimber = climbers[currentIndex + 1]
+                  setSelectedClimber(nextClimber)
+                  // Only fetch if score not in cache
+                  if (!climberScores[nextClimber.id]) {
                     fetchClimberScoresForRoute()
-                  }, 100)
-                  // Keep modal open for next climber - it will auto-refresh with new climber data via useEffect
+                  }
                 } else {
                   // All climbers done, close modal and reset
                   setShowScoreModal(false)
@@ -722,11 +774,48 @@ function JudgeInterfacePage() {
                   })
                 }
               } else {
-                // For other actions (attempt, zone, disqualify), just refresh scores but keep modal open
-                fetchClimberScoresForRoute()
+                // For other actions (attempt, zone, disqualify), update optimistically
+                setClimberScores(prev => {
+                  const updated = { ...prev }
+                  if (updated[selectedClimber.id]) {
+                    const currentScore = updated[selectedClimber.id]
+                    if (action === 'attempt') {
+                      updated[selectedClimber.id] = {
+                        ...currentScore,
+                        attempts: (currentScore.attempts || 0) + 1
+                      }
+                    } else if (action === 'zone') {
+                      updated[selectedClimber.id] = {
+                        ...currentScore,
+                        reached_zone: true,
+                        zone_attempt: currentScore.attempts || 1
+                      }
+                    } else if (action === 'top') {
+                      updated[selectedClimber.id] = {
+                        ...currentScore,
+                        reached_top: true,
+                        reached_zone: true,
+                        top_attempt: currentScore.attempts || 1,
+                        zone_attempt: currentScore.zone_attempt || currentScore.attempts || 1,
+                        is_finalized: true
+                      }
+                    } else if (action === 'disqualify') {
+                      updated[selectedClimber.id] = {
+                        ...currentScore,
+                        is_disqualified: true
+                      }
+                    }
+                  }
+                  return updated
+                })
+                // NO NEED to fetch - socket.io broadcasts update
+                // fetchClimberScoresForRoute() // REMOVED - using socket.io instead
               }
             } else {
-              fetchClimbers(selectedCompetition.id, selectedCompetition.type)
+              // Only fetch climbers for speed competitions
+              if (selectedCompetition.type === 'speed') {
+                fetchClimbers(selectedCompetition.id, selectedCompetition.type)
+              }
             }
           }}
         />

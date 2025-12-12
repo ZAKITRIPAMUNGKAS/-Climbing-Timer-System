@@ -1,28 +1,34 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { io } from 'socket.io-client'
 import OverlayLayout from '../components/OverlayLayout'
 
 /**
- * BoulderCurrentOverlay Component - Climber Card by Search
+ * BoulderCurrentOverlay Component - Climber Card by Search/ID/Route
  * 
- * Displays a compact card showing the climber based on search parameter (name or bib).
+ * Displays a compact card showing the climber based on:
+ * - climber/climberId parameter (direct ID)
+ * - route parameter (finds next unjudged climber for that route)
+ * - search parameter (name or bib - backward compatibility)
+ * 
  * Shows: Name, Team, and Current Score (Top/Zone)
  * Updates score in real-time when judge inputs "Zone" or "Top"
  */
 function BoulderCurrentOverlay() {
   const [searchParams] = useSearchParams()
   const competitionId = searchParams.get('competition')
-  const searchQuery = searchParams.get('search') // Search by name or bib (required)
+  const climberId = searchParams.get('climber') || searchParams.get('climberId') // Direct climber ID
+  const routeNumber = searchParams.get('route') // Route number to find active climber
+  const searchQuery = searchParams.get('search') // Search by name or bib (backward compatibility)
   const position = searchParams.get('position') || 'bottom-left' // 'bottom-left' or 'top-left'
   
   const [currentClimber, setCurrentClimber] = useState(null)
   const [totalScore, setTotalScore] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null) // 'not_found', 'wrong_type', 'no_climbers', 'no_search'
+  const [error, setError] = useState(null) // 'not_found', 'wrong_type', 'no_climbers', 'no_search', 'no_route'
   const socketRef = useRef(null)
 
-  // Fetch climber when competition or search changes
+  // Fetch climber when competition or identifier changes
   useEffect(() => {
     if (!competitionId) {
       console.log('[OVERLAY] No competition ID provided')
@@ -31,16 +37,23 @@ function BoulderCurrentOverlay() {
       return
     }
 
-    if (!searchQuery) {
-      console.log('[OVERLAY] No search parameter provided')
+    // Priority: climberId > route > search
+    if (climberId) {
+      console.log('[OVERLAY] Fetching climber by ID for competition:', competitionId, 'climberId:', climberId)
+      fetchClimberById(competitionId, climberId)
+    } else if (routeNumber) {
+      console.log('[OVERLAY] Fetching climber by route for competition:', competitionId, 'route:', routeNumber)
+      fetchClimberByRoute(competitionId, parseInt(routeNumber))
+    } else if (searchQuery) {
+      console.log('[OVERLAY] Fetching climber by search for competition:', competitionId, 'search:', searchQuery)
+      fetchClimberBySearch(competitionId)
+    } else {
+      console.log('[OVERLAY] No climber identifier provided (climber, route, or search)')
       setError('no_search')
       setLoading(false)
       return
     }
-
-    console.log('[OVERLAY] Fetching climber for competition:', competitionId, 'search:', searchQuery)
-    fetchClimberBySearch(competitionId)
-  }, [competitionId, searchQuery])
+  }, [competitionId, climberId, routeNumber, searchQuery, fetchClimberById, fetchClimberByRoute, fetchClimberBySearch])
 
   // Setup socket listener for score updates
   useEffect(() => {
@@ -51,13 +64,26 @@ function BoulderCurrentOverlay() {
       socketRef.current = io()
     }
 
-    // Listen for score updates from judge interface (only update score, not climber)
+    // Listen for score updates from judge interface
     const handleScoreUpdate = (data) => {
       console.log('[OVERLAY] Score updated event received:', data)
-      if (data.competition_id === parseInt(competitionId) && data.climber_id === currentClimber.id) {
-        // Only update score if it's for the current climber
-        console.log('[OVERLAY] Score update matches current climber, updating score...')
-        fetchTotalScore(competitionId, currentClimber.id)
+      if (data.competition_id === parseInt(competitionId)) {
+        // If using route parameter, check if we need to update to next climber
+        if (routeNumber && data.boulder_number === parseInt(routeNumber)) {
+          // Score was updated for the route we're tracking
+          // If current climber was finalized, fetch next climber
+          if (currentClimber && data.climber_id === currentClimber.id && data.is_finalized) {
+            console.log('[OVERLAY] Current climber finalized, fetching next climber for route', routeNumber)
+            fetchClimberByRoute(competitionId, parseInt(routeNumber))
+          } else if (currentClimber && data.climber_id === currentClimber.id) {
+            // Just update score for current climber
+            fetchTotalScore(competitionId, currentClimber.id)
+          }
+        } else if (currentClimber && data.climber_id === currentClimber.id) {
+          // Update score if it's for the current climber
+          console.log('[OVERLAY] Score update matches current climber, updating score...')
+          fetchTotalScore(competitionId, currentClimber.id)
+        }
       }
     }
     
@@ -69,7 +95,7 @@ function BoulderCurrentOverlay() {
         socketRef.current.off('score-updated', handleScoreUpdate)
       }
     }
-  }, [competitionId, currentClimber])
+  }, [competitionId, currentClimber, routeNumber, fetchClimberByRoute, fetchTotalScore])
 
   // Cleanup socket on unmount
   useEffect(() => {
@@ -82,7 +108,7 @@ function BoulderCurrentOverlay() {
   }, [])
 
   // Fetch total score for climber
-  const fetchTotalScore = async (compId, climberId) => {
+  const fetchTotalScore = useCallback(async (compId, climberId) => {
     try {
       const response = await fetch(`/api/competitions/${compId}/leaderboard`)
       if (response.ok) {
@@ -95,10 +121,159 @@ function BoulderCurrentOverlay() {
     } catch (error) {
       console.error('[OVERLAY] Error fetching total score:', error)
     }
-  }
+  }, [])
 
-  // Fetch climber by search parameter (name or bib)
-  const fetchClimberBySearch = async (compId) => {
+  // Fetch climber by direct ID
+  const fetchClimberById = useCallback(async (compId, cId) => {
+    try {
+      console.log('[OVERLAY] Fetching climber by ID for competition:', compId, 'climberId:', cId)
+      setError(null)
+      setLoading(true)
+      
+      // First, check if competition exists
+      const competitionResponse = await fetch(`/api/competitions/${compId}`)
+      if (!competitionResponse.ok) {
+        const speedResponse = await fetch(`/api/speed-competitions/${compId}`)
+        if (speedResponse.ok) {
+          console.error('[OVERLAY] ❌ Competition ID', compId, 'is a Speed competition, not Boulder!')
+          setError('wrong_type')
+          setLoading(false)
+          return
+        } else {
+          console.error('[OVERLAY] ❌ Competition not found (ID:', compId, ')')
+          setError('not_found')
+          setLoading(false)
+          return
+        }
+      }
+      
+      // Fetch climbers and find by ID
+      const climbersResponse = await fetch(`/api/competitions/${compId}/climbers`)
+      if (climbersResponse.ok) {
+        const climbers = await climbersResponse.json()
+        const activeClimber = climbers.find(c => c.id === parseInt(cId))
+        
+        if (!activeClimber) {
+          console.warn('[OVERLAY] ⚠️ No climber found with ID:', cId)
+          setError('no_climbers')
+          setLoading(false)
+          return
+        }
+        
+        console.log('[OVERLAY] ✅ Found climber by ID:', activeClimber.name, 'ID:', activeClimber.id)
+        setCurrentClimber(activeClimber)
+        setError(null)
+        fetchTotalScore(compId, activeClimber.id)
+        setLoading(false)
+      } else {
+        console.error('[OVERLAY] ❌ Failed to fetch climbers:', climbersResponse.status)
+        setError('not_found')
+        setLoading(false)
+      }
+    } catch (error) {
+      console.error('[OVERLAY] ❌ Error fetching climber by ID:', error)
+      setError('not_found')
+      setLoading(false)
+    }
+  }, [])
+
+  // Fetch climber by route (finds next unjudged climber for that route)
+  const fetchClimberByRoute = useCallback(async (compId, routeNum) => {
+    try {
+      console.log('[OVERLAY] Fetching climber by route for competition:', compId, 'route:', routeNum)
+      setError(null)
+      setLoading(true)
+      
+      // First, check if competition exists
+      const competitionResponse = await fetch(`/api/competitions/${compId}`)
+      if (!competitionResponse.ok) {
+        const speedResponse = await fetch(`/api/speed-competitions/${compId}`)
+        if (speedResponse.ok) {
+          console.error('[OVERLAY] ❌ Competition ID', compId, 'is a Speed competition, not Boulder!')
+          setError('wrong_type')
+          setLoading(false)
+          return
+        } else {
+          console.error('[OVERLAY] ❌ Competition not found (ID:', compId, ')')
+          setError('not_found')
+          setLoading(false)
+          return
+        }
+      }
+      
+      // Fetch climbers
+      const climbersResponse = await fetch(`/api/competitions/${compId}/climbers`)
+      if (!climbersResponse.ok) {
+        console.error('[OVERLAY] ❌ Failed to fetch climbers:', climbersResponse.status)
+        setError('not_found')
+        setLoading(false)
+        return
+      }
+      
+      const climbers = await climbersResponse.json()
+      if (!climbers || climbers.length === 0) {
+        console.warn('[OVERLAY] ⚠️ No climbers found in competition.')
+        setError('no_climbers')
+        setLoading(false)
+        return
+      }
+      
+      // Fetch scores for all climbers for this route
+      const scorePromises = climbers.map(climber =>
+        fetch(`/api/competitions/${compId}/climbers/${climber.id}/boulders/${routeNum}`)
+          .then(res => res.ok ? res.json() : null)
+          .catch(() => null)
+      )
+      
+      const scores = await Promise.all(scorePromises)
+      const scoreMap = {}
+      scores.forEach((score, index) => {
+        if (score) {
+          scoreMap[climbers[index].id] = score
+        }
+      })
+      
+      // Find next unjudged climber for this route
+      let activeClimber = null
+      for (const climber of climbers) {
+        const score = scoreMap[climber.id]
+        if (!score) {
+          // No score yet - this is the active climber
+          activeClimber = climber
+          break
+        }
+        
+        const isFinalized = score.is_finalized === 1 || score.is_finalized === true
+        const isDisqualified = score.is_disqualified === 1 || score.is_disqualified === true
+        
+        if (!isFinalized || (isDisqualified && !isFinalized)) {
+          // Not finalized yet - this is the active climber
+          activeClimber = climber
+          break
+        }
+      }
+      
+      if (!activeClimber) {
+        console.warn('[OVERLAY] ⚠️ All climbers have been judged for route', routeNum)
+        setError('no_route')
+        setLoading(false)
+        return
+      }
+      
+      console.log('[OVERLAY] ✅ Found active climber for route', routeNum, ':', activeClimber.name, 'ID:', activeClimber.id)
+      setCurrentClimber(activeClimber)
+      setError(null)
+      fetchTotalScore(compId, activeClimber.id)
+      setLoading(false)
+    } catch (error) {
+      console.error('[OVERLAY] ❌ Error fetching climber by route:', error)
+      setError('not_found')
+      setLoading(false)
+    }
+  }, [])
+
+  // Fetch climber by search parameter (name or bib) - backward compatibility
+  const fetchClimberBySearch = useCallback(async (compId) => {
     try {
       console.log('[OVERLAY] Fetching climber by search for competition:', compId, 'search:', searchQuery)
       setError(null)
@@ -163,7 +338,7 @@ function BoulderCurrentOverlay() {
       setError('not_found')
       setLoading(false)
     }
-  }
+  }, [searchQuery])
 
   // Position classes for horizontal bar (default: bottom-center)
   const positionClasses = position === 'top-left' 
@@ -221,13 +396,18 @@ function BoulderCurrentOverlay() {
       iconColor = 'bg-yellow-400'
       textColor = 'text-yellow-200'
     } else if (error === 'no_search') {
-      errorMessage = 'Missing Search Parameter'
-      errorDetail = 'Add ?search=NAME_OR_BIB to the URL (e.g., ?competition=1&search=KEMIN or ?competition=1&search=1)'
+      errorMessage = 'Missing Climber Identifier'
+      errorDetail = 'Add one of: ?climber=ID, ?route=NUMBER, or ?search=NAME_OR_BIB to the URL'
       iconColor = 'bg-red-400'
       textColor = 'text-red-200'
+    } else if (error === 'no_route') {
+      errorMessage = 'All Climbers Judged'
+      errorDetail = `All climbers have been judged for route ${routeNumber}. No active climber available.`
+      iconColor = 'bg-yellow-400'
+      textColor = 'text-yellow-200'
     } else if (!competitionId) {
       errorMessage = 'Missing Competition ID'
-      errorDetail = 'Add ?competition=ID to the URL (e.g., ?competition=1&search=NAME_OR_BIB)'
+      errorDetail = 'Add ?competition=ID to the URL (e.g., ?competition=1&climber=5 or ?competition=1&route=1)'
       iconColor = 'bg-red-400'
       textColor = 'text-red-200'
     }

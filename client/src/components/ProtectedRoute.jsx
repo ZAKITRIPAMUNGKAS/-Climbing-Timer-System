@@ -17,11 +17,27 @@ function ProtectedRoute({ children }) {
           const response = await fetch('/api/check-auth', {
             credentials: 'include'
           })
+          
+          if (response.status === 429) {
+            // Rate limited - assume authenticated if local session exists
+            console.warn('Rate limited on auth check, using local session')
+            setIsAuthenticated(true)
+            setLoading(false)
+            return
+          }
+          
+          if (!response.ok) {
+            setIsAuthenticated(false)
+            setLoading(false)
+            return
+          }
+          
           const data = await response.json()
           setIsAuthenticated(data.authenticated)
         } catch (error) {
           console.error('Auth check error:', error)
-          setIsAuthenticated(false)
+          // On error, trust local session if exists
+          setIsAuthenticated(hasLocalSession)
         } finally {
           setLoading(false)
         }
@@ -31,6 +47,21 @@ function ProtectedRoute({ children }) {
           const response = await fetch('/api/check-auth', {
             credentials: 'include'
           })
+          
+          if (response.status === 429) {
+            // Rate limited - assume not authenticated
+            console.warn('Rate limited on auth check')
+            setIsAuthenticated(false)
+            setLoading(false)
+            return
+          }
+          
+          if (!response.ok) {
+            setIsAuthenticated(false)
+            setLoading(false)
+            return
+          }
+          
           const data = await response.json()
           setIsAuthenticated(data.authenticated)
         } catch (error) {
